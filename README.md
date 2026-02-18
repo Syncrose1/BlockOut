@@ -338,46 +338,44 @@ Or via Vercel Dashboard → Project Settings → Environment Variables:
 
 **⚠️ The serverless deployment stores data in memory only.** When Vercel's serverless functions cold start, data resets.
 
-**For persistent data on Vercel, you need:**
+**For persistent data on Vercel:**
 
-#### Option A: Supabase ⭐ (Recommended - 500MB Free)
-**Best option: Generous free tier, easy setup, PostgreSQL with JSON support.**
+### ✅ Default: IndexedDB (No Setup Required!)
 
-1. Create a free account at [supabase.com](https://supabase.com)
-2. Create a new project (takes 2 minutes)
+**For personal use on Vercel, you DON'T need a database!**
+
+BlockOut automatically saves all data to **IndexedDB in your browser** - this works on Vercel exactly like it does locally:
+- ✅ Unlimited storage (browser-dependent, typically 50MB+)
+- ✅ Data persists between sessions
+- ✅ Works offline
+- ✅ No external service to configure
+
+**This is perfect for:**
+- Personal task management
+- Single-device usage
+- Getting started quickly
+
+**Limitation:** Data is tied to that browser/device. For multi-device sync, see options below.
+
+---
+
+### Optional: Cloud Database (For Multi-Device Sync)
+
+Only set up a database if you need to sync across devices. Otherwise, IndexedDB works great!
+
+#### Option A: Supabase ⭐ (500MB Free - Best for Sync)
+**Best option if you want cloud sync with generous storage.**
+
+1. Create free account at [supabase.com](https://supabase.com)
+2. Create a new project
 3. Go to Project Settings → Database → Connection string
-4. Copy the connection string and add to Vercel:
-
+4. Add to Vercel:
 ```bash
 vercel env add SUPABASE_URL
 vercel env add SUPABASE_ANON_KEY
 ```
 
-5. Deploy: `vercel --prod`
-
-**Why Supabase?**
-- 500MB storage (enough for ~50,000+ tasks)
-- Auto-backups
-- REST API built-in
-- Works great with JSON data
-- Never expires
-
-#### Option B: Use IndexedDB only (no database)
-The app already saves to IndexedDB in the browser. For personal use on a single device without sync, this works perfectly fine.
-
-1. Create a free account at [supabase.com](https://supabase.com)
-2. Create a new project
-3. In your project, go to Settings → Database → Connection String
-4. Copy the connection string and add to Vercel:
-
-```bash
-vercel env add SUPABASE_URL
-vercel env add SUPABASE_KEY
-```
-
-The API now automatically uses Supabase when configured.
-
-#### Option C: Vercel KV (10MB Free)
+#### Option B: Vercel KV (10MB Free)
 Only recommended if you have very few tasks (10MB = ~1,000-2,000 tasks).
 
 ```bash
@@ -440,14 +438,16 @@ BlockOut/
 
 *Browser storage, doesn't sync between devices
 
-### Development vs Production Storage
+### Storage Options Summary
 
-| Environment | Storage | Persistence |
-|-------------|---------|-------------|
-| `npm run dev` | `data.json` file | ✅ Persistent |
-| Docker | Volume-mounted file | ✅ Persistent |
-| Vercel (default) | Memory only | ⚠️ Resets on cold start |
-| Vercel + Supabase | PostgreSQL | ✅ Persistent (500MB) |
+| Environment | Storage | Persistence | Best For |
+|-------------|---------|-------------|----------|
+| Local dev (`npm run dev`) | `data.json` file | ✅ Persistent | Development |
+| Docker | Volume-mounted file | ✅ Persistent | Self-hosting |
+| **Vercel (default)** ⭐ | **IndexedDB (browser)** | **✅ Persistent** | **Most users** |
+| Vercel + Database | PostgreSQL/MongoDB | ✅ Persistent + Cloud Sync | Multi-device |
+
+**The key insight:** On Vercel, IndexedDB works perfectly without any database setup! Only add a database if you need to sync across multiple devices.
 
 ### Custom Domain
 
