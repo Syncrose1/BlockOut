@@ -42,6 +42,19 @@ export interface PomodoroState {
   longBreakDuration: number; // seconds
   sessionsCompleted: number;
   focusedTaskId?: string;
+  focusedCategoryId?: string;
+}
+
+export interface StreakData {
+  completionDates: string[]; // ISO date strings (YYYY-MM-DD) of days with completions
+  currentStreak: number;
+  longestStreak: number;
+}
+
+export interface DragState {
+  draggedTaskId: string | null;
+  dragOverBlockId: string | null;
+  dragOverPool: boolean;
 }
 
 export type ViewMode = 'treemap' | 'kanban' | 'timeline';
@@ -59,4 +72,5 @@ export interface TreemapNode {
   h?: number;
   depth?: number;
   categoryId?: string;
+  subcategoryId?: string;
 }

@@ -1,5 +1,6 @@
 import { useStore } from '../store';
 import { useMemo } from 'react';
+import { debouncedSave } from '../utils/persistence';
 
 function formatCountdown(endDate: number): string {
   const now = Date.now();
@@ -22,10 +23,20 @@ export function Sidebar() {
   const showTimelessPool = useStore((s) => s.showTimelessPool);
   const categories = useStore((s) => s.categories);
   const tasks = useStore((s) => s.tasks);
+  const streak = useStore((s) => s.streak);
+  const drag = useStore((s) => s.drag);
   const setActiveBlock = useStore((s) => s.setActiveBlock);
   const setShowTimelessPool = useStore((s) => s.setShowTimelessPool);
   const setShowNewBlockModal = useStore((s) => s.setShowNewBlockModal);
   const setShowNewCategoryModal = useStore((s) => s.setShowNewCategoryModal);
+  const setDragOverBlock = useStore((s) => s.setDragOverBlock);
+  const setDragOverPool = useStore((s) => s.setDragOverPool);
+  const setDraggedTask = useStore((s) => s.setDraggedTask);
+  const assignTaskToBlock = useStore((s) => s.assignTaskToBlock);
+  const removeTaskFromBlock = useStore((s) => s.removeTaskFromBlock);
+  const enterFocusMode = useStore((s) => s.enterFocusMode);
+  const focusMode = useStore((s) => s.focusMode);
+  const pomodoro = useStore((s) => s.pomodoro);
 
   const sortedBlocks = useMemo(() => {
     return Object.values(timeBlocks).sort((a, b) => b.createdAt - a.createdAt);
@@ -42,6 +53,61 @@ export function Sidebar() {
     return Object.values(tasks).filter((t) => !assignedIds.has(t.id)).length;
   }, [tasks, timeBlocks]);
 
+  // Drag handlers for blocks
+  const handleDragOver = (e: React.DragEvent, blockId: string) => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+    setDragOverBlock(blockId);
+  };
+
+  const handleDragOverPool = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+    setDragOverPool(true);
+  };
+
+  const handleDrop = (e: React.DragEvent, blockId: string) => {
+    e.preventDefault();
+    const taskId = drag.draggedTaskId;
+    if (taskId) {
+      assignTaskToBlock(taskId, blockId);
+      debouncedSave();
+    }
+    setDraggedTask(null);
+    setDragOverBlock(null);
+  };
+
+  const handleDropPool = (e: React.DragEvent) => {
+    e.preventDefault();
+    const taskId = drag.draggedTaskId;
+    if (taskId) {
+      // Remove from all blocks (send back to pool)
+      Object.values(timeBlocks).forEach((block) => {
+        if (block.taskIds.includes(taskId)) {
+          removeTaskFromBlock(taskId, block.id);
+        }
+      });
+      debouncedSave();
+    }
+    setDraggedTask(null);
+    setDragOverPool(false);
+  };
+
+  const handleDragLeave = () => {
+    setDragOverBlock(null);
+    setDragOverPool(false);
+  };
+
+  // Streak flame levels based on current streak
+  const flameLevel = streak.currentStreak === 0 ? 0
+    : streak.currentStreak <= 2 ? 1
+    : streak.currentStreak <= 6 ? 2
+    : streak.currentStreak <= 13 ? 3
+    : 4;
+
+  const flameColors = ['var(--text-tertiary)', 'hsl(30, 80%, 55%)', 'hsl(20, 90%, 55%)', 'hsl(10, 95%, 55%)', 'hsl(0, 100%, 55%)'];
+  const flameScales = [1, 1, 1.1, 1.2, 1.4];
+
   return (
     <div className="sidebar">
       <div className="sidebar-header">
@@ -49,6 +115,35 @@ export function Sidebar() {
           <div className="logo-icon">B</div>
           BlockOut
         </div>
+        {/* Streak display */}
+        {streak.currentStreak > 0 && (
+          <div className="streak-display" style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: 6,
+            marginTop: 8,
+            fontSize: 12,
+            color: flameColors[flameLevel],
+          }}>
+            <span style={{
+              fontSize: 18 * flameScales[flameLevel],
+              filter: `drop-shadow(0 0 ${flameLevel * 3}px ${flameColors[flameLevel]})`,
+              transition: 'all 0.3s ease',
+              display: 'inline-block',
+              animation: flameLevel >= 2 ? 'flame-dance 1.5s ease-in-out infinite' : 'none',
+            }}>
+              &#x1F525;
+            </span>
+            <span style={{ fontFamily: 'var(--font-mono)', fontWeight: 600 }}>
+              {streak.currentStreak}d streak
+            </span>
+            {streak.longestStreak > streak.currentStreak && (
+              <span style={{ color: 'var(--text-tertiary)', fontSize: 10 }}>
+                (best: {streak.longestStreak}d)
+              </span>
+            )}
+          </div>
+        )}
       </div>
 
       <div className="sidebar-scroll">
@@ -56,8 +151,11 @@ export function Sidebar() {
         <div className="sidebar-section">
           <div className="sidebar-section-title">Pool</div>
           <button
-            className={`sidebar-item ${showTimelessPool ? 'active' : ''}`}
+            className={`sidebar-item ${showTimelessPool ? 'active' : ''} ${drag.dragOverPool ? 'drag-over' : ''}`}
             onClick={() => setShowTimelessPool(true)}
+            onDragOver={handleDragOverPool}
+            onDrop={handleDropPool}
+            onDragLeave={handleDragLeave}
           >
             <span style={{ fontSize: 16 }}>&#x2B22;</span>
             All Tasks
@@ -65,7 +163,7 @@ export function Sidebar() {
           </button>
           {unassignedTasks > 0 && (
             <button
-              className={`sidebar-item ${showTimelessPool ? '' : ''}`}
+              className="sidebar-item"
               onClick={() => setShowTimelessPool(true)}
               style={{ paddingLeft: 40, fontSize: 12 }}
             >
@@ -86,11 +184,15 @@ export function Sidebar() {
           {activeBlocks.map((block) => {
             const completedCount = block.taskIds.filter((id) => tasks[id]?.completed).length;
             const total = block.taskIds.length;
+            const isDragOver = drag.dragOverBlockId === block.id;
             return (
               <button
                 key={block.id}
-                className={`sidebar-item ${activeBlockId === block.id && !showTimelessPool ? 'active' : ''}`}
+                className={`sidebar-item ${activeBlockId === block.id && !showTimelessPool ? 'active' : ''} ${isDragOver ? 'drag-over' : ''}`}
                 onClick={() => setActiveBlock(block.id)}
+                onDragOver={(e) => handleDragOver(e, block.id)}
+                onDrop={(e) => handleDrop(e, block.id)}
+                onDragLeave={handleDragLeave}
               >
                 <span className="dot" style={{ background: 'var(--accent)' }} />
                 <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
@@ -129,18 +231,29 @@ export function Sidebar() {
           </div>
         )}
 
-        {/* Categories */}
+        {/* Categories — click to enter focus mode */}
         <div className="sidebar-section">
           <div className="sidebar-section-title">Categories</div>
-          {Object.values(categories).map((cat) => (
-            <div key={cat.id} className="sidebar-item" style={{ cursor: 'default' }}>
-              <span className="dot" style={{ background: cat.color }} />
-              {cat.name}
-              <span className="block-countdown">
-                {Object.values(tasks).filter((t) => t.categoryId === cat.id).length}
-              </span>
-            </div>
-          ))}
+          {Object.values(categories).map((cat) => {
+            const isFocused = focusMode && pomodoro.focusedCategoryId === cat.id;
+            return (
+              <button
+                key={cat.id}
+                className={`sidebar-item ${isFocused ? 'active' : ''}`}
+                onClick={() => enterFocusMode(cat.id)}
+                title="Click to enter focus mode for this category"
+              >
+                <span className="dot" style={{
+                  background: cat.color,
+                  boxShadow: isFocused ? `0 0 8px ${cat.color}` : 'none',
+                }} />
+                {cat.name}
+                <span className="block-countdown">
+                  {Object.values(tasks).filter((t) => t.categoryId === cat.id).length}
+                </span>
+              </button>
+            );
+          })}
           <button
             className="sidebar-item"
             onClick={() => setShowNewCategoryModal(true)}

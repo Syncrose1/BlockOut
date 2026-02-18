@@ -76,21 +76,34 @@ export function NewBlockModal() {
   );
 }
 
-// New Category Modal
+// New Category Modal — now with inline subcategory creation
 export function NewCategoryModal() {
   const show = useStore((s) => s.showNewCategoryModal);
   const setShow = useStore((s) => s.setShowNewCategoryModal);
   const addCategory = useStore((s) => s.addCategory);
+  const addSubcategory = useStore((s) => s.addSubcategory);
 
   const [name, setName] = useState('');
+  const [subcategories, setSubcategories] = useState<string[]>([]);
+  const [subInput, setSubInput] = useState('');
 
   if (!show) return null;
 
+  const handleAddSub = () => {
+    if (subInput.trim() && !subcategories.includes(subInput.trim())) {
+      setSubcategories([...subcategories, subInput.trim()]);
+      setSubInput('');
+    }
+  };
+
   const handleCreate = () => {
     if (!name.trim()) return;
-    addCategory(name.trim());
+    const catId = addCategory(name.trim());
+    subcategories.forEach((sub) => addSubcategory(catId, sub));
     debouncedSave();
     setName('');
+    setSubcategories([]);
+    setSubInput('');
     setShow(false);
   };
 
@@ -119,9 +132,46 @@ export function NewCategoryModal() {
               onChange={(e) => setName(e.target.value)}
               placeholder="e.g. Revision, Research, Sign-offs"
               autoFocus
-              onKeyDown={(e) => e.key === 'Enter' && handleCreate()}
+              onKeyDown={(e) => e.key === 'Enter' && (subInput ? handleAddSub() : handleCreate())}
             />
           </div>
+
+          {/* Subcategories */}
+          <div className="modal-field">
+            <label>Subcategories (optional)</label>
+            <div style={{ display: 'flex', gap: 6 }}>
+              <input
+                value={subInput}
+                onChange={(e) => setSubInput(e.target.value)}
+                placeholder="e.g. Cardiology, Respiratory"
+                onKeyDown={(e) => e.key === 'Enter' && (e.preventDefault(), handleAddSub())}
+                style={{ flex: 1 }}
+              />
+              <button className="btn btn-ghost btn-sm" onClick={handleAddSub} type="button">Add</button>
+            </div>
+            {subcategories.length > 0 && (
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4, marginTop: 6 }}>
+                {subcategories.map((sub, i) => (
+                  <span key={i} style={{
+                    fontSize: 11,
+                    padding: '2px 8px',
+                    background: 'var(--bg-tertiary)',
+                    borderRadius: 'var(--radius-sm)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 4,
+                  }}>
+                    {sub}
+                    <button
+                      onClick={() => setSubcategories(subcategories.filter((_, j) => j !== i))}
+                      style={{ fontSize: 12, color: 'var(--text-tertiary)', cursor: 'pointer', background: 'none', border: 'none' }}
+                    >&times;</button>
+                  </span>
+                ))}
+              </div>
+            )}
+          </div>
+
           <p style={{ fontSize: 12, color: 'var(--text-tertiary)', marginBottom: 8 }}>
             A colour will be automatically assigned. Categories persist across all time blocks.
           </p>
@@ -135,7 +185,7 @@ export function NewCategoryModal() {
   );
 }
 
-// New Task Modal
+// New Task Modal — now with subcategory selection
 export function NewTaskModal() {
   const show = useStore((s) => s.showNewTaskModal);
   const setShow = useStore((s) => s.setShowNewTaskModal);
@@ -146,10 +196,13 @@ export function NewTaskModal() {
 
   const [title, setTitle] = useState('');
   const [categoryId, setCategoryId] = useState('');
+  const [subcategoryId, setSubcategoryId] = useState('');
   const [weight, setWeight] = useState(1);
   const [assignToBlock, setAssignToBlock] = useState(true);
 
   const catList = useMemo(() => Object.values(categories), [categories]);
+  const selectedCat = categoryId ? categories[categoryId] : null;
+  const subcategories = selectedCat?.subcategories || [];
 
   if (!show) return null;
 
@@ -158,6 +211,7 @@ export function NewTaskModal() {
     const taskId = addTask({
       title: title.trim(),
       categoryId,
+      subcategoryId: subcategoryId || undefined,
       weight,
     });
     if (assignToBlock && activeBlockId) {
@@ -166,12 +220,13 @@ export function NewTaskModal() {
     debouncedSave();
     setTitle('');
     setWeight(1);
-    // Don't close — allow rapid task entry
+    // Keep category and subcategory for rapid entry within same category
   };
 
   const handleClose = () => {
     setTitle('');
     setCategoryId('');
+    setSubcategoryId('');
     setWeight(1);
     setShow(false);
   };
@@ -206,13 +261,24 @@ export function NewTaskModal() {
           </div>
           <div className="modal-field">
             <label>Category</label>
-            <select value={categoryId} onChange={(e) => setCategoryId(e.target.value)}>
+            <select value={categoryId} onChange={(e) => { setCategoryId(e.target.value); setSubcategoryId(''); }}>
               <option value="">Select category...</option>
               {catList.map((cat) => (
                 <option key={cat.id} value={cat.id}>{cat.name}</option>
               ))}
             </select>
           </div>
+          {subcategories.length > 0 && (
+            <div className="modal-field">
+              <label>Subcategory</label>
+              <select value={subcategoryId} onChange={(e) => setSubcategoryId(e.target.value)}>
+                <option value="">None (general)</option>
+                {subcategories.map((sub) => (
+                  <option key={sub.id} value={sub.id}>{sub.name}</option>
+                ))}
+              </select>
+            </div>
+          )}
           <div className="modal-field">
             <label>Weight (effort: 1-5)</label>
             <input
@@ -291,7 +357,7 @@ export function AssignTasksModal({ blockId, onClose }: { blockId: string; onClos
       >
         <h2>Assign Tasks to {block.name}</h2>
         <p style={{ fontSize: 12, color: 'var(--text-tertiary)', marginBottom: 12 }}>
-          Pull tasks from your pool into this time block.
+          Pull tasks from your pool into this time block. You can also drag tasks from the treemap or kanban onto blocks in the sidebar.
         </p>
         <div style={{ overflow: 'auto', flex: 1 }}>
           {allTasks.length === 0 && (
@@ -316,7 +382,7 @@ export function AssignTasksModal({ blockId, onClose }: { blockId: string; onClos
                   className={`check ${assignedSet.has(task.id) ? 'done' : ''}`}
                   style={assignedSet.has(task.id) ? { borderColor: cat?.color, background: cat?.color } : {}}
                 >
-                  {assignedSet.has(task.id) && <span style={{ fontSize: 10, color: 'white' }}>✓</span>}
+                  {assignedSet.has(task.id) && <span style={{ fontSize: 10, color: 'white' }}>&#x2713;</span>}
                 </div>
                 <span className="dot" style={{ background: cat?.color || 'gray', width: 6, height: 6, borderRadius: '50%' }} />
                 <span style={{ fontSize: 13, flex: 1 }}>{task.title}</span>

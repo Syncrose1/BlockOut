@@ -10,10 +10,13 @@ function formatTime(seconds: number): string {
 
 export function Pomodoro() {
   const pomodoro = useStore((s) => s.pomodoro);
+  const categories = useStore((s) => s.categories);
+  const focusMode = useStore((s) => s.focusMode);
   const startPomodoro = useStore((s) => s.startPomodoro);
   const pausePomodoro = useStore((s) => s.pausePomodoro);
   const resetPomodoro = useStore((s) => s.resetPomodoro);
   const tickPomodoro = useStore((s) => s.tickPomodoro);
+  const exitFocusMode = useStore((s) => s.exitFocusMode);
 
   // Timer tick
   useEffect(() => {
@@ -25,19 +28,31 @@ export function Pomodoro() {
   // Audio notification on timer end
   useEffect(() => {
     if (pomodoro.timeRemaining === 0 && !pomodoro.isRunning) {
-      // Play a subtle notification sound using Web Audio API
       try {
         const ctx = new AudioContext();
-        const osc = ctx.createOscillator();
-        const gain = ctx.createGain();
-        osc.connect(gain);
-        gain.connect(ctx.destination);
-        osc.frequency.value = pomodoro.mode === 'work' ? 440 : 523;
-        osc.type = 'sine';
-        gain.gain.value = 0.1;
-        gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.5);
-        osc.start();
-        osc.stop(ctx.currentTime + 0.5);
+        // Play a pleasant two-tone chime
+        const playNote = (freq: number, delay: number) => {
+          const osc = ctx.createOscillator();
+          const gain = ctx.createGain();
+          osc.connect(gain);
+          gain.connect(ctx.destination);
+          osc.frequency.value = freq;
+          osc.type = 'sine';
+          gain.gain.setValueAtTime(0, ctx.currentTime + delay);
+          gain.gain.linearRampToValueAtTime(0.12, ctx.currentTime + delay + 0.05);
+          gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + delay + 0.6);
+          osc.start(ctx.currentTime + delay);
+          osc.stop(ctx.currentTime + delay + 0.6);
+        };
+        if (pomodoro.mode === 'work') {
+          // Entering break — ascending chime
+          playNote(523, 0);
+          playNote(659, 0.2);
+        } else {
+          // Back to work — descending chime
+          playNote(659, 0);
+          playNote(523, 0.2);
+        }
       } catch {
         // Audio not available
       }
@@ -45,6 +60,7 @@ export function Pomodoro() {
   }, [pomodoro.timeRemaining, pomodoro.isRunning, pomodoro.mode]);
 
   const modeLabel = pomodoro.mode === 'work' ? 'Focus' : pomodoro.mode === 'break' ? 'Break' : 'Long Break';
+  const focusedCategory = pomodoro.focusedCategoryId ? categories[pomodoro.focusedCategoryId] : null;
 
   // Progress for ring
   const totalTime =
@@ -55,6 +71,12 @@ export function Pomodoro() {
       : pomodoro.longBreakDuration;
   const progress = 1 - pomodoro.timeRemaining / totalTime;
 
+  const ringColor = focusedCategory
+    ? focusedCategory.color
+    : pomodoro.mode === 'work'
+    ? 'hsl(0, 72%, 62%)'
+    : 'hsl(120, 60%, 50%)';
+
   return (
     <AnimatePresence>
       <motion.div
@@ -62,23 +84,24 @@ export function Pomodoro() {
         initial={{ y: 100, opacity: 0 }}
         animate={{ y: 0, opacity: 1 }}
         transition={{ type: 'spring', damping: 20, stiffness: 300 }}
+        style={{
+          borderColor: focusMode && focusedCategory
+            ? focusedCategory.color.replace('62%)', '30%)')
+            : undefined,
+        }}
       >
         {/* Mini progress ring */}
         <svg width="44" height="44" viewBox="0 0 44 44" style={{ flexShrink: 0 }}>
           <circle
-            cx="22"
-            cy="22"
-            r="18"
+            cx="22" cy="22" r="18"
             fill="none"
             stroke="var(--bg-tertiary)"
             strokeWidth="3"
           />
           <circle
-            cx="22"
-            cy="22"
-            r="18"
+            cx="22" cy="22" r="18"
             fill="none"
-            stroke={pomodoro.mode === 'work' ? 'hsl(0, 72%, 62%)' : 'hsl(120, 60%, 50%)'}
+            stroke={ringColor}
             strokeWidth="3"
             strokeLinecap="round"
             strokeDasharray={`${2 * Math.PI * 18}`}
@@ -88,14 +111,31 @@ export function Pomodoro() {
           />
         </svg>
 
-        <div>
-          <div className={`pomodoro-mode ${pomodoro.mode}`}>{modeLabel}</div>
+        <div style={{ flex: 1 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+            <span className={`pomodoro-mode ${pomodoro.mode}`}>{modeLabel}</span>
+            {focusMode && focusedCategory && (
+              <span style={{
+                fontSize: 9,
+                color: focusedCategory.color,
+                fontWeight: 500,
+                textTransform: 'uppercase',
+                letterSpacing: 0.5,
+              }}>
+                {focusedCategory.name}
+              </span>
+            )}
+          </div>
           <div className="pomodoro-timer">{formatTime(pomodoro.timeRemaining)}</div>
           <div className="pomodoro-sessions">
             {Array.from({ length: 4 }).map((_, i) => (
               <div
                 key={i}
                 className={`pip ${i < pomodoro.sessionsCompleted % 4 ? 'filled' : ''}`}
+                style={i < pomodoro.sessionsCompleted % 4 && focusedCategory
+                  ? { background: focusedCategory.color }
+                  : {}
+                }
               />
             ))}
           </div>
@@ -104,16 +144,23 @@ export function Pomodoro() {
         <div className="pomodoro-controls">
           {pomodoro.isRunning ? (
             <button className="pomodoro-btn" onClick={pausePomodoro} title="Pause">
-              ⏸
+              &#x23F8;
             </button>
           ) : (
             <button className="pomodoro-btn" onClick={startPomodoro} title="Start">
-              ▶
+              &#x25B6;
             </button>
           )}
           <button className="pomodoro-btn" onClick={resetPomodoro} title="Reset">
-            ↺
+            &#x21BA;
           </button>
+          {focusMode && (
+            <button className="pomodoro-btn" onClick={exitFocusMode} title="Exit focus mode"
+              style={{ fontSize: 12 }}
+            >
+              &times;
+            </button>
+          )}
         </div>
       </motion.div>
     </AnimatePresence>

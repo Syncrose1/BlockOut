@@ -1,6 +1,7 @@
-import { useMemo, useState } from 'react';
+import { useMemo, useState, useCallback } from 'react';
 import { useStore } from '../store';
 import { AssignTasksModal } from './Modals';
+import { exportTreemapAsImage } from './Treemap';
 import type { ViewMode } from '../types';
 
 function formatCountdown(endDate: number): string {
@@ -29,6 +30,10 @@ export function Topbar() {
   const viewMode = useStore((s) => s.viewMode);
   const setViewMode = useStore((s) => s.setViewMode);
   const setShowNewTaskModal = useStore((s) => s.setShowNewTaskModal);
+  const focusMode = useStore((s) => s.focusMode);
+  const exitFocusMode = useStore((s) => s.exitFocusMode);
+  const focusedCategoryId = useStore((s) => s.pomodoro.focusedCategoryId);
+  const categories = useStore((s) => s.categories);
 
   const [showAssign, setShowAssign] = useState(false);
 
@@ -54,6 +59,17 @@ export function Topbar() {
     { id: 'timeline', label: 'Timeline' },
   ];
 
+  const handleExport = useCallback(async () => {
+    const dataUrl = await exportTreemapAsImage();
+    if (!dataUrl) return;
+    const link = document.createElement('a');
+    link.download = `blockout-${block?.name || 'treemap'}-${new Date().toISOString().slice(0, 10)}.png`;
+    link.href = dataUrl;
+    link.click();
+  }, [block]);
+
+  const focusedCategory = focusedCategoryId ? categories[focusedCategoryId] : null;
+
   return (
     <>
       <div className="topbar">
@@ -64,6 +80,44 @@ export function Topbar() {
         {block && !showTimelessPool && (
           <div className="topbar-countdown">
             {formatCountdown(block.endDate)}
+          </div>
+        )}
+
+        {/* Focus mode indicator */}
+        {focusMode && focusedCategory && (
+          <div style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: 6,
+            padding: '4px 12px',
+            background: focusedCategory.color.replace('62%)', '15%)'),
+            border: `1px solid ${focusedCategory.color.replace('62%)', '30%)')}`,
+            borderRadius: 'var(--radius-sm)',
+            fontSize: 12,
+            fontWeight: 600,
+            color: focusedCategory.color,
+          }}>
+            <span style={{
+              width: 8, height: 8, borderRadius: '50%',
+              background: focusedCategory.color,
+              boxShadow: `0 0 8px ${focusedCategory.color}`,
+              animation: 'focus-pulse 2s ease-in-out infinite',
+            }} />
+            Focusing: {focusedCategory.name}
+            <button
+              onClick={exitFocusMode}
+              style={{
+                marginLeft: 4,
+                fontSize: 14,
+                color: 'var(--text-secondary)',
+                cursor: 'pointer',
+                background: 'none',
+                border: 'none',
+              }}
+              title="Exit focus mode"
+            >
+              &times;
+            </button>
           </div>
         )}
 
@@ -89,6 +143,17 @@ export function Topbar() {
             </button>
           ))}
         </div>
+
+        {/* Export button */}
+        {viewMode === 'treemap' && total > 0 && (
+          <button
+            className="btn btn-ghost btn-sm"
+            onClick={handleExport}
+            title="Export treemap as PNG"
+          >
+            Export
+          </button>
+        )}
 
         {block && !showTimelessPool && (
           <button

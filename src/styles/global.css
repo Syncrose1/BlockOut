@@ -714,3 +714,91 @@ select {
 .tile-idle {
   animation: gentle-breathe 4s ease-in-out infinite;
 }
+
+/* Drag and drop */
+.sidebar-item.drag-over {
+  background: var(--accent-dim) !important;
+  border: 1px dashed var(--accent) !important;
+  color: var(--text-primary) !important;
+}
+
+.kanban-card[draggable="true"] {
+  cursor: grab;
+}
+
+.kanban-card[draggable="true"]:active {
+  cursor: grabbing;
+  opacity: 0.6;
+}
+
+/* Focus mode */
+@keyframes focus-pulse {
+  0%, 100% { opacity: 1; box-shadow: 0 0 4px currentColor; }
+  50% { opacity: 0.6; box-shadow: 0 0 12px currentColor; }
+}
+
+/* Streak flame dance */
+@keyframes flame-dance {
+  0%, 100% { transform: rotate(-3deg) scale(1); }
+  25% { transform: rotate(2deg) scale(1.05); }
+  50% { transform: rotate(-2deg) scale(1.1); }
+  75% { transform: rotate(3deg) scale(1.05); }
+}
+
+/* Responsive / mobile */
+@media (max-width: 768px) {
+  .app {
+    flex-direction: column;
+  }
+
+  .sidebar {
+    width: 100%;
+    min-width: 100%;
+    height: auto;
+    max-height: 200px;
+    border-right: none;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .sidebar-scroll {
+    display: flex;
+    overflow-x: auto;
+    gap: 0;
+  }
+
+  .sidebar-section {
+    min-width: 200px;
+    border-bottom: none;
+    border-right: 1px solid var(--border);
+  }
+
+  .topbar {
+    flex-wrap: wrap;
+    height: auto;
+    padding: 8px 12px;
+    gap: 8px;
+  }
+
+  .pomodoro-widget {
+    bottom: 8px;
+    right: 8px;
+    left: 8px;
+    min-width: unset;
+  }
+
+  .kanban-container {
+    padding: 8px;
+    gap: 8px;
+  }
+
+  .kanban-column {
+    min-width: 220px;
+    width: 220px;
+  }
+
+  .modal {
+    min-width: unset;
+    margin: 16px;
+    max-width: calc(100vw - 32px);
+  }
+}

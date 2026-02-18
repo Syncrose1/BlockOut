@@ -1,7 +1,49 @@
 import { create } from 'zustand';
 import { v4 as uuid } from 'uuid';
-import type { Task, Category, Subcategory, TimeBlock, PomodoroState, ViewMode } from '../types';
+import type { Task, Category, TimeBlock, PomodoroState, ViewMode, StreakData, DragState } from '../types';
 import { getCategoryColor } from '../utils/colors';
+
+function todayStr(): string {
+  return new Date().toISOString().slice(0, 10);
+}
+
+function calcStreak(dates: string[]): { currentStreak: number; longestStreak: number } {
+  if (dates.length === 0) return { currentStreak: 0, longestStreak: 0 };
+  const sorted = [...new Set(dates)].sort().reverse();
+  const today = todayStr();
+  const yesterday = new Date(Date.now() - 86400000).toISOString().slice(0, 10);
+
+  let currentStreak = 0;
+  if (sorted[0] === today || sorted[0] === yesterday) {
+    currentStreak = 1;
+    for (let i = 1; i < sorted.length; i++) {
+      const prev = new Date(sorted[i - 1]);
+      const curr = new Date(sorted[i]);
+      const diff = (prev.getTime() - curr.getTime()) / 86400000;
+      if (diff === 1) {
+        currentStreak++;
+      } else {
+        break;
+      }
+    }
+  }
+
+  const asc = [...new Set(dates)].sort();
+  let longestStreak = asc.length > 0 ? 1 : 0;
+  let run = 1;
+  for (let i = 1; i < asc.length; i++) {
+    const prev = new Date(asc[i - 1]);
+    const curr = new Date(asc[i]);
+    if ((curr.getTime() - prev.getTime()) / 86400000 === 1) {
+      run++;
+      longestStreak = Math.max(longestStreak, run);
+    } else {
+      run = 1;
+    }
+  }
+
+  return { currentStreak, longestStreak };
+}
 
 interface BlockOutState {
   // Data
@@ -9,6 +51,7 @@ interface BlockOutState {
   categories: Record<string, Category>;
   timeBlocks: Record<string, TimeBlock>;
   activeBlockId: string | null;
+  streak: StreakData;
 
   // UI
   viewMode: ViewMode;
@@ -18,6 +61,10 @@ interface BlockOutState {
   showNewCategoryModal: boolean;
   showNewTaskModal: boolean;
   editingTaskId: string | null;
+  focusMode: boolean;
+
+  // Drag and drop
+  drag: DragState;
 
   // Pomodoro
   pomodoro: PomodoroState;
@@ -49,6 +96,15 @@ interface BlockOutState {
   setShowNewTaskModal: (show: boolean) => void;
   setEditingTaskId: (id: string | null) => void;
 
+  // Actions — Focus mode
+  enterFocusMode: (categoryId: string) => void;
+  exitFocusMode: () => void;
+
+  // Actions — Drag and drop
+  setDraggedTask: (taskId: string | null) => void;
+  setDragOverBlock: (blockId: string | null) => void;
+  setDragOverPool: (over: boolean) => void;
+
   // Actions — Pomodoro
   startPomodoro: () => void;
   pausePomodoro: () => void;
@@ -58,8 +114,8 @@ interface BlockOutState {
   setFocusedTask: (taskId: string | undefined) => void;
 
   // Persistence
-  loadData: (data: { tasks: Record<string, Task>; categories: Record<string, Category>; timeBlocks: Record<string, TimeBlock>; activeBlockId: string | null }) => void;
-  getSerializableState: () => { tasks: Record<string, Task>; categories: Record<string, Category>; timeBlocks: Record<string, TimeBlock>; activeBlockId: string | null };
+  loadData: (data: { tasks: Record<string, Task>; categories: Record<string, Category>; timeBlocks: Record<string, TimeBlock>; activeBlockId: string | null; streak?: StreakData }) => void;
+  getSerializableState: () => { tasks: Record<string, Task>; categories: Record<string, Category>; timeBlocks: Record<string, TimeBlock>; activeBlockId: string | null; streak: StreakData };
 }
 
 export const useStore = create<BlockOutState>((set, get) => ({
@@ -67,6 +123,7 @@ export const useStore = create<BlockOutState>((set, get) => ({
   categories: {},
   timeBlocks: {},
   activeBlockId: null,
+  streak: { completionDates: [], currentStreak: 0, longestStreak: 0 },
 
   viewMode: 'treemap',
   selectedCategoryId: null,
@@ -75,6 +132,13 @@ export const useStore = create<BlockOutState>((set, get) => ({
   showNewCategoryModal: false,
   showNewTaskModal: false,
   editingTaskId: null,
+  focusMode: false,
+
+  drag: {
+    draggedTaskId: null,
+    dragOverBlockId: null,
+    dragOverPool: false,
+  },
 
   pomodoro: {
     isRunning: false,
@@ -85,6 +149,7 @@ export const useStore = create<BlockOutState>((set, get) => ({
     longBreakDuration: 15 * 60,
     sessionsCompleted: 0,
     focusedTaskId: undefined,
+    focusedCategoryId: undefined,
   },
 
   // Categories
@@ -127,7 +192,6 @@ export const useStore = create<BlockOutState>((set, get) => ({
   deleteCategory: (id) => {
     set((state) => {
       const { [id]: _, ...rest } = state.categories;
-      // Remove tasks in this category
       const tasks = { ...state.tasks };
       Object.keys(tasks).forEach((tid) => {
         if (tasks[tid].categoryId === id) delete tasks[tid];
@@ -158,15 +222,29 @@ export const useStore = create<BlockOutState>((set, get) => ({
     set((state) => {
       const task = state.tasks[id];
       if (!task) return state;
+      const wasCompleted = task.completed;
+      const nowCompleted = !wasCompleted;
+
+      let streak = state.streak;
+      if (nowCompleted) {
+        const today = todayStr();
+        const dates = streak.completionDates.includes(today)
+          ? streak.completionDates
+          : [...streak.completionDates, today];
+        const { currentStreak, longestStreak } = calcStreak(dates);
+        streak = { completionDates: dates, currentStreak, longestStreak };
+      }
+
       return {
         tasks: {
           ...state.tasks,
           [id]: {
             ...task,
-            completed: !task.completed,
-            completedAt: !task.completed ? Date.now() : undefined,
+            completed: nowCompleted,
+            completedAt: nowCompleted ? Date.now() : undefined,
           },
         },
+        streak,
       };
     });
   },
@@ -187,7 +265,6 @@ export const useStore = create<BlockOutState>((set, get) => ({
   deleteTask: (id) => {
     set((state) => {
       const { [id]: _, ...rest } = state.tasks;
-      // Also remove from any time blocks
       const timeBlocks = { ...state.timeBlocks };
       Object.keys(timeBlocks).forEach((bid) => {
         timeBlocks[bid] = {
@@ -259,6 +336,27 @@ export const useStore = create<BlockOutState>((set, get) => ({
   setShowNewTaskModal: (show) => set({ showNewTaskModal: show }),
   setEditingTaskId: (id) => set({ editingTaskId: id }),
 
+  // Focus mode
+  enterFocusMode: (categoryId) => set((state) => ({
+    focusMode: true,
+    pomodoro: { ...state.pomodoro, focusedCategoryId: categoryId, isRunning: true },
+  })),
+  exitFocusMode: () => set((state) => ({
+    focusMode: false,
+    pomodoro: { ...state.pomodoro, focusedCategoryId: undefined },
+  })),
+
+  // Drag and drop
+  setDraggedTask: (taskId) => set((state) => ({
+    drag: { ...state.drag, draggedTaskId: taskId },
+  })),
+  setDragOverBlock: (blockId) => set((state) => ({
+    drag: { ...state.drag, dragOverBlockId: blockId, dragOverPool: false },
+  })),
+  setDragOverPool: (over) => set((state) => ({
+    drag: { ...state.drag, dragOverPool: over, dragOverBlockId: null },
+  })),
+
   // Pomodoro
   startPomodoro: () => set((state) => ({ pomodoro: { ...state.pomodoro, isRunning: true } })),
   pausePomodoro: () => set((state) => ({ pomodoro: { ...state.pomodoro, isRunning: false } })),
@@ -280,7 +378,6 @@ export const useStore = create<BlockOutState>((set, get) => ({
       if (!p.isRunning) return state;
       const next = p.timeRemaining - 1;
       if (next <= 0) {
-        // Timer finished — switch mode
         if (p.mode === 'work') {
           const sessions = p.sessionsCompleted + 1;
           const nextMode = sessions % 4 === 0 ? 'longBreak' : 'break';
@@ -322,7 +419,17 @@ export const useStore = create<BlockOutState>((set, get) => ({
     set((state) => ({ pomodoro: { ...state.pomodoro, focusedTaskId: taskId } })),
 
   // Persistence
-  loadData: (data) => set(data),
+  loadData: (data) => {
+    const streak = data.streak || { completionDates: [], currentStreak: 0, longestStreak: 0 };
+    const { currentStreak, longestStreak } = calcStreak(streak.completionDates);
+    set({
+      tasks: data.tasks,
+      categories: data.categories,
+      timeBlocks: data.timeBlocks,
+      activeBlockId: data.activeBlockId,
+      streak: { completionDates: streak.completionDates, currentStreak, longestStreak },
+    });
+  },
   getSerializableState: () => {
     const s = get();
     return {
@@ -330,6 +437,7 @@ export const useStore = create<BlockOutState>((set, get) => ({
       categories: s.categories,
       timeBlocks: s.timeBlocks,
       activeBlockId: s.activeBlockId,
+      streak: s.streak,
     };
   },
 }));
