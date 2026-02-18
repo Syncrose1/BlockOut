@@ -340,26 +340,81 @@ Or via Vercel Dashboard → Project Settings → Environment Variables:
 
 **For persistent data on Vercel, you need:**
 
-#### Option A: Use IndexedDB only (simplest)
-The app already saves to IndexedDB in the browser. For personal use without sync, this works fine.
+#### Option A: Supabase ⭐ (Recommended - 500MB Free)
+**Best option: Generous free tier, easy setup, PostgreSQL with JSON support.**
 
-#### Option B: Connect to Vercel KV (recommended)
-Store data in Vercel's Redis-compatible KV store:
+1. Create a free account at [supabase.com](https://supabase.com)
+2. Create a new project (takes 2 minutes)
+3. Go to Project Settings → Database → Connection string
+4. Copy the connection string and add to Vercel:
 
 ```bash
-# Install KV
-vercel kv create my-blockout-data
-
-# Get credentials from Vercel dashboard, then:
-vercel env add KV_URL
-vercel env add KV_REST_API_URL
-vercel env add KV_REST_API_TOKEN
+vercel env add SUPABASE_URL
+vercel env add SUPABASE_ANON_KEY
 ```
 
-Then modify `api/data.ts` to use `@vercel/kv` instead of memory storage.
+5. Deploy: `vercel --prod`
 
-#### Option C: External Database
-Connect to MongoDB Atlas, Supabase, or any external DB by modifying the API routes.
+**Why Supabase?**
+- 500MB storage (enough for ~50,000+ tasks)
+- Auto-backups
+- REST API built-in
+- Works great with JSON data
+- Never expires
+
+#### Option B: Use IndexedDB only (no database)
+The app already saves to IndexedDB in the browser. For personal use on a single device without sync, this works perfectly fine.
+
+1. Create a free account at [supabase.com](https://supabase.com)
+2. Create a new project
+3. In your project, go to Settings → Database → Connection String
+4. Copy the connection string and add to Vercel:
+
+```bash
+vercel env add SUPABASE_URL
+vercel env add SUPABASE_KEY
+```
+
+The API now automatically uses Supabase when configured.
+
+#### Option C: Vercel KV (10MB Free)
+Only recommended if you have very few tasks (10MB = ~1,000-2,000 tasks).
+
+```bash
+# Create KV store
+vercel kv create my-blockout-data
+
+# Link to your project
+vercel link
+
+# The KV credentials are automatically available as env vars
+```
+
+The API automatically detects and uses Vercel KV when available.
+
+#### Option D: MongoDB Atlas (512MB Free)
+Great if you prefer document databases.
+
+1. Sign up at [mongodb.com/atlas](https://mongodb.com/atlas)
+2. Create a free M0 cluster
+3. Get your connection string
+4. Add to Vercel:
+
+```bash
+vercel env add MONGODB_URI
+```
+
+#### Option E: Neon PostgreSQL (500MB Free)
+Serverless Postgres with generous free tier.
+
+1. Sign up at [neon.tech](https://neon.tech)
+2. Create a project
+3. Get connection string
+4. Add to Vercel:
+
+```bash
+vercel env add DATABASE_URL
+```
 
 ### Vercel Project Structure
 
@@ -373,14 +428,26 @@ BlockOut/
 └── package.json
 ```
 
-### Development vs Production
+### Database Options Comparison
+
+| Option | Free Storage | Best For | Setup Difficulty |
+|--------|--------------|----------|------------------|
+| **Supabase** ⭐ | **500MB** | Most users | Easy |
+| Neon | 500MB | Postgres fans | Easy |
+| MongoDB Atlas | 512MB | JSON/document data | Medium |
+| Vercel KV | 10MB | Tiny projects | Easiest |
+| IndexedDB | Unlimited* | Single device | None |
+
+*Browser storage, doesn't sync between devices
+
+### Development vs Production Storage
 
 | Environment | Storage | Persistence |
 |-------------|---------|-------------|
 | `npm run dev` | `data.json` file | ✅ Persistent |
 | Docker | Volume-mounted file | ✅ Persistent |
 | Vercel (default) | Memory only | ⚠️ Resets on cold start |
-| Vercel + KV | Redis/KV | ✅ Persistent |
+| Vercel + Supabase | PostgreSQL | ✅ Persistent (500MB) |
 
 ### Custom Domain
 

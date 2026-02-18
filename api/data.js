@@ -1,8 +1,18 @@
-// Vercel serverless adapter for BlockOut
-// Uses in-memory storage by default (resets on cold start)
-// For production, connect to Vercel KV or external database
+// Vercel serverless adapter for BlockOut with KV support
+// Supports both memory storage (default) and Vercel KV
 
-let dataStore = {
+// Try to use Vercel KV if available
+let kv = null;
+try {
+  const { kv: vercelKv } = require('@vercel/kv');
+  kv = vercelKv;
+  console.log('[BlockOut] Using Vercel KV for persistence');
+} catch {
+  console.log('[BlockOut] Vercel KV not configured, using memory storage');
+}
+
+// Fallback memory storage (resets on cold start)
+let memoryStore = {
   tasks: {},
   categories: {},
   timeBlocks: {},
@@ -10,6 +20,8 @@ let dataStore = {
   lastModified: 0,
   version: 0,
 };
+
+const DATA_KEY = 'blockout:data';
 
 const setCors = (res) => {
   res.setHeader('Access-Control-Allow-Origin', '*');
@@ -25,6 +37,42 @@ const checkAuth = (req) => {
   return auth === `Bearer ${secret}`;
 };
 
+async function getData() {
+  if (kv) {
+    try {
+      const data = await kv.get(DATA_KEY);
+      return data || memoryStore;
+    } catch (err) {
+      console.error('[BlockOut] KV get error:', err);
+      return memoryStore;
+    }
+  }
+  return memoryStore;
+}
+
+async function saveData(data) {
+  const payload = {
+    ...data,
+    lastModified: Date.now(),
+    version: (data.version || 0) + 1,
+  };
+  
+  if (kv) {
+    try {
+      await kv.set(DATA_KEY, payload);
+      console.log('[BlockOut] Saved to KV, version:', payload.version);
+    } catch (err) {
+      console.error('[BlockOut] KV save error:', err);
+      // Fallback to memory
+      memoryStore = payload;
+    }
+  } else {
+    memoryStore = payload;
+  }
+  
+  return payload;
+}
+
 module.exports = async (req, res) => {
   setCors(res);
   
@@ -39,25 +87,27 @@ module.exports = async (req, res) => {
   const { method } = req;
   
   if (method === 'GET') {
-    return res.json(dataStore);
+    try {
+      const data = await getData();
+      return res.json(data);
+    } catch (err) {
+      console.error('[BlockOut] Get error:', err);
+      return res.status(500).json({ error: 'Failed to read data' });
+    }
   }
   
   if (method === 'PUT') {
     try {
       const body = req.body;
-      dataStore = {
-        ...body,
-        lastModified: Date.now(),
-        version: (dataStore.version || 0) + 1,
-      };
+      const saved = await saveData(body);
       
       return res.json({
         ok: true,
-        lastModified: dataStore.lastModified,
-        version: dataStore.version,
+        lastModified: saved.lastModified,
+        version: saved.version,
       });
     } catch (err) {
-      console.error('Error saving:', err);
+      console.error('[BlockOut] Save error:', err);
       return res.status(500).json({ error: 'Failed to save data' });
     }
   }
