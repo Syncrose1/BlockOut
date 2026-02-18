@@ -64,6 +64,7 @@ export function Treemap() {
   // Animation state in plain refs — zero React re-renders during animation
   const hoveredIdRef = useRef<string | null>(null);
   const hoverTransitionsRef = useRef<Map<string, { startTime: number; entering: boolean; progress: number }>>(new Map());
+  const everHoveredRef = useRef<Set<string>>(new Set()); // Track tiles that have been hovered
   const particlesRef = useRef<Particle[]>([]);
   const dissolvingRef = useRef<Map<string, Dissolve>>(new Map());
   const sparkleCounterRef = useRef(0);
@@ -352,40 +353,37 @@ export function Treemap() {
         const hasNotes = !!task?.notes && task.notes.trim() !== '';
         const canShowNotes = th > 54 && tw > 58 && hasNotes;
         
-        // Get or create hover transition state
+        // Only animate if this tile has ever been hovered
+        const hasEverBeenHovered = everHoveredRef.current.has(taskNode.id);
+        
+        // Get or create hover transition state (only for hovered tiles)
         let hoverTrans = hoverTransitionsRef.current.get(taskNode.id);
-        if (!hoverTrans) {
-          // Initialize: start at 0 for hidden state, 1 for visible state
-          const initialProgress = isHovered ? 0 : 0;
-          hoverTrans = { startTime: now, entering: isHovered, progress: initialProgress };
+        if (!hoverTrans && hasEverBeenHovered) {
+          hoverTrans = { startTime: now, entering: false, progress: 0 };
           hoverTransitionsRef.current.set(taskNode.id, hoverTrans);
         }
         
-        // Update transition when hover state changes
-        if (hoverTrans.entering !== isHovered) {
-          hoverTrans.startTime = now;
-          hoverTrans.entering = isHovered;
-          // When starting a new animation, begin from the opposite end
-          // If we're entering, start from 0; if leaving, start from 1
-          hoverTrans.progress = isHovered ? 0 : 1;
+        // Calculate animation progress
+        let easedProgress = 0;
+        if (hoverTrans) {
+          // Update transition when hover state changes
+          if (hoverTrans.entering !== isHovered) {
+            hoverTrans.startTime = now;
+            hoverTrans.entering = isHovered;
+            hoverTrans.progress = isHovered ? 0 : 1;
+          }
+          
+          // Calculate animation (200ms duration)
+          const HOVER_ANIM_DURATION = 200;
+          const elapsed = now - hoverTrans.startTime;
+          const animProgress = Math.min(1, elapsed / HOVER_ANIM_DURATION);
+          const currentProgress = isHovered ? animProgress : (1 - animProgress);
+          hoverTrans.progress = currentProgress;
+          easedProgress = 1 - Math.pow(1 - currentProgress, 3);
         }
         
-        // Calculate animation progress (200ms duration for snappier feel)
-        const HOVER_ANIM_DURATION = 200;
-        const elapsed = now - hoverTrans.startTime;
-        const animProgress = Math.min(1, elapsed / HOVER_ANIM_DURATION);
-        
-        // Calculate current visual progress
-        // When entering: progress 0->1, when leaving: progress 1->0
-        const currentProgress = isHovered ? animProgress : (1 - animProgress);
-        hoverTrans.progress = currentProgress;
-        
-        const easedProgress = 1 - Math.pow(1 - currentProgress, 3); // ease-out-cubic
-        
-        // Animate notes in/out based on transition progress
+        // Notes opacity and label position based on animation
         const notesOpacity = canShowNotes ? easedProgress : 0;
-        
-        // Animate label position: moves up when notes appear, down when leaving
         const baseLabelY = ty + th / 2;
         const notesLabelY = ty + th * 0.38;
         const labelY = canShowNotes 
@@ -559,19 +557,9 @@ export function Treemap() {
       dissolvingRef.current.forEach((v, k) => {
         if (now - v.startTime > 600) dissolvingRef.current.delete(k);
       });
-      // Cleanup completed hover transitions
-      hoverTransitionsRef.current.forEach((trans, id) => {
-        const isHovered = hoveredIdRef.current === id;
-        // Calculate current progress (same logic as in drawFrame)
-        const elapsed = now - trans.startTime;
-        const animProgress = Math.min(1, elapsed / 200);
-        const currentProgress = isHovered ? animProgress : (1 - animProgress);
-        
-        // Remove if animation complete and not currently hovered
-        if (currentProgress <= 0.01 && !isHovered) {
-          hoverTransitionsRef.current.delete(id);
-        }
-      });
+      // Note: We don't clean up hover transitions because we need to keep
+      // animation state for tiles that were previously hovered. The transitions
+      // are only created for tiles that have been hovered at least once.
       rafRef.current = requestAnimationFrame(loop);
     };
     rafRef.current = requestAnimationFrame(loop);
@@ -603,7 +591,14 @@ export function Treemap() {
     const rect = canvasRef.current?.getBoundingClientRect();
     if (!rect) return;
     const node = findNodeAt(e.clientX - rect.left, e.clientY - rect.top);
+    const prevHoverId = hoveredIdRef.current;
     hoveredIdRef.current = node?.id ?? null;
+    
+    // Track which tiles have ever been hovered
+    if (node?.id && node.id !== prevHoverId) {
+      everHoveredRef.current.add(node.id);
+    }
+    
     if (containerRef.current) {
       containerRef.current.style.cursor = node ? 'pointer' : 'default';
     }
