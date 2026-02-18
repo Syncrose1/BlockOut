@@ -317,29 +317,41 @@ export function Treemap() {
           ? 'rgba(180, 120, 40, 0.6)'
           : isActive
           ? 'rgba(255,255,255,0.92)'
-          : 'rgba(255,255,255,0.55)';
+          : 'rgba(255,255,255,0.65)';
 
         const labelX = tx + (isLocked && tw > 24 ? 20 : 6);
         const labelMaxW = tw - (isLocked && tw > 24 ? 26 : 12);
-        const approxCharW = fontSize * 0.52;
-        const maxChars = Math.floor(labelMaxW / approxCharW);
-        let label = taskNode.name;
-        if (label.length > maxChars) label = label.slice(0, maxChars - 1) + '\u2026';
+
+        // Accurate ellipsis using measureText
+        const truncate = (text: string, font: string, maxW: number): string => {
+          ctx.font = font;
+          if (ctx.measureText(text).width <= maxW) return text;
+          let lo = 0, hi = text.length;
+          while (lo < hi) {
+            const mid = (lo + hi + 1) >> 1;
+            if (ctx.measureText(text.slice(0, mid) + '\u2026').width <= maxW) lo = mid;
+            else hi = mid - 1;
+          }
+          return text.slice(0, lo) + '\u2026';
+        };
+
+        const titleFont = `${isActive ? '600' : '500'} ${fontSize.toFixed(0)}px Inter, sans-serif`;
+        const label = truncate(taskNode.name, titleFont, labelMaxW);
 
         // For large tiles: show notes on a second line
         const task = currTasks[taskNode.id];
         const showNotes = th > 54 && tw > 58 && !!task?.notes;
         const labelY = showNotes ? ty + th * 0.38 : ty + th / 2;
-        ctx.fillText(label, labelX, labelY, labelMaxW);
+        ctx.font = titleFont;
+        ctx.fillText(label, labelX, labelY);
 
         if (showNotes && task?.notes) {
           const noteSize = Math.max(8, fontSize - 1.5);
-          ctx.font = `400 ${noteSize.toFixed(0)}px Inter, sans-serif`;
-          ctx.fillStyle = 'rgba(255,255,255,0.28)';
-          const noteMaxChars = Math.floor(labelMaxW / (noteSize * 0.52));
-          let note = task.notes;
-          if (note.length > noteMaxChars) note = note.slice(0, noteMaxChars - 1) + '\u2026';
-          ctx.fillText(note, labelX, ty + th * 0.62, labelMaxW);
+          const noteFont = `400 ${noteSize.toFixed(0)}px Inter, sans-serif`;
+          const note = truncate(task.notes, noteFont, labelMaxW);
+          ctx.font = noteFont;
+          ctx.fillStyle = 'rgba(255,255,255,0.32)';
+          ctx.fillText(note, labelX, ty + th * 0.62);
         }
       }
 

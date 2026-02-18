@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState, useCallback } from 'react';
 import { useStore } from '../store';
 import { motion, AnimatePresence, useMotionValue } from 'framer-motion';
 
@@ -22,6 +22,27 @@ export function Pomodoro() {
   // Drag offset from natural position (bottom-right corner)
   const x = useMotionValue(0);
   const y = useMotionValue(0);
+  const widgetRef = useRef<HTMLDivElement>(null);
+  const [dragConstraints, setDragConstraints] = useState({ top: -800, left: -1200, right: 0, bottom: 0 });
+
+  const updateConstraints = useCallback(() => {
+    const el = widgetRef.current;
+    if (!el) return;
+    const { offsetWidth, offsetHeight } = el;
+    // The widget is fixed at bottom:20px right:20px — allow dragging to all four edges with an 8px margin
+    setDragConstraints({
+      right: 0,
+      bottom: 0,
+      left: -(window.innerWidth - offsetWidth - 20 - 8),
+      top: -(window.innerHeight - offsetHeight - 20 - 8),
+    });
+  }, []);
+
+  useEffect(() => {
+    updateConstraints();
+    window.addEventListener('resize', updateConstraints);
+    return () => window.removeEventListener('resize', updateConstraints);
+  }, [updateConstraints]);
 
   // Timer tick
   useEffect(() => {
@@ -86,11 +107,13 @@ export function Pomodoro() {
   return (
     <AnimatePresence>
       <motion.div
+        ref={widgetRef}
         className="pomodoro-widget"
         drag
         dragMomentum={false}
         dragElastic={0}
-        dragConstraints={{ top: -4000, left: -4000, right: 0, bottom: 0 }}
+        dragConstraints={dragConstraints}
+        onDragStart={updateConstraints}
         style={{ x, y, cursor: 'grab', touchAction: 'none' }}
         whileDrag={{ cursor: 'grabbing' }}
         initial={{ y: 60, opacity: 0 }}
