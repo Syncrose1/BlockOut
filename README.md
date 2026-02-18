@@ -304,7 +304,7 @@ cp data.json data.json.backup.$(date +%Y%m%d)
 
 ## Vercel Deployment
 
-BlockOut can be deployed to **Vercel** for free hosting. Note: Data persists only in memory on the serverless backend (resets on cold starts). For production use, connect to an external database.
+BlockOut can be deployed to **Vercel** for free hosting with zero configuration.
 
 ### One-Click Deploy
 
@@ -314,35 +314,51 @@ BlockOut can be deployed to **Vercel** for free hosting. Note: Data persists onl
 
 1. **Push to GitHub** (already done!)
 
-2. **Install Vercel CLI:**
+2. **Import to Vercel:**
+   - Go to [vercel.com/new](https://vercel.com/new)
+   - Import your GitHub repository
+   - Vercel will auto-detect Vite settings
+
+3. **Configure settings:**
+   - **Framework Preset:** Vite (auto-detected)
+   - **Build Command:** `npm run build`
+   - **Output Directory:** `dist`
+   - **Root Directory:** `./` (default)
+
+4. **Deploy!**
+
+### Required Vercel Settings
+
+| Setting | Value |
+|---------|-------|
+| **Framework Preset** | Vite |
+| **Build Command** | `npm run build` |
+| **Output Directory** | `dist` |
+| **Root Directory** | `./` |
+| **Node.js Version** | 18.x+ |
+
+### Optional Environment Variables
+
+Only set these if you need specific features:
+
 ```bash
-npm i -g vercel
+# Optional: Protect API with token
+BLOCKOUT_TOKEN=your-secret-token
+
+# Optional: Supabase for multi-device sync
+SUPABASE_URL=https://your-project.supabase.co
+SUPABASE_ANON_KEY=your-anon-key
 ```
 
-3. **Login and deploy:**
-```bash
-vercel login
-vercel
-```
+**For basic use, no environment variables needed!**
 
-4. **Set environment variables** (optional):
-```bash
-vercel env add BLOCKOUT_TOKEN
-# Enter your secret token
-```
+### Data Persistence on Vercel
 
-Or via Vercel Dashboard → Project Settings → Environment Variables:
-- `BLOCKOUT_TOKEN` = your-secret-token
+**✅ Good news: Data persists automatically!**
 
-### Important: Data Persistence on Vercel
+BlockOut uses **IndexedDB** in the browser for storage. This works perfectly on Vercel - your data survives page refreshes, browser restarts, and is completely private to your device.
 
-**⚠️ The serverless deployment stores data in memory only.** When Vercel's serverless functions cold start, data resets.
-
-**For persistent data on Vercel:**
-
-### ✅ Default: IndexedDB (No Setup Required!)
-
-**For personal use on Vercel, you DON'T need a database!**
+**Option 1: IndexedDB (Default - No Setup!)**
 
 BlockOut automatically saves all data to **IndexedDB in your browser** - this works on Vercel exactly like it does locally:
 - ✅ Unlimited storage (browser-dependent, typically 50MB+)
@@ -350,12 +366,9 @@ BlockOut automatically saves all data to **IndexedDB in your browser** - this wo
 - ✅ Works offline
 - ✅ No external service to configure
 
-**This is perfect for:**
-- Personal task management
-- Single-device usage
-- Getting started quickly
+**Perfect for:** Personal use, single device, quick start
 
-**Limitation:** Data is tied to that browser/device. For multi-device sync, see options below.
+**Limitation:** Data is tied to that browser/device
 
 ---
 
