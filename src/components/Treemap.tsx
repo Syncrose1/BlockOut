@@ -511,14 +511,24 @@ export function Treemap() {
   }, [drawFrame]);
 
   // ── Hit testing ───────────────────────────────────────────────────────────────
+  // Get CSS zoom factor to adjust mouse coordinates (zoom affects getBoundingClientRect but not canvas layout)
+  const getZoomFactor = useCallback((): number => {
+    const html = document.documentElement;
+    const zoom = (html as any).style?.zoom || getComputedStyle(html).zoom;
+    return zoom ? parseFloat(zoom) : 1;
+  }, []);
+
   const findNodeAt = useCallback((mx: number, my: number): TreemapNode | null => {
+    const zoom = getZoomFactor();
+    const adjustedMx = mx / zoom;
+    const adjustedMy = my / zoom;
     for (const leaf of leafNodesRef.current) {
-      if (mx >= leaf.x! && mx <= leaf.x! + leaf.w! && my >= leaf.y! && my <= leaf.y! + leaf.h!) {
+      if (adjustedMx >= leaf.x! && adjustedMx <= leaf.x! + leaf.w! && adjustedMy >= leaf.y! && adjustedMy <= leaf.y! + leaf.h!) {
         return leaf;
       }
     }
     return null;
-  }, []);
+  }, [getZoomFactor]);
 
   // ── Event handlers ────────────────────────────────────────────────────────────
   const handleMouseMove = useCallback((e: React.MouseEvent) => {

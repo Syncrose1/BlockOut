@@ -29,12 +29,16 @@ export function Pomodoro() {
     const el = widgetRef.current;
     if (!el) return;
     const { offsetWidth, offsetHeight } = el;
+    // Account for CSS zoom when calculating constraints
+    const html = document.documentElement;
+    const zoomStyle = (html as any).style?.zoom || getComputedStyle(html).zoom;
+    const zoom = zoomStyle ? parseFloat(zoomStyle) : 1;
     // The widget is fixed at bottom:20px right:20px — allow dragging to all four edges with an 8px margin
     setDragConstraints({
       right: 0,
       bottom: 0,
-      left: -(window.innerWidth - offsetWidth - 20 - 8),
-      top: -(window.innerHeight - offsetHeight - 20 - 8),
+      left: -((window.innerWidth / zoom) - offsetWidth - 20 - 8),
+      top: -((window.innerHeight / zoom) - offsetHeight - 20 - 8),
     });
   }, []);
 
