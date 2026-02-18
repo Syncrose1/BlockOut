@@ -134,29 +134,30 @@ select {
 }
 
 .sidebar-header {
-  padding: 18px 16px 12px;
+  padding: 20px 16px 14px;
   border-bottom: 1px solid var(--border);
 }
 
 .sidebar-logo {
-  font-size: 20px;
+  font-size: 23px;
   font-weight: 700;
   letter-spacing: -0.5px;
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 12px;
 }
 
 .sidebar-logo .logo-icon {
-  width: 30px;
-  height: 30px;
-  border-radius: var(--radius-sm);
+  width: 36px;
+  height: 36px;
+  border-radius: var(--radius-md);
   background: linear-gradient(135deg, var(--accent), hsl(280, 72%, 62%));
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 15px;
-  box-shadow: 0 2px 10px hsla(210, 80%, 65%, 0.25);
+  font-size: 18px;
+  font-weight: 800;
+  box-shadow: 0 2px 14px hsla(210, 80%, 65%, 0.3);
 }
 
 .sidebar-section {
@@ -165,20 +166,20 @@ select {
 }
 
 .sidebar-section-title {
-  font-size: 9px;
+  font-size: 10px;
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 1.2px;
   color: var(--text-tertiary);
-  padding: 0 16px 6px;
+  padding: 0 16px 7px;
 }
 
 .sidebar-item {
   display: flex;
   align-items: center;
-  gap: 10px;
-  padding: 7px 16px;
-  font-size: 13px;
+  gap: 11px;
+  padding: 9px 16px;
+  font-size: 14px;
   font-weight: 500;
   color: var(--text-secondary);
   transition: all var(--transition-fast);
@@ -214,20 +215,21 @@ select {
 }
 
 .sidebar-item .dot {
-  width: 8px;
-  height: 8px;
+  width: 10px;
+  height: 10px;
   border-radius: 50%;
   flex-shrink: 0;
 }
 
 .sidebar-item .block-countdown {
   margin-left: auto;
-  font-size: 10px;
+  font-size: 11px;
   font-family: var(--font-mono);
+  font-weight: 500;
   color: var(--text-tertiary);
   background: var(--bg-elevated);
-  padding: 2px 6px;
-  border-radius: 4px;
+  padding: 2px 7px;
+  border-radius: 5px;
 }
 
 .sidebar-scroll {
@@ -289,8 +291,8 @@ select {
 }
 
 .btn-sm {
-  padding: 5px 10px;
-  font-size: 12px;
+  padding: 6px 13px;
+  font-size: 13px;
 }
 
 .btn-full {
@@ -334,7 +336,7 @@ select {
   height: 54px;
   display: flex;
   align-items: center;
-  padding: 0 20px;
+  padding: 0 22px;
   border-bottom: 1px solid var(--border);
   gap: 14px;
   flex-shrink: 0;
@@ -342,31 +344,32 @@ select {
 }
 
 .topbar-title {
-  font-size: 15px;
-  font-weight: 600;
-  letter-spacing: -0.2px;
+  font-size: 17px;
+  font-weight: 700;
+  letter-spacing: -0.3px;
 }
 
 .topbar-countdown {
   font-family: var(--font-mono);
-  font-size: 12px;
+  font-size: 13px;
+  font-weight: 500;
   color: var(--accent);
   background: var(--accent-dim);
-  padding: 4px 10px;
+  padding: 5px 13px;
   border-radius: var(--radius-sm);
-  border: 1px solid hsla(210, 80%, 65%, 0.15);
+  border: 1px solid hsla(210, 80%, 65%, 0.18);
 }
 
 .topbar-progress {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 10px;
   margin-left: auto;
 }
 
 .progress-bar {
-  width: 100px;
-  height: 5px;
+  width: 120px;
+  height: 6px;
   background: var(--bg-elevated);
   border-radius: 3px;
   overflow: hidden;
@@ -377,12 +380,13 @@ select {
   border-radius: 3px;
   background: var(--accent);
   transition: width var(--transition-slow);
-  box-shadow: 0 0 6px var(--accent-glow);
+  box-shadow: 0 0 8px var(--accent-glow);
 }
 
 .progress-text {
-  font-size: 11px;
+  font-size: 13px;
   font-family: var(--font-mono);
+  font-weight: 500;
   color: var(--text-secondary);
 }
 
@@ -396,9 +400,9 @@ select {
 }
 
 .view-switcher button {
-  padding: 4px 12px;
+  padding: 5px 14px;
   border-radius: 4px;
-  font-size: 12px;
+  font-size: 13px;
   font-weight: 600;
   color: var(--text-tertiary);
   transition: all var(--transition-fast);
