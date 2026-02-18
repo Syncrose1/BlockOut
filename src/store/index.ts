@@ -74,10 +74,18 @@ interface BlockOutState {
   // Sync
   syncStatus: 'idle' | 'syncing' | 'synced' | 'error';
   syncSettingsOpen: boolean;
-  // null when no conflict pending; populated when local and remote have both diverged
   conflictState: {
     local: Record<string, unknown>;
     remote: Record<string, unknown>;
+    // Present when auto-merge succeeded — describes what was combined
+    merged?: Record<string, unknown>;
+    mergeInfo?: {
+      localTasksAdded: number;
+      cloudTasksAdded: number;
+      completionsFromLocal: number;
+      categoriesFromLocal: number;
+      blocksFromLocal: number;
+    };
   } | null;
 
   // Actions — Categories
@@ -132,7 +140,7 @@ interface BlockOutState {
   // Actions — Sync
   setSyncStatus: (status: 'idle' | 'syncing' | 'synced' | 'error') => void;
   setSyncSettingsOpen: (open: boolean) => void;
-  setConflictState: (state: { local: Record<string, unknown>; remote: Record<string, unknown> } | null) => void;
+  setConflictState: (state: BlockOutState['conflictState']) => void;
 
   // Persistence
   loadData: (data: {

@@ -1042,43 +1042,39 @@ export function PomodoroSettingsModal() {
   );
 }
 
-// ─── Conflict Resolution Modal ────────────────────────────────────────────────
-
-function snapshotSummary(data: Record<string, unknown>) {
-  const tasks = Object.values((data.tasks as object) ?? {}) as { completed?: boolean }[];
-  const cats = Object.keys((data.categories as object) ?? {}).length;
-  const active = tasks.filter((t) => !t.completed).length;
-  const done = tasks.filter((t) => t.completed).length;
-  const lastModified = data.lastModified as number | undefined;
-  return { active, done, cats, lastModified };
-}
+// ─── Merge Review Modal ───────────────────────────────────────────────────────
+// Shown after an auto-merge in case C. The merge is already applied and pushed;
+// this modal is informational with escape hatches to revert if something looks wrong.
 
 export function ConflictResolutionModal() {
   const conflict = useStore((s) => s.conflictState);
-  const [resolving, setResolving] = useState(false);
+  const setConflictState = useStore((s) => s.setConflictState);
+  const [reverting, setReverting] = useState(false);
 
   if (!conflict) return null;
 
-  const local = snapshotSummary(conflict.local);
-  const remote = snapshotSummary(conflict.remote);
+  const info = conflict.mergeInfo;
   const remoteVersion = (conflict.remote.version as number) ?? '?';
 
-  const handleResolve = async (choice: 'local' | 'remote') => {
-    setResolving(true);
+  const handleRevert = async (choice: 'local' | 'remote') => {
+    setReverting(true);
     await resolveConflict(choice);
-    setResolving(false);
+    setReverting(false);
   };
 
-  const col: React.CSSProperties = {
-    flex: 1,
-    background: 'var(--surface-2)',
-    borderRadius: 8,
-    padding: '12px 14px',
-    fontSize: 13,
-    display: 'flex',
-    flexDirection: 'column',
-    gap: 4,
-  };
+  const mergeLines: string[] = [];
+  if (info) {
+    if (info.cloudTasksAdded > 0)
+      mergeLines.push(`${info.cloudTasksAdded} task${info.cloudTasksAdded !== 1 ? 's' : ''} from cloud`);
+    if (info.localTasksAdded > 0)
+      mergeLines.push(`${info.localTasksAdded} offline task${info.localTasksAdded !== 1 ? 's' : ''} you created`);
+    if (info.completionsFromLocal > 0)
+      mergeLines.push(`${info.completionsFromLocal} offline completion${info.completionsFromLocal !== 1 ? 's' : ''}`);
+    if (info.categoriesFromLocal > 0)
+      mergeLines.push(`${info.categoriesFromLocal} offline categor${info.categoriesFromLocal !== 1 ? 'ies' : 'y'}`);
+    if (info.blocksFromLocal > 0)
+      mergeLines.push(`${info.blocksFromLocal} offline block${info.blocksFromLocal !== 1 ? 's' : ''}`);
+  }
 
   return (
     <AnimatePresence>
@@ -1087,7 +1083,7 @@ export function ConflictResolutionModal() {
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         exit={{ opacity: 0 }}
-        // Not dismissable — user must make a choice
+        onClick={() => setConflictState(null)}
       >
         <motion.div
           className="modal"
@@ -1095,54 +1091,64 @@ export function ConflictResolutionModal() {
           animate={{ scale: 1, opacity: 1, y: 0 }}
           exit={{ scale: 0.92, opacity: 0, y: 20 }}
           transition={{ type: 'spring', damping: 28, stiffness: 380 }}
-          style={{ maxWidth: 520 }}
+          style={{ maxWidth: 460 }}
+          onClick={(e) => e.stopPropagation()}
         >
-          <h2>Sync conflict</h2>
-          <p style={{ color: 'var(--text-secondary)', fontSize: 14, marginBottom: 16 }}>
-            The cloud has received writes (version {remoteVersion}) that this device
-            hasn't seen, and you also made local changes while offline. Choose which
-            version to keep — the other will be discarded.
-          </p>
-
-          <div style={{ display: 'flex', gap: 10, marginBottom: 20 }}>
-            <div style={col}>
-              <div style={{ fontWeight: 600, marginBottom: 4 }}>This device (local)</div>
-              <div>{local.active} active task{local.active !== 1 ? 's' : ''}</div>
-              <div style={{ color: 'var(--text-tertiary)' }}>{local.done} completed</div>
-              <div style={{ color: 'var(--text-tertiary)' }}>{local.cats} categor{local.cats !== 1 ? 'ies' : 'y'}</div>
-              {local.lastModified ? (
-                <div style={{ color: 'var(--text-tertiary)', marginTop: 4, fontSize: 11 }}>
-                  Last edited {new Date(local.lastModified).toLocaleString()}
-                </div>
-              ) : null}
-            </div>
-            <div style={col}>
-              <div style={{ fontWeight: 600, marginBottom: 4 }}>Cloud (v{remoteVersion})</div>
-              <div>{remote.active} active task{remote.active !== 1 ? 's' : ''}</div>
-              <div style={{ color: 'var(--text-tertiary)' }}>{remote.done} completed</div>
-              <div style={{ color: 'var(--text-tertiary)' }}>{remote.cats} categor{remote.cats !== 1 ? 'ies' : 'y'}</div>
-              {remote.lastModified ? (
-                <div style={{ color: 'var(--text-tertiary)', marginTop: 4, fontSize: 11 }}>
-                  Last edited {new Date(remote.lastModified).toLocaleString()}
-                </div>
-              ) : null}
-            </div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 12 }}>
+            <span style={{
+              width: 10, height: 10, borderRadius: '50%', flexShrink: 0,
+              background: 'hsl(140, 60%, 50%)', boxShadow: '0 0 8px hsl(140,60%,50%)',
+            }} />
+            <h2 style={{ margin: 0 }}>Offline changes merged</h2>
           </div>
 
-          <div className="modal-actions">
-            <button
-              className="btn btn-ghost"
-              onClick={() => handleResolve('local')}
-              disabled={resolving}
-            >
-              Keep local
-            </button>
+          <p style={{ color: 'var(--text-secondary)', fontSize: 14, marginBottom: mergeLines.length ? 12 : 16 }}>
+            This device had offline edits while the cloud (v{remoteVersion}) received new
+            updates. Both were automatically merged and pushed to cloud.
+          </p>
+
+          {mergeLines.length > 0 && (
+            <div style={{
+              background: 'var(--surface-2)', borderRadius: 8,
+              padding: '10px 14px', marginBottom: 16, fontSize: 13,
+            }}>
+              <div style={{ fontWeight: 600, marginBottom: 6 }}>What was combined:</div>
+              <ul style={{ margin: 0, paddingLeft: 18 }}>
+                {mergeLines.map((line, i) => <li key={i}>{line}</li>)}
+              </ul>
+            </div>
+          )}
+
+          <div style={{ fontSize: 12, color: 'var(--text-tertiary)', marginBottom: 16 }}>
+            If the result doesn't look right, use the escape hatches below to revert
+            to either snapshot — the discarded copy will be overwritten.
+          </div>
+
+          <div className="modal-actions" style={{ justifyContent: 'space-between' }}>
+            <div style={{ display: 'flex', gap: 8 }}>
+              <button
+                className="btn btn-ghost btn-sm"
+                onClick={() => handleRevert('remote')}
+                disabled={reverting}
+                style={{ fontSize: 12 }}
+              >
+                Revert to cloud only
+              </button>
+              <button
+                className="btn btn-ghost btn-sm"
+                onClick={() => handleRevert('local')}
+                disabled={reverting}
+                style={{ fontSize: 12 }}
+              >
+                Revert to local only
+              </button>
+            </div>
             <button
               className="btn btn-primary"
-              onClick={() => handleResolve('remote')}
-              disabled={resolving}
+              onClick={() => setConflictState(null)}
+              disabled={reverting}
             >
-              {resolving ? 'Applying…' : 'Keep cloud'}
+              {reverting ? 'Reverting…' : 'Looks good'}
             </button>
           </div>
         </motion.div>

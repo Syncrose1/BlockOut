@@ -38,7 +38,7 @@ async function idbRead(): Promise<Record<string, unknown> | null> {
   });
 }
 
-// ─── Sync metadata (stored in localStorage — config/tracking, not app data) ──
+// ─── Sync metadata ────────────────────────────────────────────────────────────
 
 const CLOUD_URL_KEY = 'blockout-cloud-url';
 const CLOUD_TOKEN_KEY = 'blockout-cloud-token';
@@ -75,6 +75,141 @@ export function getLastSyncedTime(): number | null {
   return v ? parseInt(v, 10) : null;
 }
 
+// ─── Merge ────────────────────────────────────────────────────────────────────
+//
+// Strategy:
+//   - Remote is the base (cloud changes from other devices are preserved)
+//   - Local tasks created after lastSyncedAt are injected (offline creations kept)
+//   - Local task completions recorded after lastSyncedAt are overlaid
+//   - Categories: union of both sets (no createdAt, so we never silently drop either)
+//   - TimeBlocks: locally-created blocks added; shared blocks get taskId union
+//   - Pomodoro sessions: append local sessions not already on remote
+//   - Streak dates: union of both date sets
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+type AnyRecord = Record<string, any>;
+
+interface MergeInfo {
+  localTasksAdded: number;
+  cloudTasksAdded: number;
+  completionsFromLocal: number;
+  categoriesFromLocal: number;
+  blocksFromLocal: number;
+}
+
+function mergeSnapshots(
+  local: AnyRecord,
+  remote: AnyRecord,
+  lastSyncedAt: number
+): { merged: AnyRecord; info: MergeInfo } {
+  const localTasks: AnyRecord = local.tasks ?? {};
+  const remoteTasks: AnyRecord = remote.tasks ?? {};
+  const localCats: AnyRecord = local.categories ?? {};
+  const remoteCats: AnyRecord = remote.categories ?? {};
+  const localBlocks: AnyRecord = local.timeBlocks ?? {};
+  const remoteBlocks: AnyRecord = remote.timeBlocks ?? {};
+
+  let localTasksAdded = 0;
+  let cloudTasksAdded = 0;
+  let completionsFromLocal = 0;
+  let categoriesFromLocal = 0;
+  let blocksFromLocal = 0;
+
+  // ── Tasks ──────────────────────────────────────────────────────────────────
+  // Start with remote as base.
+  const mergedTasks: AnyRecord = { ...remoteTasks };
+
+  // Count tasks the cloud added that weren't in local.
+  for (const id of Object.keys(remoteTasks)) {
+    if (!localTasks[id]) cloudTasksAdded++;
+  }
+
+  // Inject locally-created tasks (created after last sync, not yet on remote).
+  for (const [id, task] of Object.entries(localTasks)) {
+    if (!remoteTasks[id] && task.createdAt > lastSyncedAt) {
+      mergedTasks[id] = task;
+      localTasksAdded++;
+    }
+  }
+
+  // Overlay local completions: task completed offline that remote still shows incomplete.
+  for (const [id, localTask] of Object.entries(localTasks)) {
+    if (
+      remoteTasks[id] &&
+      localTask.completed &&
+      !remoteTasks[id].completed &&
+      localTask.completedAt &&
+      localTask.completedAt > lastSyncedAt
+    ) {
+      mergedTasks[id] = {
+        ...remoteTasks[id],
+        completed: true,
+        completedAt: localTask.completedAt,
+      };
+      completionsFromLocal++;
+    }
+  }
+
+  // ── Categories ─────────────────────────────────────────────────────────────
+  // Union: no timestamps on categories so we never drop either side.
+  const mergedCats: AnyRecord = { ...remoteCats };
+  for (const [id, cat] of Object.entries(localCats)) {
+    if (!remoteCats[id]) {
+      mergedCats[id] = cat;
+      categoriesFromLocal++;
+    }
+  }
+
+  // ── TimeBlocks ─────────────────────────────────────────────────────────────
+  const mergedBlocks: AnyRecord = { ...remoteBlocks };
+  for (const [id, block] of Object.entries(localBlocks)) {
+    if (!remoteBlocks[id] && block.createdAt > lastSyncedAt) {
+      // Created locally while offline — add it.
+      mergedBlocks[id] = block;
+      blocksFromLocal++;
+    } else if (remoteBlocks[id]) {
+      // Shared block — union the taskId lists so no assignment is lost.
+      const unionIds = [...new Set([...remoteBlocks[id].taskIds, ...block.taskIds])];
+      mergedBlocks[id] = { ...remoteBlocks[id], taskIds: unionIds };
+    }
+  }
+
+  // ── Pomodoro sessions ──────────────────────────────────────────────────────
+  const remoteSessions: AnyRecord[] = remote.pomodoroSessions ?? [];
+  const localSessions: AnyRecord[] = local.pomodoroSessions ?? [];
+  const remoteSessionIds = new Set(remoteSessions.map((s) => s.id));
+  const newLocalSessions = localSessions.filter(
+    (s) => !remoteSessionIds.has(s.id) && s.startTime > lastSyncedAt
+  );
+
+  // ── Streak ─────────────────────────────────────────────────────────────────
+  const localDates: string[] = local.streak?.completionDates ?? [];
+  const remoteDates: string[] = remote.streak?.completionDates ?? [];
+  const mergedDates = [...new Set([...localDates, ...remoteDates])];
+
+  const merged: AnyRecord = {
+    tasks: mergedTasks,
+    categories: mergedCats,
+    timeBlocks: mergedBlocks,
+    activeBlockId: remote.activeBlockId,
+    pomodoroSessions: [...remoteSessions, ...newLocalSessions],
+    streak: {
+      completionDates: mergedDates,
+      currentStreak: Math.max(
+        local.streak?.currentStreak ?? 0,
+        remote.streak?.currentStreak ?? 0
+      ),
+      longestStreak: Math.max(
+        local.streak?.longestStreak ?? 0,
+        remote.streak?.longestStreak ?? 0
+      ),
+    },
+    lastModified: Date.now(),
+  };
+
+  return { merged, info: { localTasksAdded, cloudTasksAdded, completionsFromLocal, categoriesFromLocal, blocksFromLocal } };
+}
+
 // ─── Save ─────────────────────────────────────────────────────────────────────
 
 export async function saveLocal(): Promise<void> {
@@ -101,38 +236,29 @@ export async function saveToCloud(): Promise<void> {
   if (!res.ok) throw new Error(`Cloud save failed: ${res.status}`);
 
   const json = await res.json();
-  // Server returns the version it just wrote
   const newVersion = json.version ?? getLastSyncedVersion() + 1;
   recordSuccessfulSync(newVersion);
   useStore.getState().setSyncStatus('synced');
 }
 
-// ─── Load — version-aware conflict detection ──────────────────────────────────
+// ─── Load — version-aware with auto-merge for diverged state ─────────────────
 //
 // States:
 //   A) remote.version == lastSyncedVersion
-//      → server unchanged since our last sync
-//      → use local if it has newer changes, else remote
+//      → server unchanged; use local if it has newer edits, else remote
 //
-//   B) remote.version > lastSyncedVersion  AND  local unchanged since last sync
-//      → we were just passively offline, server moved ahead
-//      → silently take remote, update lastSyncedVersion
+//   B) remote.version > lastSyncedVersion, local unchanged
+//      → passively offline; silently take remote
 //
-//   C) remote.version > lastSyncedVersion  AND  local has changes since last sync
-//      → TRUE CONFLICT: both sides diverged while we were offline
-//      → surface conflict UI so the user decides
+//   C) remote.version > lastSyncedVersion AND local has edits since last sync
+//      → auto-merge: local changes injected on top of remote base, pushed to cloud
+//        conflictState populated for the review modal (informational, not blocking)
 //
-//   D) no cloud configured, or remote fetch failed
-//      → use local unconditionally
-//
-// Edge case: lastSyncedVersion == 0 (never synced with this server before)
-//   → treat as case B if only remote has data, or case A if only local has data.
-//   → if both have data and remote has tasks/categories, it's a first-time connect:
-//      prefer remote (server is the source of truth for first connection).
+//   D) no cloud configured or fetch failed → local only
 
 export async function loadData(): Promise<void> {
-  let local: Record<string, unknown> | null = null;
-  let remote: Record<string, unknown> | null = null;
+  let local: AnyRecord | null = null;
+  let remote: AnyRecord | null = null;
 
   try {
     local = await idbRead();
@@ -148,24 +274,22 @@ export async function loadData(): Promise<void> {
       const res = await fetch(`${url}/api/data`, { headers });
       if (res.ok) {
         const json = await res.json();
-        if (json && typeof json === 'object') remote = json;
+        if (json && typeof json === 'object') remote = json as AnyRecord;
       }
     } catch (e) {
       console.warn('[BlockOut] Cloud load failed, using local', e);
     }
   }
 
-  // No cloud — just load local
   if (!remote) {
     if (local) applyData(local);
     return;
   }
 
-  // No local data — take remote as-is
   if (!local) {
     applyData(remote);
-    const remoteVersion = (remote.version as number) ?? 0;
-    if (remoteVersion > 0) recordSuccessfulSync(remoteVersion);
+    const rv = (remote.version as number) ?? 0;
+    if (rv > 0) recordSuccessfulSync(rv);
     return;
   }
 
@@ -175,10 +299,9 @@ export async function loadData(): Promise<void> {
   const localLastModified = (local.lastModified as number) ?? 0;
 
   const remoteHasNewWrites = remoteVersion > lastSyncedVersion;
-  // Local has changes if it was modified after the last time we synced with the server
   const localHasUnpushedChanges = localLastModified > lastSyncedAt && lastSyncedAt > 0;
 
-  // First-time connecting to this server (never synced before): prefer remote
+  // First-time connecting to this server: prefer remote if it has content.
   if (lastSyncedVersion === 0 && remoteVersion > 0) {
     const remoteHasContent =
       Object.keys((remote.tasks as object) ?? {}).length > 0 ||
@@ -191,21 +314,34 @@ export async function loadData(): Promise<void> {
   }
 
   if (remoteHasNewWrites && localHasUnpushedChanges) {
-    // Case C — true conflict: both sides diverged
-    useStore.getState().setConflictState({ local, remote });
-    // Load local for now so the app isn't empty; user will resolve via modal
-    applyData(local);
+    // Case C — auto-merge local changes on top of remote base.
+    const { merged, info } = mergeSnapshots(local, remote, lastSyncedAt);
+
+    applyData(merged);
+    await idbWrite({ ...merged, lastModified: Date.now() });
+
+    // Inform the review modal what happened (non-blocking).
+    useStore.getState().setConflictState({ local, remote, merged, mergeInfo: info });
+
+    // Push merged result to cloud — it is now the authoritative state.
+    try {
+      useStore.getState().setSyncStatus('syncing');
+      await saveToCloud();
+    } catch (e) {
+      console.warn('[BlockOut] Could not push merged result to cloud', e);
+      useStore.getState().setSyncStatus('error');
+    }
     return;
   }
 
   if (remoteHasNewWrites) {
-    // Case B — we were passively offline, server moved ahead
+    // Case B — passively offline, server moved ahead.
     applyData(remote);
     recordSuccessfulSync(remoteVersion);
     return;
   }
 
-  // Case A — server unchanged since our last sync; use whichever has newer lastModified
+  // Case A — server unchanged; take whichever has newer lastModified.
   const remoteLastModified = (remote.lastModified as number) ?? 0;
   if (localLastModified >= remoteLastModified) {
     applyData(local);
@@ -215,7 +351,7 @@ export async function loadData(): Promise<void> {
   }
 }
 
-function applyData(data: Record<string, unknown>): void {
+function applyData(data: AnyRecord): void {
   try {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     useStore.getState().loadData(data as any);
@@ -224,7 +360,7 @@ function applyData(data: Record<string, unknown>): void {
   }
 }
 
-// ─── Conflict resolution — called by the ConflictResolutionModal ──────────────
+// ─── Conflict resolution — escape hatches in the review modal ─────────────────
 
 export async function resolveConflict(choice: 'local' | 'remote'): Promise<void> {
   const conflict = useStore.getState().conflictState;
@@ -232,25 +368,23 @@ export async function resolveConflict(choice: 'local' | 'remote'): Promise<void>
 
   const winner = choice === 'local' ? conflict.local : conflict.remote;
   applyData(winner);
-  await saveLocal();
+  await idbWrite({ ...(winner as object), lastModified: Date.now() });
 
   if (choice === 'local') {
-    // Push local to server so it becomes the new truth
     try {
       await saveToCloud();
     } catch (e) {
-      console.warn('[BlockOut] Could not push local conflict resolution to cloud', e);
+      console.warn('[BlockOut] Could not push manual resolution to cloud', e);
     }
   } else {
-    // Remote wins — update our sync pointer to remote's version
-    const remoteVersion = (conflict.remote.version as number) ?? 0;
-    if (remoteVersion > 0) recordSuccessfulSync(remoteVersion);
+    const rv = (conflict.remote.version as number) ?? 0;
+    if (rv > 0) recordSuccessfulSync(rv);
   }
 
   useStore.getState().setConflictState(null);
 }
 
-// ─── Debounced local save (called on every state change) ──────────────────────
+// ─── Debounced local save ─────────────────────────────────────────────────────
 
 let localSaveTimeout: ReturnType<typeof setTimeout>;
 export function debouncedSave(): void {
@@ -260,7 +394,7 @@ export function debouncedSave(): void {
 
 // ─── Periodic cloud push ─────────────────────────────────────────────────────
 
-const CLOUD_PUSH_INTERVAL_MS = 5 * 60 * 1000; // 5 minutes
+const CLOUD_PUSH_INTERVAL_MS = 5 * 60 * 1000;
 
 export function startPeriodicCloudSync(): () => void {
   const id = setInterval(async () => {
