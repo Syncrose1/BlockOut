@@ -302,6 +302,92 @@ cp data.json data.json.backup.$(date +%Y%m%d)
 - Bind to localhost only if you don't need network access: `npm run dev`
 - Data is stored as plain JSON - no encryption at rest
 
+## Vercel Deployment
+
+BlockOut can be deployed to **Vercel** for free hosting. Note: Data persists only in memory on the serverless backend (resets on cold starts). For production use, connect to an external database.
+
+### One-Click Deploy
+
+[![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https%3A%2F%2Fgithub.com%2FSyncrose1%2FBlockOut)
+
+### Manual Setup
+
+1. **Push to GitHub** (already done!)
+
+2. **Install Vercel CLI:**
+```bash
+npm i -g vercel
+```
+
+3. **Login and deploy:**
+```bash
+vercel login
+vercel
+```
+
+4. **Set environment variables** (optional):
+```bash
+vercel env add BLOCKOUT_TOKEN
+# Enter your secret token
+```
+
+Or via Vercel Dashboard → Project Settings → Environment Variables:
+- `BLOCKOUT_TOKEN` = your-secret-token
+
+### Important: Data Persistence on Vercel
+
+**⚠️ The serverless deployment stores data in memory only.** When Vercel's serverless functions cold start, data resets.
+
+**For persistent data on Vercel, you need:**
+
+#### Option A: Use IndexedDB only (simplest)
+The app already saves to IndexedDB in the browser. For personal use without sync, this works fine.
+
+#### Option B: Connect to Vercel KV (recommended)
+Store data in Vercel's Redis-compatible KV store:
+
+```bash
+# Install KV
+vercel kv create my-blockout-data
+
+# Get credentials from Vercel dashboard, then:
+vercel env add KV_URL
+vercel env add KV_REST_API_URL
+vercel env add KV_REST_API_TOKEN
+```
+
+Then modify `api/data.ts` to use `@vercel/kv` instead of memory storage.
+
+#### Option C: External Database
+Connect to MongoDB Atlas, Supabase, or any external DB by modifying the API routes.
+
+### Vercel Project Structure
+
+```
+BlockOut/
+├── api/
+│   └── data.ts           # Serverless API endpoint
+├── src/                  # React frontend
+├── dist/                 # Build output
+├── vercel.json           # Vercel configuration
+└── package.json
+```
+
+### Development vs Production
+
+| Environment | Storage | Persistence |
+|-------------|---------|-------------|
+| `npm run dev` | `data.json` file | ✅ Persistent |
+| Docker | Volume-mounted file | ✅ Persistent |
+| Vercel (default) | Memory only | ⚠️ Resets on cold start |
+| Vercel + KV | Redis/KV | ✅ Persistent |
+
+### Custom Domain
+
+1. Go to Vercel Dashboard → Your Project → Settings → Domains
+2. Add your domain and follow DNS instructions
+3. Your BlockOut instance will be at `https://yourdomain.com`
+
 ## License
 
 ISC
