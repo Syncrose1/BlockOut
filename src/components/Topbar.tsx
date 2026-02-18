@@ -1,6 +1,6 @@
 import { useMemo, useState, useCallback } from 'react';
 import { useStore } from '../store';
-import { AssignTasksModal } from './Modals';
+import { AssignTasksModal, ExportImportModal } from './Modals';
 import { exportTreemapAsImage } from './Treemap';
 import type { ViewMode } from '../types';
 
@@ -36,6 +36,7 @@ export function Topbar() {
   const categories = useStore((s) => s.categories);
 
   const [showAssign, setShowAssign] = useState(false);
+  const [showExportImport, setShowExportImport] = useState(false);
 
   const block = activeBlockId ? timeBlocks[activeBlockId] : null;
 
@@ -160,15 +161,24 @@ export function Topbar() {
           ))}
         </div>
 
-        {/* Export button */}
+        {/* Export buttons */}
         {viewMode === 'treemap' && total > 0 && (
-          <button
-            className="btn btn-ghost btn-sm"
-            onClick={handleExport}
-            title="Export treemap as PNG"
-          >
-            Export
-          </button>
+          <>
+            <button
+              className="btn btn-ghost btn-sm"
+              onClick={handleExport}
+              title="Export treemap as PNG"
+            >
+              Export PNG
+            </button>
+            <button
+              className="btn btn-ghost btn-sm"
+              onClick={() => setShowExportImport(true)}
+              title="Export/Import data"
+            >
+              Data
+            </button>
+          </>
         )}
 
         {block && !showTimelessPool && (
@@ -210,6 +220,8 @@ export function Topbar() {
       {showAssign && block && (
         <AssignTasksModal blockId={block.id} onClose={() => setShowAssign(false)} />
       )}
+
+      <ExportImportModal open={showExportImport} onClose={() => setShowExportImport(false)} />
     </>
   );
 }

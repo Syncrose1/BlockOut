@@ -7,6 +7,7 @@ import { Treemap } from './components/Treemap';
 import { Kanban } from './components/Kanban';
 import { Timeline } from './components/Timeline';
 import { Pomodoro } from './components/Pomodoro';
+import { OnboardingTour } from './components/Onboarding';
 import {
   NewBlockModal,
   NewCategoryModal,
@@ -57,6 +58,7 @@ export function App() {
       <PomodoroSettingsModal />
       <SyncSettingsModal />
       <ConflictResolutionModal />
+      <OnboardingTour />
     </div>
   );
 }

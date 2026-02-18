@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect } from 'react';
+import { useState, useMemo, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useStore } from '../store';
 import {
@@ -9,6 +9,7 @@ import {
   getLastSyncedTime,
   resolveConflict,
 } from '../utils/persistence';
+import { exportToFile, importFromFile } from '../utils/analytics';
 
 // ─── Calendar Date Picker ────────────────────────────────────────────────────
 
@@ -1570,6 +1571,212 @@ export function SyncSettingsModal() {
             )}
             <button className="btn btn-primary" onClick={handleSave}>Save</button>
           </div>
+        </motion.div>
+      </motion.div>
+    </AnimatePresence>
+  );
+}
+
+// ─── Export/Import Modal ────────────────────────────────────────────────────
+
+export function ExportImportModal({ open, onClose }: { open: boolean; onClose: () => void }) {
+  const [activeTab, setActiveTab] = useState<'export' | 'import'>('export');
+  const [exportType, setExportType] = useState<'full' | 'tasks_only' | 'analytics_only'>('full');
+  const [importError, setImportError] = useState<string | null>(null);
+  const [importSuccess, setImportSuccess] = useState<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const tasks = useStore((s) => s.tasks);
+  const categories = useStore((s) => s.categories);
+  const timeBlocks = useStore((s) => s.timeBlocks);
+  const pomodoro = useStore((s) => s.pomodoro);
+
+  const taskCount = Object.keys(tasks).length;
+  const categoryCount = Object.keys(categories).length;
+  const blockCount = Object.keys(timeBlocks).length;
+  const pomodoroSessions = pomodoro.sessions.length;
+  const totalPomodoroMinutes = Math.round(
+    pomodoro.sessions
+      .filter((s) => s.mode === 'work')
+      .reduce((acc, s) => acc + (s.endTime - s.startTime) / 60000, 0)
+  );
+
+  const handleExport = async () => {
+    await exportToFile(exportType);
+  };
+
+  const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setImportError(null);
+    setImportSuccess(null);
+
+    const result = await importFromFile(file);
+    if (result.success) {
+      setImportSuccess(`Successfully imported ${result.imported?.taskCount || 0} tasks, ${result.imported?.categoryCount || 0} categories, ${result.imported?.blockCount || 0} blocks`);
+      debouncedSave();
+    } else {
+      setImportError(result.error || 'Import failed');
+    }
+  };
+
+  if (!open) return null;
+
+  return (
+    <AnimatePresence>
+      <motion.div
+        className="modal-overlay"
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        exit={{ opacity: 0 }}
+        onClick={onClose}
+      >
+        <motion.div
+          className="modal"
+          initial={{ scale: 0.95, opacity: 0 }}
+          animate={{ scale: 1, opacity: 1 }}
+          exit={{ scale: 0.95, opacity: 0 }}
+          onClick={(e) => e.stopPropagation()}
+        >
+          <h2>Export & Import</h2>
+
+          <div style={{ display: 'flex', gap: 8, marginBottom: 20 }}>
+            <button
+              className={`btn ${activeTab === 'export' ? 'btn-primary' : 'btn-ghost'}`}
+              onClick={() => setActiveTab('export')}
+            >
+              Export
+            </button>
+            <button
+              className={`btn ${activeTab === 'import' ? 'btn-primary' : 'btn-ghost'}`}
+              onClick={() => setActiveTab('import')}
+            >
+              Import
+            </button>
+          </div>
+
+          {activeTab === 'export' && (
+            <>
+              <div style={{ marginBottom: 20 }}>
+                <label style={{ display: 'block', marginBottom: 8, fontSize: 13, color: 'var(--text-secondary)' }}>
+                  Export Type
+                </label>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                  <label style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer' }}>
+                    <input
+                      type="radio"
+                      name="exportType"
+                      checked={exportType === 'full'}
+                      onChange={() => setExportType('full')}
+                    />
+                    <span>Full Export (Everything)</span>
+                  </label>
+                  <label style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer' }}>
+                    <input
+                      type="radio"
+                      name="exportType"
+                      checked={exportType === 'tasks_only'}
+                      onChange={() => setExportType('tasks_only')}
+                    />
+                    <span>Tasks Only (No analytics)</span>
+                  </label>
+                  <label style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer' }}>
+                    <input
+                      type="radio"
+                      name="exportType"
+                      checked={exportType === 'analytics_only'}
+                      onChange={() => setExportType('analytics_only')}
+                    />
+                    <span>Analytics Only</span>
+                  </label>
+                </div>
+              </div>
+
+              <div style={{ 
+                background: 'var(--bg-tertiary)', 
+                padding: 16, 
+                borderRadius: 8, 
+                marginBottom: 20,
+                fontSize: 13 
+              }}>
+                <div style={{ marginBottom: 8, fontWeight: 600 }}>Current Data:</div>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
+                  <div>{taskCount} tasks</div>
+                  <div>{categoryCount} categories</div>
+                  <div>{blockCount} time blocks</div>
+                  <div>{pomodoroSessions} pomodoro sessions</div>
+                  <div>{totalPomodoroMinutes}m focused</div>
+                  <div>All data is JSON</div>
+                </div>
+              </div>
+
+              <div className="modal-actions">
+                <button className="btn btn-ghost" onClick={onClose}>Cancel</button>
+                <button className="btn btn-primary" onClick={handleExport}>
+                  Export to JSON
+                </button>
+              </div>
+            </>
+          )}
+
+          {activeTab === 'import' && (
+            <>
+              <div style={{ marginBottom: 20 }}>
+                <p style={{ fontSize: 13, color: 'var(--text-secondary)', marginBottom: 16 }}>
+                  Import a previously exported BlockOut JSON file. This will merge with your current data.
+                </p>
+
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept=".json"
+                  onChange={handleFileSelect}
+                  style={{ display: 'none' }}
+                />
+
+                <button
+                  className="btn btn-primary"
+                  onClick={() => fileInputRef.current?.click()}
+                  style={{ width: '100%', marginBottom: 16 }}
+                >
+                  Select JSON File
+                </button>
+
+                {importError && (
+                  <div style={{ 
+                    padding: 12, 
+                    background: 'hsla(0, 72%, 62%, 0.1)', 
+                    border: '1px solid hsla(0, 72%, 62%, 0.3)',
+                    borderRadius: 6,
+                    color: 'hsl(0, 72%, 62%)',
+                    fontSize: 13,
+                    marginBottom: 16
+                  }}>
+                    {importError}
+                  </div>
+                )}
+
+                {importSuccess && (
+                  <div style={{ 
+                    padding: 12, 
+                    background: 'hsla(140, 60%, 50%, 0.1)', 
+                    border: '1px solid hsla(140, 60%, 50%, 0.3)',
+                    borderRadius: 6,
+                    color: 'hsl(140, 60%, 50%)',
+                    fontSize: 13,
+                    marginBottom: 16
+                  }}>
+                    {importSuccess}
+                  </div>
+                )}
+              </div>
+
+              <div className="modal-actions">
+                <button className="btn btn-ghost" onClick={onClose}>Close</button>
+              </div>
+            </>
+          )}
         </motion.div>
       </motion.div>
     </AnimatePresence>
