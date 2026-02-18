@@ -11,6 +11,7 @@ import {
   NewBlockModal,
   NewCategoryModal,
   NewTaskModal,
+  TaskEditModal,
   TaskCompletionSurvey,
   PomodoroSettingsModal,
   SyncSettingsModal,
@@ -51,6 +52,7 @@ export function App() {
       <NewBlockModal />
       <NewCategoryModal />
       <NewTaskModal />
+      <TaskEditModal />
       <TaskCompletionSurvey />
       <PomodoroSettingsModal />
       <SyncSettingsModal />

@@ -1,27 +1,75 @@
-import { useRef, useEffect, useState, useCallback, useMemo } from 'react';
+import { useRef, useEffect, useState, useCallback, useMemo, useLayoutEffect } from 'react';
 import { useStore } from '../store';
 import { layoutTreemap } from '../utils/treemap';
 import { TASK_GRAY } from '../utils/colors';
 import { debouncedSave } from '../utils/persistence';
 import type { TreemapNode, Task, Category } from '../types';
 
-interface ParticleBurst {
+// ─── Animation types ──────────────────────────────────────────────────────────
+
+interface Particle {
   id: string;
-  x: number;
-  y: number;
+  cx: number; cy: number;          // burst origin (tile center)
+  tx: number; ty: number; tw: number; th: number; // clip bounds
   color: string;
   startTime: number;
 }
+
+interface Dissolve {
+  startTime: number;
+  fromColor: string; // TASK_GRAY
+  toColor: string;   // category color
+}
+
+// ─── Helpers ──────────────────────────────────────────────────────────────────
+
+/** Smooth HSL interpolation between two hsl(…) strings */
+function lerpHsl(from: string, to: string, t: number): string {
+  const parse = (s: string) => {
+    const m = s.match(/hsl\((\d+(?:\.\d+)?),\s*(\d+(?:\.\d+)?)%,\s*(\d+(?:\.\d+)?)%\)/);
+    return m ? [parseFloat(m[1]), parseFloat(m[2]), parseFloat(m[3])] : [0, 0, 0];
+  };
+  const [h1, s1, l1] = parse(from);
+  const [h2, s2, l2] = parse(to);
+  const e = 1 - Math.pow(1 - t, 2); // ease-out quad
+  const lerp = (a: number, b: number) => a + (b - a) * e;
+  return `hsl(${lerp(h1, h2).toFixed(0)}, ${lerp(s1, s2).toFixed(1)}%, ${lerp(l1, l2).toFixed(1)}%)`;
+}
+
+function roundRect(
+  ctx: CanvasRenderingContext2D,
+  x: number, y: number, w: number, h: number, r: number,
+) {
+  r = Math.min(r, w / 2, h / 2);
+  if (r < 0) r = 0;
+  ctx.moveTo(x + r, y);
+  ctx.lineTo(x + w - r, y);
+  ctx.quadraticCurveTo(x + w, y, x + w, y + r);
+  ctx.lineTo(x + w, y + h - r);
+  ctx.quadraticCurveTo(x + w, y + h, x + w - r, y + h);
+  ctx.lineTo(x + r, y + h);
+  ctx.quadraticCurveTo(x, y + h, x, y + h - r);
+  ctx.lineTo(x, y + r);
+  ctx.quadraticCurveTo(x, y, x + r, y);
+  ctx.closePath();
+}
+
+// ─── Component ────────────────────────────────────────────────────────────────
 
 export function Treemap() {
   const containerRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [size, setSize] = useState({ w: 0, h: 0 });
-  const [hoveredId, setHoveredId] = useState<string | null>(null);
-  const [particles, setParticles] = useState<ParticleBurst[]>([]);
-  const [completingIds, setCompletingIds] = useState<Set<string>>(new Set());
-  const [sparklePhase, setSparklePhase] = useState(0);
 
+  // Animation state in plain refs — zero React re-renders during animation
+  const hoveredIdRef = useRef<string | null>(null);
+  const particlesRef = useRef<Particle[]>([]);
+  const dissolvingRef = useRef<Map<string, Dissolve>>(new Map());
+  const sparkleCounterRef = useRef(0);
+  const lastSparkleRef = useRef(0);
+  const rafRef = useRef(0);
+
+  // Store selectors
   const tasks = useStore((s) => s.tasks);
   const categories = useStore((s) => s.categories);
   const timeBlocks = useStore((s) => s.timeBlocks);
@@ -31,6 +79,7 @@ export function Treemap() {
   const focusMode = useStore((s) => s.focusMode);
   const focusedCategoryId = useStore((s) => s.pomodoro.focusedCategoryId);
   const setDraggedTask = useStore((s) => s.setDraggedTask);
+  const setEditingTaskId = useStore((s) => s.setEditingTaskId);
 
   const isTaskLocked = (taskId: string): boolean => {
     const task = tasks[taskId];
@@ -38,46 +87,27 @@ export function Treemap() {
     return task.dependsOn.some((depId) => !tasks[depId]?.completed);
   };
 
-  // Idle sparkle animation
-  useEffect(() => {
-    const interval = setInterval(() => {
-      setSparklePhase((p) => p + 1);
-    }, 2000);
-    return () => clearInterval(interval);
-  }, []);
-
-  // Determine which tasks to display
   const visibleTasks = useMemo(() => {
-    if (showTimelessPool) {
-      return Object.values(tasks);
-    }
+    if (showTimelessPool) return Object.values(tasks);
     if (activeBlockId && timeBlocks[activeBlockId]) {
-      return timeBlocks[activeBlockId].taskIds
-        .map((id) => tasks[id])
-        .filter(Boolean);
+      return timeBlocks[activeBlockId].taskIds.map((id) => tasks[id]).filter(Boolean);
     }
     return [];
   }, [tasks, timeBlocks, activeBlockId, showTimelessPool]);
 
-  // Build treemap data with subcategory nesting
   const treemapData = useMemo(() => {
     const catMap = new Map<string, { category: Category; tasks: Task[] }>();
-
     visibleTasks.forEach((task) => {
       const cat = categories[task.categoryId];
       if (!cat) return;
-      if (!catMap.has(cat.id)) {
-        catMap.set(cat.id, { category: cat, tasks: [] });
-      }
+      if (!catMap.has(cat.id)) catMap.set(cat.id, { category: cat, tasks: [] });
       catMap.get(cat.id)!.tasks.push(task);
     });
 
     const nodes: TreemapNode[] = [];
     catMap.forEach(({ category, tasks: catTasks }) => {
-      // Group tasks by subcategory
       const subMap = new Map<string, Task[]>();
       const noSub: Task[] = [];
-
       catTasks.forEach((task) => {
         if (task.subcategoryId) {
           if (!subMap.has(task.subcategoryId)) subMap.set(task.subcategoryId, []);
@@ -88,34 +118,29 @@ export function Treemap() {
       });
 
       const children: TreemapNode[] = [];
-
-      // Add subcategory groups
       subMap.forEach((subTasks, subId) => {
         const sub = category.subcategories.find((s) => s.id === subId);
-        const subChildren: TreemapNode[] = subTasks.map((task) => ({
-          id: task.id,
-          name: task.title,
-          value: task.weight,
-          color: category.color,
-          completed: task.completed,
-          locked: isTaskLocked(task.id),
-          categoryId: category.id,
-          subcategoryId: subId,
-        }));
-
         children.push({
           id: subId,
           name: sub?.name || 'Unknown',
           value: subTasks.reduce((sum, t) => sum + t.weight, 0),
           color: category.color,
           completed: subTasks.every((t) => t.completed),
-          children: subChildren,
+          children: subTasks.map((task) => ({
+            id: task.id,
+            name: task.title,
+            value: task.weight,
+            color: category.color,
+            completed: task.completed,
+            locked: isTaskLocked(task.id),
+            categoryId: category.id,
+            subcategoryId: subId,
+          })),
           categoryId: category.id,
           depth: 1,
         });
       });
 
-      // Add un-subcategorized tasks as direct children
       noSub.forEach((task) => {
         children.push({
           id: task.id,
@@ -137,7 +162,6 @@ export function Treemap() {
         children,
       });
     });
-
     return nodes;
   }, [visibleTasks, categories]);
 
@@ -147,21 +171,17 @@ export function Treemap() {
     if (!el) return;
     const obs = new ResizeObserver((entries) => {
       const entry = entries[0];
-      if (entry) {
-        setSize({ w: entry.contentRect.width, h: entry.contentRect.height });
-      }
+      if (entry) setSize({ w: entry.contentRect.width, h: entry.contentRect.height });
     });
     obs.observe(el);
     return () => obs.disconnect();
   }, []);
 
-  // Layout
   const layout = useMemo(() => {
     if (size.w === 0 || size.h === 0 || treemapData.length === 0) return [];
     return layoutTreemap(treemapData, size.w, size.h, 6);
   }, [treemapData, size]);
 
-  // Collect all leaf task nodes (for hit-testing)
   const leafNodes = useMemo(() => {
     const leaves: TreemapNode[] = [];
     const collect = (nodes: TreemapNode[]) => {
@@ -181,200 +201,224 @@ export function Treemap() {
     return leaves;
   }, [layout]);
 
-  // Canvas rendering
-  useEffect(() => {
+  // ── Data refs: kept in sync so the RAF loop always reads the latest values ──
+  const layoutRef = useRef(layout);
+  const sizeRef = useRef(size);
+  const tasksRef = useRef(tasks);
+  const focusModeRef = useRef(focusMode);
+  const focusedCatRef = useRef(focusedCategoryId);
+  const leafNodesRef = useRef(leafNodes);
+  const setEditingRef = useRef(setEditingTaskId);
+
+  useLayoutEffect(() => { layoutRef.current = layout; }, [layout]);
+  useLayoutEffect(() => { sizeRef.current = size; }, [size]);
+  useLayoutEffect(() => { tasksRef.current = tasks; }, [tasks]);
+  useLayoutEffect(() => { focusModeRef.current = focusMode; }, [focusMode]);
+  useLayoutEffect(() => { focusedCatRef.current = focusedCategoryId; }, [focusedCategoryId]);
+  useLayoutEffect(() => { leafNodesRef.current = leafNodes; }, [leafNodes]);
+  useLayoutEffect(() => { setEditingRef.current = setEditingTaskId; }, [setEditingTaskId]);
+
+  // ── Single draw call — reads exclusively from refs, no React state deps ─────
+  const drawFrame = useCallback(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
 
+    const { w, h } = sizeRef.current;
+    if (w === 0 || h === 0) return;
+
     const dpr = window.devicePixelRatio || 1;
-    canvas.width = size.w * dpr;
-    canvas.height = size.h * dpr;
-    ctx.scale(dpr, dpr);
-    ctx.clearRect(0, 0, size.w, size.h);
+    const targetW = Math.round(w * dpr);
+    const targetH = Math.round(h * dpr);
+    if (canvas.width !== targetW || canvas.height !== targetH) {
+      canvas.width = targetW;
+      canvas.height = targetH;
+    }
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    ctx.clearRect(0, 0, w, h);
 
-    const isFocusing = focusMode && focusedCategoryId;
+    const now = Date.now();
+    const currLayout = layoutRef.current;
+    const hoveredId = hoveredIdRef.current;
+    const isFocusing = focusModeRef.current && focusedCatRef.current;
+    const sparkle = sparkleCounterRef.current;
+    const dissolving = dissolvingRef.current;
+    const currTasks = tasksRef.current;
 
-    // Draw category containers
-    layout.forEach((catNode) => {
+    const drawLeafTile = (taskNode: TreemapNode) => {
+      const tx = taskNode.x!;
+      const ty = taskNode.y!;
+      const tw = taskNode.w!;
+      const th = taskNode.h!;
+      if (tw < 2 || th < 2) return;
+
+      const isHovered = hoveredId === taskNode.id;
+      const isLocked = taskNode.locked;
+      const dissolve = dissolving.get(taskNode.id);
+
+      // ── Tile fill ───────────────────────────────────────────────────────────
+      let fillColor: string;
+      if (isLocked) {
+        fillColor = isHovered ? 'hsl(30, 25%, 18%)' : 'hsl(30, 20%, 14%)';
+      } else if (dissolve) {
+        const progress = Math.min(1, (now - dissolve.startTime) / 600);
+        fillColor = lerpHsl(dissolve.fromColor, dissolve.toColor, progress);
+      } else if (taskNode.completed) {
+        fillColor = isHovered ? taskNode.color.replace('62%)', '70%)') : taskNode.color;
+      } else {
+        fillColor = isHovered ? 'hsl(220, 10%, 28%)' : TASK_GRAY;
+      }
+
+      ctx.fillStyle = fillColor;
+      ctx.beginPath();
+      roundRect(ctx, tx, ty, tw, th, 4);
+      ctx.fill();
+
+      // ── Border ──────────────────────────────────────────────────────────────
+      if (isLocked) {
+        ctx.strokeStyle = 'hsl(30, 40%, 28%)';
+      } else if (taskNode.completed || dissolve) {
+        ctx.strokeStyle = taskNode.color.replace('62%)', '45%)');
+      } else {
+        ctx.strokeStyle = isHovered ? 'hsl(220, 10%, 35%)' : 'hsl(220, 10%, 28%)';
+      }
+      ctx.lineWidth = isLocked ? 1.5 : 1;
+      ctx.beginPath();
+      roundRect(ctx, tx, ty, tw, th, 4);
+      ctx.stroke();
+
+      // ── Locked crosshatch ───────────────────────────────────────────────────
+      if (isLocked && tw > 8 && th > 8) {
+        ctx.save();
+        ctx.beginPath();
+        roundRect(ctx, tx, ty, tw, th, 4);
+        ctx.clip();
+        ctx.strokeStyle = 'rgba(180, 120, 40, 0.15)';
+        ctx.lineWidth = 1;
+        for (let x = tx - th; x < tx + tw + th; x += 8) {
+          ctx.beginPath();
+          ctx.moveTo(x, ty);
+          ctx.lineTo(x + th, ty + th);
+          ctx.stroke();
+        }
+        ctx.restore();
+      }
+
+      // ── Label — proportional font size ──────────────────────────────────────
+      if (tw > 22 && th > 12) {
+        const area = tw * th;
+        // Scale font with tile area, capped between 9–13 px
+        const fontSize = Math.max(9, Math.min(13, Math.sqrt(area) / 6.5));
+        const isActive = taskNode.completed || !!dissolve;
+        ctx.font = `${isActive ? '600' : '500'} ${fontSize.toFixed(0)}px Inter, sans-serif`;
+        ctx.textBaseline = 'middle';
+        ctx.fillStyle = isLocked
+          ? 'rgba(180, 120, 40, 0.6)'
+          : isActive
+          ? 'rgba(255,255,255,0.92)'
+          : 'rgba(255,255,255,0.55)';
+
+        const labelX = tx + (isLocked && tw > 24 ? 20 : 6);
+        const labelMaxW = tw - (isLocked && tw > 24 ? 26 : 12);
+        const approxCharW = fontSize * 0.52;
+        const maxChars = Math.floor(labelMaxW / approxCharW);
+        let label = taskNode.name;
+        if (label.length > maxChars) label = label.slice(0, maxChars - 1) + '\u2026';
+
+        // For large tiles: show notes on a second line
+        const task = currTasks[taskNode.id];
+        const showNotes = th > 54 && tw > 58 && !!task?.notes;
+        const labelY = showNotes ? ty + th * 0.38 : ty + th / 2;
+        ctx.fillText(label, labelX, labelY, labelMaxW);
+
+        if (showNotes && task?.notes) {
+          const noteSize = Math.max(8, fontSize - 1.5);
+          ctx.font = `400 ${noteSize.toFixed(0)}px Inter, sans-serif`;
+          ctx.fillStyle = 'rgba(255,255,255,0.28)';
+          const noteMaxChars = Math.floor(labelMaxW / (noteSize * 0.52));
+          let note = task.notes;
+          if (note.length > noteMaxChars) note = note.slice(0, noteMaxChars - 1) + '\u2026';
+          ctx.fillText(note, labelX, ty + th * 0.62, labelMaxW);
+        }
+      }
+
+      // ── Lock icon ───────────────────────────────────────────────────────────
+      if (isLocked && tw > 16 && th > 16) {
+        ctx.fillStyle = 'rgba(200, 150, 60, 0.7)';
+        ctx.font = `${Math.min(12, tw * 0.4, th * 0.4)}px sans-serif`;
+        ctx.textBaseline = 'middle';
+        ctx.textAlign = 'left';
+        ctx.fillText('\uD83D\uDD12', tx + 3, ty + th / 2);
+        ctx.textAlign = 'left';
+      }
+
+      // ── Completion checkmark (only after dissolve finishes) ─────────────────
+      if (taskNode.completed && !dissolve && tw > 20 && th > 20) {
+        ctx.fillStyle = 'rgba(255,255,255,0.3)';
+        ctx.font = '12px sans-serif';
+        ctx.textBaseline = 'top';
+        ctx.fillText('\u2713', tx + tw - 16, ty + 4);
+      }
+
+      // ── Idle sparkle on completed tiles ─────────────────────────────────────
+      if (taskNode.completed && !dissolve && tw > 15 && th > 15) {
+        const sparkleHash = (taskNode.id.charCodeAt(0) + taskNode.id.charCodeAt(1)) % 5;
+        if ((sparkle + sparkleHash) % 5 === 0) {
+          const sx = tx + tw * 0.3 + (sparkle * 7) % (tw * 0.4);
+          const sy = ty + th * 0.3 + (sparkle * 3) % (th * 0.4);
+          ctx.fillStyle = 'rgba(255,255,255,0.6)';
+          ctx.beginPath();
+          ctx.arc(sx, sy, 1.5, 0, Math.PI * 2);
+          ctx.fill();
+        }
+      }
+    };
+
+    // ── Category containers + children ────────────────────────────────────────
+    currLayout.forEach((catNode) => {
       const x = catNode.x!;
       const y = catNode.y!;
       const w = catNode.w!;
       const h = catNode.h!;
 
-      const dimmed = isFocusing && catNode.id !== focusedCategoryId;
-      const focused = isFocusing && catNode.id === focusedCategoryId;
+      const dimmed = isFocusing && catNode.id !== focusedCatRef.current;
+      const focused = isFocusing && catNode.id === focusedCatRef.current;
 
-      if (dimmed) {
-        ctx.globalAlpha = 0.15;
-      }
+      if (dimmed) ctx.globalAlpha = 0.15;
 
-      // Category background
       ctx.fillStyle = catNode.color.replace('62%)', '12%)');
       ctx.beginPath();
       roundRect(ctx, x, y, w, h, 8);
       ctx.fill();
 
-      // Category border — glow if focused
-      if (focused) {
-        ctx.shadowColor = catNode.color;
-        ctx.shadowBlur = 12;
-      }
-      ctx.strokeStyle = focused
-        ? catNode.color
-        : catNode.color.replace('62%)', '25%)');
+      if (focused) { ctx.shadowColor = catNode.color; ctx.shadowBlur = 12; }
+      ctx.strokeStyle = focused ? catNode.color : catNode.color.replace('62%)', '25%)');
       ctx.lineWidth = focused ? 2 : 1;
       ctx.beginPath();
       roundRect(ctx, x, y, w, h, 8);
       ctx.stroke();
       ctx.shadowBlur = 0;
 
-      // Category label
       const headerH = Math.min(22, h * 0.25);
       ctx.fillStyle = catNode.color;
       ctx.font = '600 11px Inter, sans-serif';
       ctx.textBaseline = 'middle';
-      const labelText = catNode.name.toUpperCase();
-      if (w > 40 && h > 20) {
-        ctx.fillText(labelText, x + 8, y + headerH / 2 + 2, w - 16);
-      }
-
-      // Draw children (tasks or subcategory groups)
-      const drawLeafTile = (taskNode: TreemapNode) => {
-        const tx = taskNode.x!;
-        const ty = taskNode.y!;
-        const tw = taskNode.w!;
-        const th = taskNode.h!;
-
-        if (tw < 2 || th < 2) return;
-
-        const isHovered = hoveredId === taskNode.id;
-        const isCompleting = completingIds.has(taskNode.id);
-        const isLocked = taskNode.locked;
-
-        // Tile fill
-        if (isLocked) {
-          ctx.fillStyle = isHovered ? 'hsl(30, 25%, 18%)' : 'hsl(30, 20%, 14%)';
-        } else if (taskNode.completed) {
-          ctx.fillStyle = isHovered
-            ? taskNode.color.replace('62%)', '70%)')
-            : taskNode.color;
-        } else {
-          ctx.fillStyle = isHovered ? 'hsl(220, 10%, 28%)' : TASK_GRAY;
-        }
-
-        if (isCompleting) {
-          const scale = 1.06;
-          const dx = tw * (scale - 1) / 2;
-          const dy = th * (scale - 1) / 2;
-          ctx.beginPath();
-          roundRect(ctx, tx - dx, ty - dy, tw + dx * 2, th + dy * 2, 4);
-          ctx.fill();
-        } else {
-          ctx.beginPath();
-          roundRect(ctx, tx, ty, tw, th, 4);
-          ctx.fill();
-        }
-
-        // Tile border
-        if (isLocked) {
-          ctx.strokeStyle = 'hsl(30, 40%, 28%)';
-        } else if (taskNode.completed) {
-          ctx.strokeStyle = taskNode.color.replace('62%)', '45%)');
-        } else {
-          ctx.strokeStyle = isHovered ? 'hsl(220, 10%, 35%)' : 'hsl(220, 10%, 28%)';
-        }
-        ctx.lineWidth = isLocked ? 1.5 : 1;
-        ctx.beginPath();
-        roundRect(ctx, tx, ty, tw, th, 4);
-        ctx.stroke();
-
-        // Locked: draw crosshatch pattern overlay
-        if (isLocked && tw > 8 && th > 8) {
-          ctx.save();
-          ctx.beginPath();
-          roundRect(ctx, tx, ty, tw, th, 4);
-          ctx.clip();
-          ctx.strokeStyle = 'rgba(180, 120, 40, 0.15)';
-          ctx.lineWidth = 1;
-          const spacing = 8;
-          for (let x = tx - th; x < tx + tw + th; x += spacing) {
-            ctx.beginPath();
-            ctx.moveTo(x, ty);
-            ctx.lineTo(x + th, ty + th);
-            ctx.stroke();
-          }
-          ctx.restore();
-        }
-
-        // Task label
-        if (tw > 30 && th > 16) {
-          ctx.fillStyle = isLocked
-            ? 'rgba(180, 120, 40, 0.6)'
-            : taskNode.completed
-            ? 'rgba(255,255,255,0.9)'
-            : 'rgba(255,255,255,0.55)';
-          ctx.font = '500 10px Inter, sans-serif';
-          ctx.textBaseline = 'middle';
-          const labelX = tx + (isLocked && tw > 24 ? 20 : 6);
-          const maxW = tw - (isLocked && tw > 24 ? 26 : 12);
-          const maxChars = Math.floor(maxW / 6);
-          let label = taskNode.name;
-          if (label.length > maxChars) {
-            label = label.substring(0, maxChars - 1) + '\u2026';
-          }
-          ctx.fillText(label, labelX, ty + th / 2, maxW);
-        }
-
-        // Lock icon for locked tiles
-        if (isLocked && tw > 16 && th > 16) {
-          ctx.fillStyle = 'rgba(200, 150, 60, 0.7)';
-          ctx.font = `${Math.min(12, tw * 0.4, th * 0.4)}px sans-serif`;
-          ctx.textBaseline = 'middle';
-          ctx.textAlign = 'left';
-          ctx.fillText('\uD83D\uDD12', tx + 3, ty + th / 2);
-          ctx.textAlign = 'left'; // reset
-        }
-
-        // Completion checkmark
-        if (taskNode.completed && tw > 20 && th > 20) {
-          ctx.fillStyle = 'rgba(255,255,255,0.3)';
-          ctx.font = '12px sans-serif';
-          ctx.textBaseline = 'top';
-          ctx.fillText('\u2713', tx + tw - 16, ty + 4);
-        }
-
-        // Idle sparkle on completed tiles
-        if (taskNode.completed && tw > 15 && th > 15) {
-          const sparkleHash = (taskNode.id.charCodeAt(0) + taskNode.id.charCodeAt(1)) % 5;
-          if ((sparklePhase + sparkleHash) % 5 === 0) {
-            const sx = tx + (tw * 0.3) + ((sparklePhase * 7) % (tw * 0.4));
-            const sy = ty + (th * 0.3) + ((sparklePhase * 3) % (th * 0.4));
-            ctx.fillStyle = 'rgba(255, 255, 255, 0.6)';
-            ctx.beginPath();
-            ctx.arc(sx, sy, 1.5, 0, Math.PI * 2);
-            ctx.fill();
-          }
-        }
-      };
+      if (w > 40 && h > 20) ctx.fillText(catNode.name.toUpperCase(), x + 8, y + headerH / 2 + 2, w - 16);
 
       if (catNode.children) {
         catNode.children.forEach((child) => {
           if (child.children && child.children.length > 0 && child.depth) {
-            // Subcategory group — draw subtle label and recurse
             if (child.x !== undefined && child.w! > 30 && child.h! > 20) {
               ctx.fillStyle = catNode.color.replace('62%)', '16%)');
               ctx.beginPath();
               roundRect(ctx, child.x!, child.y!, child.w!, child.h!, 5);
               ctx.fill();
-
               ctx.strokeStyle = catNode.color.replace('62%)', '20%)');
               ctx.lineWidth = 0.5;
               ctx.beginPath();
               roundRect(ctx, child.x!, child.y!, child.w!, child.h!, 5);
               ctx.stroke();
-
               if (child.w! > 50 && child.h! > 25) {
                 ctx.fillStyle = catNode.color.replace('72%', '50%').replace('62%)', '50%)');
                 ctx.font = '500 9px Inter, sans-serif';
@@ -389,162 +433,159 @@ export function Treemap() {
         });
       }
 
-      if (dimmed) {
-        ctx.globalAlpha = 1;
-      }
+      if (dimmed) ctx.globalAlpha = 1;
     });
 
-    // Draw particles
-    const now = Date.now();
-    particles.forEach((p) => {
+    // ── Contained particles — clipped to tile bounds ──────────────────────────
+    const PARTICLE_DURATION = 700;
+    particlesRef.current.forEach((p) => {
       const elapsed = now - p.startTime;
-      const duration = 700;
-      const progress = Math.min(elapsed / duration, 1);
+      const progress = Math.min(elapsed / PARTICLE_DURATION, 1);
       if (progress >= 1) return;
 
-      const count = 12;
+      const maxDist = Math.min(p.tw, p.th) * 0.36; // spread proportional to tile, stays inside
+
+      ctx.save();
+      ctx.beginPath();
+      roundRect(ctx, p.tx, p.ty, p.tw, p.th, 4);
+      ctx.clip();
+
+      const count = 10;
       for (let i = 0; i < count; i++) {
-        const angle = (i / count) * Math.PI * 2 + progress * 0.5;
-        const dist = progress * 50;
-        const px = p.x + Math.cos(angle) * dist;
-        const py = p.y + Math.sin(angle) * dist;
-        const psize = (1 - progress) * 3.5;
+        const angle = (i / count) * Math.PI * 2 + progress * 0.9;
+        const dist = progress * maxDist;
+        const px = p.cx + Math.cos(angle) * dist;
+        const py = p.cy + Math.sin(angle) * dist;
         ctx.fillStyle = p.color;
-        ctx.globalAlpha = (1 - progress) * 0.8;
+        ctx.globalAlpha = (1 - progress) * 0.9;
         ctx.beginPath();
-        ctx.arc(px, py, psize, 0, Math.PI * 2);
+        ctx.arc(px, py, (1 - progress) * 2.5, 0, Math.PI * 2);
         ctx.fill();
       }
+      // Smaller inner ring rotating opposite
       for (let i = 0; i < 6; i++) {
-        const angle = (i / 6) * Math.PI * 2 - progress;
-        const dist = progress * 25;
-        const px = p.x + Math.cos(angle) * dist;
-        const py = p.y + Math.sin(angle) * dist;
+        const angle = (i / 6) * Math.PI * 2 - progress * 2.5;
+        const dist = progress * maxDist * 0.5;
+        const px = p.cx + Math.cos(angle) * dist;
+        const py = p.cy + Math.sin(angle) * dist;
+        ctx.globalAlpha = (1 - progress) * 0.55;
         ctx.beginPath();
-        ctx.arc(px, py, (1 - progress) * 2, 0, Math.PI * 2);
+        ctx.arc(px, py, (1 - progress) * 1.8, 0, Math.PI * 2);
         ctx.fill();
       }
+      ctx.restore();
       ctx.globalAlpha = 1;
     });
+  }, []); // empty deps — all data via refs
 
-    setParticles((prev) => prev.filter((p) => now - p.startTime < 700));
-  }, [layout, size, hoveredId, particles, completingIds, focusMode, focusedCategoryId, sparklePhase]);
-
-  // Animation loop for particles
+  // ── Persistent RAF loop — started once, runs forever ─────────────────────────
   useEffect(() => {
-    if (particles.length === 0) return;
-    const id = requestAnimationFrame(() => {
-      setParticles((p) => [...p]);
-    });
-    return () => cancelAnimationFrame(id);
-  }, [particles]);
-
-  // Hit testing using collected leaf nodes
-  const findNodeAt = useCallback(
-    (mx: number, my: number): TreemapNode | null => {
-      for (const leaf of leafNodes) {
-        if (
-          mx >= leaf.x! &&
-          mx <= leaf.x! + leaf.w! &&
-          my >= leaf.y! &&
-          my <= leaf.y! + leaf.h!
-        ) {
-          return leaf;
-        }
+    const loop = (timestamp: number) => {
+      if (timestamp - lastSparkleRef.current > 2000) {
+        sparkleCounterRef.current++;
+        lastSparkleRef.current = timestamp;
       }
-      return null;
-    },
-    [leafNodes]
-  );
+      const now = Date.now();
+      drawFrame();
+      // Cleanup expired animations
+      particlesRef.current = particlesRef.current.filter((p) => now - p.startTime < 700);
+      dissolvingRef.current.forEach((v, k) => {
+        if (now - v.startTime > 600) dissolvingRef.current.delete(k);
+      });
+      rafRef.current = requestAnimationFrame(loop);
+    };
+    rafRef.current = requestAnimationFrame(loop);
+    return () => cancelAnimationFrame(rafRef.current);
+  }, [drawFrame]);
 
-  const handleMouseMove = useCallback(
-    (e: React.MouseEvent) => {
-      const rect = containerRef.current?.getBoundingClientRect();
-      if (!rect) return;
-      const node = findNodeAt(e.clientX - rect.left, e.clientY - rect.top);
-      setHoveredId(node?.id || null);
-      if (containerRef.current) {
-        containerRef.current.style.cursor = node ? 'pointer' : 'default';
+  // ── Hit testing ───────────────────────────────────────────────────────────────
+  const findNodeAt = useCallback((mx: number, my: number): TreemapNode | null => {
+    for (const leaf of leafNodesRef.current) {
+      if (mx >= leaf.x! && mx <= leaf.x! + leaf.w! && my >= leaf.y! && my <= leaf.y! + leaf.h!) {
+        return leaf;
       }
-    },
-    [findNodeAt]
-  );
+    }
+    return null;
+  }, []);
 
-  const handleDoubleClick = useCallback(
-    (e: React.MouseEvent) => {
-      const rect = containerRef.current?.getBoundingClientRect();
-      if (!rect) return;
-      const mx = e.clientX - rect.left;
-      const my = e.clientY - rect.top;
-      const node = findNodeAt(mx, my);
-      if (node) {
-        const task = tasks[node.id];
-        // Don't toggle locked tasks
-        if (task && task.dependsOn && task.dependsOn.length > 0) {
-          const allMet = task.dependsOn.every((depId) => tasks[depId]?.completed);
-          if (!allMet) return;
-        }
-        toggleTask(node.id);
-        debouncedSave();
+  // ── Event handlers ────────────────────────────────────────────────────────────
+  const handleMouseMove = useCallback((e: React.MouseEvent) => {
+    const rect = containerRef.current?.getBoundingClientRect();
+    if (!rect) return;
+    const node = findNodeAt(e.clientX - rect.left, e.clientY - rect.top);
+    hoveredIdRef.current = node?.id ?? null;
+    if (containerRef.current) {
+      containerRef.current.style.cursor = node ? 'pointer' : 'default';
+    }
+  }, [findNodeAt]);
 
-        if (task && !task.completed) {
-          setParticles((prev) => [
-            ...prev,
-            {
-              id: node.id + Date.now(),
-              x: node.x! + node.w! / 2,
-              y: node.y! + node.h! / 2,
-              color: node.color,
-              startTime: Date.now(),
-            },
-          ]);
-          setCompletingIds((prev) => new Set(prev).add(node.id));
-          setTimeout(() => {
-            setCompletingIds((prev) => {
-              const next = new Set(prev);
-              next.delete(node.id);
-              return next;
-            });
-          }, 400);
-        }
-      }
-    },
-    [findNodeAt, toggleTask, tasks]
-  );
+  const handleDoubleClick = useCallback((e: React.MouseEvent) => {
+    const rect = containerRef.current?.getBoundingClientRect();
+    if (!rect) return;
+    const node = findNodeAt(e.clientX - rect.left, e.clientY - rect.top);
+    if (!node) return;
 
-  // Drag start for tasks
-  const handleMouseDown = useCallback(
-    (e: React.MouseEvent) => {
-      if (e.button !== 0) return;
-      const rect = containerRef.current?.getBoundingClientRect();
-      if (!rect) return;
-      const node = findNodeAt(e.clientX - rect.left, e.clientY - rect.top);
-      if (node && tasks[node.id]) {
-        (containerRef.current as any).__pendingDragId = node.id;
-      }
-    },
-    [findNodeAt, tasks]
-  );
+    const task = tasksRef.current[node.id];
+    if (task?.dependsOn?.length) {
+      const allMet = task.dependsOn.every((id) => tasksRef.current[id]?.completed);
+      if (!allMet) return;
+    }
 
-  const handleDragStart = useCallback(
-    (e: React.DragEvent) => {
-      const taskId = (containerRef.current as any)?.__pendingDragId;
-      if (taskId) {
-        setDraggedTask(taskId);
-        e.dataTransfer.effectAllowed = 'move';
-        e.dataTransfer.setData('text/plain', taskId);
-      }
-    },
-    [setDraggedTask]
-  );
+    const wasCompleted = task?.completed ?? false;
+    toggleTask(node.id);
+    debouncedSave();
 
-  const handleDragEnd = useCallback(() => {
-    setDraggedTask(null);
+    if (!wasCompleted) {
+      const now = Date.now();
+      // Start dissolve: tile color transitions from gray → category color
+      dissolvingRef.current.set(node.id, {
+        startTime: now,
+        fromColor: TASK_GRAY,
+        toColor: node.color,
+      });
+      // Contained particle burst clipped to the tile
+      particlesRef.current.push({
+        id: node.id + now,
+        cx: node.x! + node.w! / 2,
+        cy: node.y! + node.h! / 2,
+        tx: node.x!, ty: node.y!, tw: node.w!, th: node.h!,
+        color: node.color,
+        startTime: now,
+      });
+    }
+  }, [findNodeAt, toggleTask]);
+
+  const handleContextMenu = useCallback((e: React.MouseEvent) => {
+    e.preventDefault();
+    const rect = containerRef.current?.getBoundingClientRect();
+    if (!rect) return;
+    const node = findNodeAt(e.clientX - rect.left, e.clientY - rect.top);
+    if (node && tasksRef.current[node.id]) {
+      setEditingRef.current(node.id);
+    }
+  }, [findNodeAt]);
+
+  const handleMouseDown = useCallback((e: React.MouseEvent) => {
+    if (e.button !== 0) return;
+    const rect = containerRef.current?.getBoundingClientRect();
+    if (!rect) return;
+    const node = findNodeAt(e.clientX - rect.left, e.clientY - rect.top);
+    if (node && tasksRef.current[node.id]) {
+      (containerRef.current as any).__pendingDragId = node.id;
+    }
+  }, [findNodeAt]);
+
+  const handleDragStart = useCallback((e: React.DragEvent) => {
+    const taskId = (containerRef.current as any)?.__pendingDragId;
+    if (taskId) {
+      setDraggedTask(taskId);
+      e.dataTransfer.effectAllowed = 'move';
+      e.dataTransfer.setData('text/plain', taskId);
+    }
   }, [setDraggedTask]);
 
-  const handleMouseLeave = useCallback(() => {
-    setHoveredId(null);
-  }, []);
+  const handleDragEnd = useCallback(() => setDraggedTask(null), [setDraggedTask]);
+  const handleMouseLeave = useCallback(() => { hoveredIdRef.current = null; }, []);
 
   if (visibleTasks.length === 0) {
     return (
@@ -569,15 +610,13 @@ export function Treemap() {
       onMouseMove={handleMouseMove}
       onMouseDown={handleMouseDown}
       onDoubleClick={handleDoubleClick}
+      onContextMenu={handleContextMenu}
       onMouseLeave={handleMouseLeave}
       onDragStart={handleDragStart}
       onDragEnd={handleDragEnd}
       draggable
     >
-      <canvas
-        ref={canvasRef}
-        style={{ width: size.w, height: size.h }}
-      />
+      <canvas ref={canvasRef} style={{ width: size.w, height: size.h }} />
     </div>
   );
 }
@@ -587,26 +626,4 @@ export function exportTreemapAsImage(): Promise<string | null> {
   const canvas = document.querySelector('.treemap-container canvas') as HTMLCanvasElement | null;
   if (!canvas) return Promise.resolve(null);
   return Promise.resolve(canvas.toDataURL('image/png'));
-}
-
-function roundRect(
-  ctx: CanvasRenderingContext2D,
-  x: number,
-  y: number,
-  w: number,
-  h: number,
-  r: number
-) {
-  r = Math.min(r, w / 2, h / 2);
-  if (r < 0) r = 0;
-  ctx.moveTo(x + r, y);
-  ctx.lineTo(x + w - r, y);
-  ctx.quadraticCurveTo(x + w, y, x + w, y + r);
-  ctx.lineTo(x + w, y + h - r);
-  ctx.quadraticCurveTo(x + w, y + h, x + w - r, y + h);
-  ctx.lineTo(x + r, y + h);
-  ctx.quadraticCurveTo(x, y + h, x, y + h - r);
-  ctx.lineTo(x, y + r);
-  ctx.quadraticCurveTo(x, y, x + r, y);
-  ctx.closePath();
 }

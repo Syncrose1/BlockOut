@@ -1,4 +1,4 @@
-import { useMemo, useCallback } from 'react';
+import { useMemo, useCallback, useState } from 'react';
 import { useStore } from '../store';
 import { debouncedSave } from '../utils/persistence';
 import type { Task, Category } from '../types';
@@ -13,6 +13,8 @@ export function Kanban() {
   const focusMode = useStore((s) => s.focusMode);
   const focusedCategoryId = useStore((s) => s.pomodoro.focusedCategoryId);
   const setDraggedTask = useStore((s) => s.setDraggedTask);
+  const setEditingTaskId = useStore((s) => s.setEditingTaskId);
+  const [hoveredCardId, setHoveredCardId] = useState<string | null>(null);
 
   const visibleTasks = useMemo(() => {
     if (showTimelessPool) return Object.values(tasks);
@@ -104,6 +106,8 @@ export function Kanban() {
                       draggable={!locked}
                       onDragStart={(e) => !locked && handleDragStart(e, task.id)}
                       onDragEnd={handleDragEnd}
+                      onMouseEnter={() => setHoveredCardId(task.id)}
+                      onMouseLeave={() => setHoveredCardId(null)}
                       onClick={() => {
                         if (!locked) {
                           toggleTask(task.id);
@@ -125,12 +129,47 @@ export function Kanban() {
                         </div>
                       )}
                       <span style={{ flex: 1 }}>{task.title}</span>
+                      {task.notes && hoveredCardId === task.id && (
+                        <span style={{
+                          fontSize: 10,
+                          color: 'var(--text-tertiary)',
+                          maxWidth: 80,
+                          overflow: 'hidden',
+                          textOverflow: 'ellipsis',
+                          whiteSpace: 'nowrap',
+                          flexShrink: 0,
+                        }} title={task.notes}>
+                          {task.notes}
+                        </span>
+                      )}
                       {task.actualDuration != null && (
                         <span className="task-duration-badge" title="Actual time spent">
                           {task.actualDuration >= 60
                             ? `${(task.actualDuration / 60).toFixed(1)}h`
                             : `${task.actualDuration}m`}
                         </span>
+                      )}
+                      {hoveredCardId === task.id && (
+                        <button
+                          className="card-edit-btn"
+                          title="Edit task"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setEditingTaskId(task.id);
+                          }}
+                          style={{
+                            background: 'none',
+                            border: 'none',
+                            cursor: 'pointer',
+                            padding: '0 3px',
+                            color: 'var(--text-tertiary)',
+                            fontSize: 16,
+                            lineHeight: 1,
+                            flexShrink: 0,
+                          }}
+                        >
+                          ···
+                        </button>
                       )}
                     </div>
                   );

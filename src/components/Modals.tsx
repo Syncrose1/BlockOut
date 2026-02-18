@@ -1042,6 +1042,257 @@ export function PomodoroSettingsModal() {
   );
 }
 
+// ─── Task Edit Modal ─────────────────────────────────────────────────────────
+// Opened via right-click on a treemap tile, or the ··· button on a kanban card.
+
+export function TaskEditModal() {
+  const editingTaskId = useStore((s) => s.editingTaskId);
+  const setEditingTaskId = useStore((s) => s.setEditingTaskId);
+  const tasks = useStore((s) => s.tasks);
+  const categories = useStore((s) => s.categories);
+  const updateTask = useStore((s) => s.updateTask);
+  const deleteTask = useStore((s) => s.deleteTask);
+
+  const task = editingTaskId ? tasks[editingTaskId] : null;
+
+  const [title, setTitle] = useState('');
+  const [categoryId, setCategoryId] = useState('');
+  const [subcategoryId, setSubcategoryId] = useState('');
+  const [weight, setWeight] = useState(1);
+  const [notes, setNotes] = useState('');
+  const [dependsOn, setDependsOn] = useState<string[]>([]);
+  const [showDeps, setShowDeps] = useState(false);
+  const [confirmDelete, setConfirmDelete] = useState(false);
+
+  // Sync fields whenever the target task changes
+  useEffect(() => {
+    if (!task) return;
+    setTitle(task.title);
+    setCategoryId(task.categoryId);
+    setSubcategoryId(task.subcategoryId ?? '');
+    setWeight(task.weight);
+    setNotes(task.notes ?? '');
+    setDependsOn(task.dependsOn ?? []);
+    setShowDeps(false);
+    setConfirmDelete(false);
+  }, [editingTaskId]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  if (!editingTaskId || !task) return null;
+
+  const catList = useMemo(() => Object.values(categories), [categories]);
+  const selectedCat = categories[categoryId];
+  const subcategories = selectedCat?.subcategories ?? [];
+  const otherTasks = useMemo(
+    () => Object.values(tasks).filter((t) => t.id !== editingTaskId),
+    [tasks, editingTaskId]
+  );
+
+  const toggleDep = (id: string) =>
+    setDependsOn((prev) => (prev.includes(id) ? prev.filter((d) => d !== id) : [...prev, id]));
+
+  const handleSave = () => {
+    updateTask(editingTaskId, {
+      title: title.trim() || task.title,
+      categoryId,
+      subcategoryId: subcategoryId || undefined,
+      weight,
+      notes: notes.trim() || undefined,
+      dependsOn: dependsOn.length > 0 ? dependsOn : undefined,
+    });
+    debouncedSave();
+    setEditingTaskId(null);
+  };
+
+  const handleDelete = () => {
+    deleteTask(editingTaskId);
+    debouncedSave();
+    setEditingTaskId(null);
+  };
+
+  const close = () => setEditingTaskId(null);
+
+  return (
+    <AnimatePresence>
+      <motion.div
+        className="modal-overlay"
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        exit={{ opacity: 0 }}
+        onClick={close}
+      >
+        <motion.div
+          className="modal"
+          initial={{ scale: 0.92, opacity: 0, y: 20 }}
+          animate={{ scale: 1, opacity: 1, y: 0 }}
+          exit={{ scale: 0.92, opacity: 0, y: 20 }}
+          transition={{ type: 'spring', damping: 28, stiffness: 380 }}
+          style={{ maxWidth: 480 }}
+          onClick={(e) => e.stopPropagation()}
+        >
+          {/* Header */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 16 }}>
+            {selectedCat && (
+              <span style={{
+                width: 10, height: 10, borderRadius: '50%',
+                background: selectedCat.color, flexShrink: 0,
+              }} />
+            )}
+            <h2 style={{ margin: 0 }}>Edit Task</h2>
+            {task.completed && (
+              <span style={{
+                fontSize: 10, color: 'hsl(140,60%,50%)', fontWeight: 600,
+                textTransform: 'uppercase', letterSpacing: 0.8, marginLeft: 2,
+              }}>Done</span>
+            )}
+          </div>
+
+          <div className="modal-field">
+            <label>Title</label>
+            <input
+              value={title}
+              onChange={(e) => setTitle(e.target.value)}
+              autoFocus
+              onKeyDown={(e) => e.key === 'Enter' && handleSave()}
+            />
+          </div>
+
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+            <div className="modal-field">
+              <label>Category</label>
+              <select value={categoryId} onChange={(e) => { setCategoryId(e.target.value); setSubcategoryId(''); }}>
+                {catList.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
+              </select>
+            </div>
+            {subcategories.length > 0 && (
+              <div className="modal-field">
+                <label>Subcategory</label>
+                <select value={subcategoryId} onChange={(e) => setSubcategoryId(e.target.value)}>
+                  <option value="">None</option>
+                  {subcategories.map((sub) => <option key={sub.id} value={sub.id}>{sub.name}</option>)}
+                </select>
+              </div>
+            )}
+          </div>
+
+          <div className="modal-field">
+            <label>Weight (effort: 1–5)</label>
+            <div className="weight-picker">
+              {[1, 2, 3, 4, 5].map((w) => (
+                <button
+                  key={w}
+                  className={`weight-btn${weight === w ? ' active' : ''}`}
+                  onClick={() => setWeight(w)}
+                  type="button"
+                >{w}</button>
+              ))}
+            </div>
+          </div>
+
+          <div className="modal-field">
+            <label>Notes</label>
+            <textarea
+              value={notes}
+              onChange={(e) => setNotes(e.target.value)}
+              placeholder="Details, links, context…"
+              rows={3}
+              style={{ resize: 'vertical' }}
+            />
+          </div>
+
+          {/* Dependencies */}
+          {otherTasks.length > 0 && (
+            <div className="modal-field">
+              <button className="dep-toggle" onClick={() => setShowDeps(!showDeps)} type="button">
+                <span className="dep-toggle-icon">{showDeps ? '▾' : '▸'}</span>
+                Dependencies
+                {dependsOn.length > 0 && <span className="dep-badge">{dependsOn.length}</span>}
+              </button>
+              <AnimatePresence>
+                {showDeps && (
+                  <motion.div
+                    initial={{ height: 0, opacity: 0 }}
+                    animate={{ height: 'auto', opacity: 1 }}
+                    exit={{ height: 0, opacity: 0 }}
+                    transition={{ duration: 0.2 }}
+                    style={{ overflow: 'hidden' }}
+                  >
+                    <div className="dep-list">
+                      <p style={{ fontSize: 11, color: 'var(--text-tertiary)', marginBottom: 6 }}>
+                        Tasks that must be completed before this one can start.
+                      </p>
+                      {otherTasks.map((t) => {
+                        const c = categories[t.categoryId];
+                        const sel = dependsOn.includes(t.id);
+                        return (
+                          <div
+                            key={t.id}
+                            className={`dep-item${sel ? ' selected' : ''}`}
+                            onClick={() => toggleDep(t.id)}
+                          >
+                            <div
+                              className={`check${sel ? ' done' : ''}`}
+                              style={sel ? { borderColor: c?.color, background: c?.color } : {}}
+                            >
+                              {sel && <span style={{ fontSize: 9, color: 'white' }}>✓</span>}
+                            </div>
+                            <span className="dot" style={{ background: c?.color || 'gray', width: 6, height: 6, borderRadius: '50%', flexShrink: 0 }} />
+                            <span style={{ fontSize: 12, flex: 1 }}>{t.title}</span>
+                            {t.completed && <span style={{ fontSize: 10, color: 'var(--text-tertiary)' }}>done</span>}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </motion.div>
+                )}
+              </AnimatePresence>
+            </div>
+          )}
+
+          {/* Meta info */}
+          <div style={{ fontSize: 11, color: 'var(--text-tertiary)', marginBottom: 10, display: 'flex', gap: 14 }}>
+            <span>Created {new Date(task.createdAt).toLocaleDateString()}</span>
+            {task.actualDuration != null && (
+              <span>
+                Actual time: {task.actualDuration >= 60
+                  ? `${(task.actualDuration / 60).toFixed(1)}h`
+                  : `${task.actualDuration}m`}
+              </span>
+            )}
+          </div>
+
+          {/* Delete zone */}
+          <div style={{ borderTop: '1px solid var(--border)', paddingTop: 12, marginTop: 4 }}>
+            {!confirmDelete ? (
+              <button
+                className="btn btn-ghost btn-sm"
+                onClick={() => setConfirmDelete(true)}
+                style={{ color: 'hsl(0, 72%, 62%)' }}
+              >
+                Delete task
+              </button>
+            ) : (
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                <span style={{ fontSize: 13, color: 'hsl(0, 72%, 62%)' }}>Delete permanently?</span>
+                <button className="btn btn-ghost btn-sm" onClick={() => setConfirmDelete(false)}>Cancel</button>
+                <button
+                  className="btn btn-sm"
+                  onClick={handleDelete}
+                  style={{ background: 'hsl(0,72%,62%)', color: 'white', border: 'none' }}
+                >Delete</button>
+              </div>
+            )}
+          </div>
+
+          <div className="modal-actions">
+            <button className="btn btn-ghost" onClick={close}>Cancel</button>
+            <button className="btn btn-primary" onClick={handleSave}>Save changes</button>
+          </div>
+        </motion.div>
+      </motion.div>
+    </AnimatePresence>
+  );
+}
+
 // ─── Merge Review Modal ───────────────────────────────────────────────────────
 // Shown after an auto-merge in case C. The merge is already applied and pushed;
 // this modal is informational with escape hatches to revert if something looks wrong.
