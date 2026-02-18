@@ -155,14 +155,12 @@ select {
   width: 36px;
   height: 36px;
   border-radius: var(--radius-md);
-  background: linear-gradient(135deg, var(--accent), hsl(280, 72%, 62%));
+  background: #0c0c18;
+  border: 1px solid rgba(34, 197, 94, 0.22);
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 18px;
-  font-weight: 800;
-  line-height: 1;
-  box-shadow: 0 2px 14px hsla(210, 80%, 65%, 0.3);
+  box-shadow: 0 2px 14px rgba(34, 197, 94, 0.18);
 }
 
 .sidebar-section {

@@ -1,0 +1,71 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 181">
+  <rect width="200" height="181" rx="16" fill="#08080f"/>
+
+  <!--
+    Pixel-art "BO" logo
+    cell=16, gap=3, step=19
+    B origin: (17, 16) | col x: 17, 36, 55, 74 | row y: 16,35,54,73,92,111,130,149
+    O origin: (110,16) | col x: 110,129,148,167(ghost) | same row y
+  -->
+
+  <!-- ═══ B LETTER ═══ -->
+  <!-- Row 0: top bar cols 0,1,2 -->
+  <rect x="17"  y="16"  width="16" height="16" rx="3" fill="#22c55e"/>
+  <rect x="36"  y="16"  width="16" height="16" rx="3" fill="#22c55e"/>
+  <rect x="55"  y="16"  width="16" height="16" rx="3" fill="#22c55e"/>
+  <!-- Row 1: upper bump col 0 + col 3 -->
+  <rect x="17"  y="35"  width="16" height="16" rx="3" fill="#22c55e"/>
+  <rect x="74"  y="35"  width="16" height="16" rx="3" fill="#22c55e"/>
+  <!-- Row 2: upper bump col 0 + col 3 -->
+  <rect x="17"  y="54"  width="16" height="16" rx="3" fill="#22c55e"/>
+  <rect x="74"  y="54"  width="16" height="16" rx="3" fill="#22c55e"/>
+  <!-- Row 3: middle bar cols 0,1,2 -->
+  <rect x="17"  y="73"  width="16" height="16" rx="3" fill="#22c55e"/>
+  <rect x="36"  y="73"  width="16" height="16" rx="3" fill="#22c55e"/>
+  <rect x="55"  y="73"  width="16" height="16" rx="3" fill="#22c55e"/>
+  <!-- Row 4: lower bump col 0 + col 3 -->
+  <rect x="17"  y="92"  width="16" height="16" rx="3" fill="#22c55e"/>
+  <rect x="74"  y="92"  width="16" height="16" rx="3" fill="#22c55e"/>
+  <!-- Row 5: lower bump col 0 + col 3 -->
+  <rect x="17"  y="111" width="16" height="16" rx="3" fill="#22c55e"/>
+  <rect x="74"  y="111" width="16" height="16" rx="3" fill="#22c55e"/>
+  <!-- Row 6: lower bump col 0 + col 3 -->
+  <rect x="17"  y="130" width="16" height="16" rx="3" fill="#22c55e"/>
+  <rect x="74"  y="130" width="16" height="16" rx="3" fill="#22c55e"/>
+  <!-- Row 7: bottom bar cols 0,1,2 -->
+  <rect x="17"  y="149" width="16" height="16" rx="3" fill="#22c55e"/>
+  <rect x="36"  y="149" width="16" height="16" rx="3" fill="#22c55e"/>
+  <rect x="55"  y="149" width="16" height="16" rx="3" fill="#22c55e"/>
+
+  <!-- ═══ O LETTER ═══ -->
+  <!-- Row 0: top bar cols 0,1,2 -->
+  <rect x="110" y="16"  width="16" height="16" rx="3" fill="#22c55e"/>
+  <rect x="129" y="16"  width="16" height="16" rx="3" fill="#22c55e"/>
+  <rect x="148" y="16"  width="16" height="16" rx="3" fill="#22c55e"/>
+  <!-- Row 1: sides col 0 + col 2 -->
+  <rect x="110" y="35"  width="16" height="16" rx="3" fill="#22c55e"/>
+  <rect x="148" y="35"  width="16" height="16" rx="3" fill="#22c55e"/>
+  <!-- Row 2: sides col 0 + col 2 + ghost col 3 -->
+  <rect x="110" y="54"  width="16" height="16" rx="3" fill="#22c55e"/>
+  <rect x="148" y="54"  width="16" height="16" rx="3" fill="#22c55e"/>
+  <rect x="167" y="54"  width="16" height="16" rx="2" fill="none" stroke="#444" stroke-width="1.5" stroke-dasharray="3,2"/>
+  <!-- Row 3: sides col 0 + col 2 -->
+  <rect x="110" y="73"  width="16" height="16" rx="3" fill="#22c55e"/>
+  <rect x="148" y="73"  width="16" height="16" rx="3" fill="#22c55e"/>
+  <!-- Row 4: sides col 0 + col 2 + ghost col 3 -->
+  <rect x="110" y="92"  width="16" height="16" rx="3" fill="#22c55e"/>
+  <rect x="148" y="92"  width="16" height="16" rx="3" fill="#22c55e"/>
+  <rect x="167" y="92"  width="16" height="16" rx="2" fill="none" stroke="#444" stroke-width="1.5" stroke-dasharray="3,2"/>
+  <!-- Row 5: sides col 0 + col 2 + ghost col 3 -->
+  <rect x="110" y="111" width="16" height="16" rx="3" fill="#22c55e"/>
+  <rect x="148" y="111" width="16" height="16" rx="3" fill="#22c55e"/>
+  <rect x="167" y="111" width="16" height="16" rx="2" fill="none" stroke="#444" stroke-width="1.5" stroke-dasharray="3,2"/>
+  <!-- Row 6: sides col 0 + col 2 -->
+  <rect x="110" y="130" width="16" height="16" rx="3" fill="#22c55e"/>
+  <rect x="148" y="130" width="16" height="16" rx="3" fill="#22c55e"/>
+  <!-- Row 7: bottom bar cols 0,1,2 + ghost col 3 -->
+  <rect x="110" y="149" width="16" height="16" rx="3" fill="#22c55e"/>
+  <rect x="129" y="149" width="16" height="16" rx="3" fill="#22c55e"/>
+  <rect x="148" y="149" width="16" height="16" rx="3" fill="#22c55e"/>
+  <rect x="167" y="149" width="16" height="16" rx="2" fill="none" stroke="#444" stroke-width="1.5" stroke-dasharray="3,2"/>
+</svg>

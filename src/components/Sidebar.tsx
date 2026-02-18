@@ -112,7 +112,30 @@ export function Sidebar() {
     <div className="sidebar">
       <div className="sidebar-header">
         <div className="sidebar-logo">
-          <div className="logo-icon">B</div>
+          <div className="logo-icon">
+            {/* Pixel-art B: viewBox 0 0 15 31, cell=3, gap=1, step=4 */}
+            <svg height="28" viewBox="0 0 15 31" xmlns="http://www.w3.org/2000/svg">
+              <rect x="0"  y="0"  width="3" height="3" rx="0.5" fill="#22c55e"/>
+              <rect x="4"  y="0"  width="3" height="3" rx="0.5" fill="#22c55e"/>
+              <rect x="8"  y="0"  width="3" height="3" rx="0.5" fill="#22c55e"/>
+              <rect x="0"  y="4"  width="3" height="3" rx="0.5" fill="#22c55e"/>
+              <rect x="12" y="4"  width="3" height="3" rx="0.5" fill="#22c55e"/>
+              <rect x="0"  y="8"  width="3" height="3" rx="0.5" fill="#22c55e"/>
+              <rect x="12" y="8"  width="3" height="3" rx="0.5" fill="#22c55e"/>
+              <rect x="0"  y="12" width="3" height="3" rx="0.5" fill="#22c55e"/>
+              <rect x="4"  y="12" width="3" height="3" rx="0.5" fill="#22c55e"/>
+              <rect x="8"  y="12" width="3" height="3" rx="0.5" fill="#22c55e"/>
+              <rect x="0"  y="16" width="3" height="3" rx="0.5" fill="#22c55e"/>
+              <rect x="12" y="16" width="3" height="3" rx="0.5" fill="#22c55e"/>
+              <rect x="0"  y="20" width="3" height="3" rx="0.5" fill="#22c55e"/>
+              <rect x="12" y="20" width="3" height="3" rx="0.5" fill="#22c55e"/>
+              <rect x="0"  y="24" width="3" height="3" rx="0.5" fill="#22c55e"/>
+              <rect x="12" y="24" width="3" height="3" rx="0.5" fill="#22c55e"/>
+              <rect x="0"  y="28" width="3" height="3" rx="0.5" fill="#22c55e"/>
+              <rect x="4"  y="28" width="3" height="3" rx="0.5" fill="#22c55e"/>
+              <rect x="8"  y="28" width="3" height="3" rx="0.5" fill="#22c55e"/>
+            </svg>
+          </div>
           BlockOut
         </div>
         {/* Streak display */}
