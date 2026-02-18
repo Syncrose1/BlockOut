@@ -1,3 +1,11 @@
+export interface PomodoroSession {
+  id: string;
+  startTime: number;
+  endTime: number;
+  mode: 'work' | 'break' | 'longBreak';
+  categoryId?: string;
+}
+
 export interface Task {
   id: string;
   title: string;
@@ -9,6 +17,8 @@ export interface Task {
   notes?: string;
   dueDate?: number;
   createdAt: number;
+  dependsOn?: string[]; // task IDs that must be completed before this
+  actualDuration?: number; // minutes spent (from completion survey)
 }
 
 export interface Subcategory {
@@ -43,6 +53,8 @@ export interface PomodoroState {
   sessionsCompleted: number;
   focusedTaskId?: string;
   focusedCategoryId?: string;
+  sessions: PomodoroSession[]; // session history for analytics
+  currentSessionStart?: number; // timestamp when current session started
 }
 
 export interface StreakData {
@@ -65,6 +77,7 @@ export interface TreemapNode {
   value: number;
   color: string;
   completed: boolean;
+  locked?: boolean; // task has unmet dependencies
   children?: TreemapNode[];
   x?: number;
   y?: number;

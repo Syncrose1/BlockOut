@@ -32,6 +32,12 @@ export function Treemap() {
   const focusedCategoryId = useStore((s) => s.pomodoro.focusedCategoryId);
   const setDraggedTask = useStore((s) => s.setDraggedTask);
 
+  const isTaskLocked = (taskId: string): boolean => {
+    const task = tasks[taskId];
+    if (!task?.dependsOn || task.dependsOn.length === 0) return false;
+    return task.dependsOn.some((depId) => !tasks[depId]?.completed);
+  };
+
   // Idle sparkle animation
   useEffect(() => {
     const interval = setInterval(() => {
@@ -92,6 +98,7 @@ export function Treemap() {
           value: task.weight,
           color: category.color,
           completed: task.completed,
+          locked: isTaskLocked(task.id),
           categoryId: category.id,
           subcategoryId: subId,
         }));
@@ -116,6 +123,7 @@ export function Treemap() {
           value: task.weight,
           color: category.color,
           completed: task.completed,
+          locked: isTaskLocked(task.id),
           categoryId: category.id,
         });
       });
@@ -243,9 +251,12 @@ export function Treemap() {
 
         const isHovered = hoveredId === taskNode.id;
         const isCompleting = completingIds.has(taskNode.id);
+        const isLocked = taskNode.locked;
 
         // Tile fill
-        if (taskNode.completed) {
+        if (isLocked) {
+          ctx.fillStyle = isHovered ? 'hsl(30, 25%, 18%)' : 'hsl(30, 20%, 14%)';
+        } else if (taskNode.completed) {
           ctx.fillStyle = isHovered
             ? taskNode.color.replace('62%)', '70%)')
             : taskNode.color;
@@ -267,29 +278,63 @@ export function Treemap() {
         }
 
         // Tile border
-        if (taskNode.completed) {
+        if (isLocked) {
+          ctx.strokeStyle = 'hsl(30, 40%, 28%)';
+        } else if (taskNode.completed) {
           ctx.strokeStyle = taskNode.color.replace('62%)', '45%)');
         } else {
           ctx.strokeStyle = isHovered ? 'hsl(220, 10%, 35%)' : 'hsl(220, 10%, 28%)';
         }
-        ctx.lineWidth = 1;
+        ctx.lineWidth = isLocked ? 1.5 : 1;
         ctx.beginPath();
         roundRect(ctx, tx, ty, tw, th, 4);
         ctx.stroke();
 
+        // Locked: draw crosshatch pattern overlay
+        if (isLocked && tw > 8 && th > 8) {
+          ctx.save();
+          ctx.beginPath();
+          roundRect(ctx, tx, ty, tw, th, 4);
+          ctx.clip();
+          ctx.strokeStyle = 'rgba(180, 120, 40, 0.15)';
+          ctx.lineWidth = 1;
+          const spacing = 8;
+          for (let x = tx - th; x < tx + tw + th; x += spacing) {
+            ctx.beginPath();
+            ctx.moveTo(x, ty);
+            ctx.lineTo(x + th, ty + th);
+            ctx.stroke();
+          }
+          ctx.restore();
+        }
+
         // Task label
         if (tw > 30 && th > 16) {
-          ctx.fillStyle = taskNode.completed
+          ctx.fillStyle = isLocked
+            ? 'rgba(180, 120, 40, 0.6)'
+            : taskNode.completed
             ? 'rgba(255,255,255,0.9)'
             : 'rgba(255,255,255,0.55)';
           ctx.font = '500 10px Inter, sans-serif';
           ctx.textBaseline = 'middle';
-          const maxChars = Math.floor(tw / 6);
+          const labelX = tx + (isLocked && tw > 24 ? 20 : 6);
+          const maxW = tw - (isLocked && tw > 24 ? 26 : 12);
+          const maxChars = Math.floor(maxW / 6);
           let label = taskNode.name;
           if (label.length > maxChars) {
             label = label.substring(0, maxChars - 1) + '\u2026';
           }
-          ctx.fillText(label, tx + 6, ty + th / 2, tw - 12);
+          ctx.fillText(label, labelX, ty + th / 2, maxW);
+        }
+
+        // Lock icon for locked tiles
+        if (isLocked && tw > 16 && th > 16) {
+          ctx.fillStyle = 'rgba(200, 150, 60, 0.7)';
+          ctx.font = `${Math.min(12, tw * 0.4, th * 0.4)}px sans-serif`;
+          ctx.textBaseline = 'middle';
+          ctx.textAlign = 'left';
+          ctx.fillText('\uD83D\uDD12', tx + 3, ty + th / 2);
+          ctx.textAlign = 'left'; // reset
         }
 
         // Completion checkmark
@@ -433,10 +478,15 @@ export function Treemap() {
       const my = e.clientY - rect.top;
       const node = findNodeAt(mx, my);
       if (node) {
+        const task = tasks[node.id];
+        // Don't toggle locked tasks
+        if (task && task.dependsOn && task.dependsOn.length > 0) {
+          const allMet = task.dependsOn.every((depId) => tasks[depId]?.completed);
+          if (!allMet) return;
+        }
         toggleTask(node.id);
         debouncedSave();
 
-        const task = tasks[node.id];
         if (task && !task.completed) {
           setParticles((prev) => [
             ...prev,

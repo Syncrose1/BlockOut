@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import { v4 as uuid } from 'uuid';
-import type { Task, Category, TimeBlock, PomodoroState, ViewMode, StreakData, DragState } from '../types';
+import type { Task, Category, TimeBlock, PomodoroState, PomodoroSession, ViewMode, StreakData, DragState } from '../types';
 import { getCategoryColor } from '../utils/colors';
 
 function todayStr(): string {
@@ -62,6 +62,8 @@ interface BlockOutState {
   showNewTaskModal: boolean;
   editingTaskId: string | null;
   focusMode: boolean;
+  completionSurveyTaskId: string | null; // task pending duration survey
+  pomodoroSettingsOpen: boolean;
 
   // Drag and drop
   drag: DragState;
@@ -79,6 +81,7 @@ interface BlockOutState {
   toggleTask: (id: string) => void;
   updateTask: (id: string, updates: Partial<Task>) => void;
   deleteTask: (id: string) => void;
+  setTaskActualDuration: (taskId: string, minutes: number | null) => void;
 
   // Actions — Time Blocks
   addTimeBlock: (block: Omit<TimeBlock, 'id' | 'createdAt' | 'taskIds'>) => string;
@@ -95,6 +98,8 @@ interface BlockOutState {
   setShowNewCategoryModal: (show: boolean) => void;
   setShowNewTaskModal: (show: boolean) => void;
   setEditingTaskId: (id: string | null) => void;
+  setCompletionSurveyTask: (id: string | null) => void;
+  setPomodoroSettingsOpen: (open: boolean) => void;
 
   // Actions — Focus mode
   enterFocusMode: (categoryId: string) => void;
@@ -114,8 +119,22 @@ interface BlockOutState {
   setFocusedTask: (taskId: string | undefined) => void;
 
   // Persistence
-  loadData: (data: { tasks: Record<string, Task>; categories: Record<string, Category>; timeBlocks: Record<string, TimeBlock>; activeBlockId: string | null; streak?: StreakData }) => void;
-  getSerializableState: () => { tasks: Record<string, Task>; categories: Record<string, Category>; timeBlocks: Record<string, TimeBlock>; activeBlockId: string | null; streak: StreakData };
+  loadData: (data: {
+    tasks: Record<string, Task>;
+    categories: Record<string, Category>;
+    timeBlocks: Record<string, TimeBlock>;
+    activeBlockId: string | null;
+    streak?: StreakData;
+    pomodoroSessions?: PomodoroSession[];
+  }) => void;
+  getSerializableState: () => {
+    tasks: Record<string, Task>;
+    categories: Record<string, Category>;
+    timeBlocks: Record<string, TimeBlock>;
+    activeBlockId: string | null;
+    streak: StreakData;
+    pomodoroSessions: PomodoroSession[];
+  };
 }
 
 export const useStore = create<BlockOutState>((set, get) => ({
@@ -133,6 +152,8 @@ export const useStore = create<BlockOutState>((set, get) => ({
   showNewTaskModal: false,
   editingTaskId: null,
   focusMode: false,
+  completionSurveyTaskId: null,
+  pomodoroSettingsOpen: false,
 
   drag: {
     draggedTaskId: null,
@@ -150,6 +171,8 @@ export const useStore = create<BlockOutState>((set, get) => ({
     sessionsCompleted: 0,
     focusedTaskId: undefined,
     focusedCategoryId: undefined,
+    sessions: [],
+    currentSessionStart: undefined,
   },
 
   // Categories
@@ -225,6 +248,12 @@ export const useStore = create<BlockOutState>((set, get) => ({
       const wasCompleted = task.completed;
       const nowCompleted = !wasCompleted;
 
+      // Check if dependencies are met before allowing completion
+      if (nowCompleted && task.dependsOn && task.dependsOn.length > 0) {
+        const allMet = task.dependsOn.every((depId) => state.tasks[depId]?.completed);
+        if (!allMet) return state; // block completion if deps unmet
+      }
+
       let streak = state.streak;
       if (nowCompleted) {
         const today = todayStr();
@@ -245,6 +274,8 @@ export const useStore = create<BlockOutState>((set, get) => ({
           },
         },
         streak,
+        // Trigger completion survey when task is marked done
+        completionSurveyTaskId: nowCompleted ? id : state.completionSurveyTaskId,
       };
     });
   },
@@ -272,7 +303,31 @@ export const useStore = create<BlockOutState>((set, get) => ({
           taskIds: timeBlocks[bid].taskIds.filter((tid) => tid !== id),
         };
       });
-      return { tasks: rest, timeBlocks };
+      // Also remove from any tasks' dependsOn arrays
+      const cleanedTasks = { ...rest };
+      Object.keys(cleanedTasks).forEach((tid) => {
+        if (cleanedTasks[tid].dependsOn?.includes(id)) {
+          cleanedTasks[tid] = {
+            ...cleanedTasks[tid],
+            dependsOn: cleanedTasks[tid].dependsOn!.filter((dep) => dep !== id),
+          };
+        }
+      });
+      return { tasks: cleanedTasks, timeBlocks };
+    });
+  },
+
+  setTaskActualDuration: (taskId, minutes) => {
+    set((state) => {
+      const task = state.tasks[taskId];
+      if (!task) return state;
+      return {
+        tasks: {
+          ...state.tasks,
+          [taskId]: { ...task, actualDuration: minutes ?? undefined },
+        },
+        completionSurveyTaskId: null,
+      };
     });
   },
 
@@ -335,6 +390,8 @@ export const useStore = create<BlockOutState>((set, get) => ({
   setShowNewCategoryModal: (show) => set({ showNewCategoryModal: show }),
   setShowNewTaskModal: (show) => set({ showNewTaskModal: show }),
   setEditingTaskId: (id) => set({ editingTaskId: id }),
+  setCompletionSurveyTask: (id) => set({ completionSurveyTaskId: id }),
+  setPomodoroSettingsOpen: (open) => set({ pomodoroSettingsOpen: open }),
 
   // Focus mode
   enterFocusMode: (categoryId) => set((state) => ({
@@ -358,13 +415,20 @@ export const useStore = create<BlockOutState>((set, get) => ({
   })),
 
   // Pomodoro
-  startPomodoro: () => set((state) => ({ pomodoro: { ...state.pomodoro, isRunning: true } })),
+  startPomodoro: () => set((state) => ({
+    pomodoro: {
+      ...state.pomodoro,
+      isRunning: true,
+      currentSessionStart: state.pomodoro.currentSessionStart ?? Date.now(),
+    },
+  })),
   pausePomodoro: () => set((state) => ({ pomodoro: { ...state.pomodoro, isRunning: false } })),
   resetPomodoro: () =>
     set((state) => ({
       pomodoro: {
         ...state.pomodoro,
         isRunning: false,
+        currentSessionStart: undefined,
         timeRemaining: state.pomodoro.mode === 'work'
           ? state.pomodoro.workDuration
           : state.pomodoro.mode === 'break'
@@ -378,6 +442,15 @@ export const useStore = create<BlockOutState>((set, get) => ({
       if (!p.isRunning) return state;
       const next = p.timeRemaining - 1;
       if (next <= 0) {
+        // Record the completed session
+        const completedSession: PomodoroSession = {
+          id: uuid(),
+          startTime: p.currentSessionStart ?? (Date.now() - (p.mode === 'work' ? p.workDuration : p.mode === 'break' ? p.breakDuration : p.longBreakDuration) * 1000),
+          endTime: Date.now(),
+          mode: p.mode,
+          categoryId: p.focusedCategoryId,
+        };
+
         if (p.mode === 'work') {
           const sessions = p.sessionsCompleted + 1;
           const nextMode = sessions % 4 === 0 ? 'longBreak' : 'break';
@@ -388,6 +461,8 @@ export const useStore = create<BlockOutState>((set, get) => ({
               mode: nextMode,
               timeRemaining: nextMode === 'longBreak' ? p.longBreakDuration : p.breakDuration,
               sessionsCompleted: sessions,
+              sessions: [...p.sessions, completedSession],
+              currentSessionStart: undefined,
             },
           };
         } else {
@@ -397,6 +472,8 @@ export const useStore = create<BlockOutState>((set, get) => ({
               isRunning: false,
               mode: 'work',
               timeRemaining: p.workDuration,
+              sessions: [...p.sessions, completedSession],
+              currentSessionStart: undefined,
             },
           };
         }
@@ -411,7 +488,8 @@ export const useStore = create<BlockOutState>((set, get) => ({
         workDuration: work,
         breakDuration: brk,
         longBreakDuration: longBrk,
-        timeRemaining: work,
+        timeRemaining: state.pomodoro.mode === 'work' ? work
+          : state.pomodoro.mode === 'break' ? brk : longBrk,
       },
     })),
 
@@ -422,13 +500,17 @@ export const useStore = create<BlockOutState>((set, get) => ({
   loadData: (data) => {
     const streak = data.streak || { completionDates: [], currentStreak: 0, longestStreak: 0 };
     const { currentStreak, longestStreak } = calcStreak(streak.completionDates);
-    set({
+    set((state) => ({
       tasks: data.tasks,
       categories: data.categories,
       timeBlocks: data.timeBlocks,
       activeBlockId: data.activeBlockId,
       streak: { completionDates: streak.completionDates, currentStreak, longestStreak },
-    });
+      pomodoro: {
+        ...state.pomodoro,
+        sessions: data.pomodoroSessions || [],
+      },
+    }));
   },
   getSerializableState: () => {
     const s = get();
@@ -438,6 +520,7 @@ export const useStore = create<BlockOutState>((set, get) => ({
       timeBlocks: s.timeBlocks,
       activeBlockId: s.activeBlockId,
       streak: s.streak,
+      pomodoroSessions: s.pomodoro.sessions,
     };
   },
 }));

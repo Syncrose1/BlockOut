@@ -7,7 +7,13 @@ import { Treemap } from './components/Treemap';
 import { Kanban } from './components/Kanban';
 import { Timeline } from './components/Timeline';
 import { Pomodoro } from './components/Pomodoro';
-import { NewBlockModal, NewCategoryModal, NewTaskModal } from './components/Modals';
+import {
+  NewBlockModal,
+  NewCategoryModal,
+  NewTaskModal,
+  TaskCompletionSurvey,
+  PomodoroSettingsModal,
+} from './components/Modals';
 
 export function App() {
   const viewMode = useStore((s) => s.viewMode);
@@ -38,6 +44,8 @@ export function App() {
       <NewBlockModal />
       <NewCategoryModal />
       <NewTaskModal />
+      <TaskCompletionSurvey />
+      <PomodoroSettingsModal />
     </div>
   );
 }

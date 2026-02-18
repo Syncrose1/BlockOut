@@ -3,30 +3,113 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { useStore } from '../store';
 import { debouncedSave } from '../utils/persistence';
 
-// New Time Block Modal
+// ─── Calendar Date Picker ────────────────────────────────────────────────────
+
+const MONTH_NAMES = [
+  'January','February','March','April','May','June',
+  'July','August','September','October','November','December'
+];
+const DAY_NAMES = ['Su','Mo','Tu','We','Th','Fr','Sa'];
+
+function CalendarPicker({ value, onChange }: { value: Date | null; onChange: (d: Date) => void }) {
+  const [viewDate, setViewDate] = useState(() => {
+    const d = value || new Date();
+    return new Date(d.getFullYear(), d.getMonth(), 1);
+  });
+
+  const year = viewDate.getFullYear();
+  const month = viewDate.getMonth();
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+
+  const firstWeekday = new Date(year, month, 1).getDay();
+  const daysInMonth = new Date(year, month + 1, 0).getDate();
+
+  const cells: (number | null)[] = [];
+  for (let i = 0; i < firstWeekday; i++) cells.push(null);
+  for (let d = 1; d <= daysInMonth; d++) cells.push(d);
+
+  const prevMonth = () => setViewDate(new Date(year, month - 1, 1));
+  const nextMonth = () => setViewDate(new Date(year, month + 1, 1));
+
+  const isSelected = (day: number) => {
+    if (!value) return false;
+    return value.getFullYear() === year && value.getMonth() === month && value.getDate() === day;
+  };
+  const isToday = (day: number) => {
+    const d = new Date(year, month, day);
+    return d.getTime() === today.getTime();
+  };
+
+  return (
+    <div className="calendar-picker">
+      <div className="calendar-nav">
+        <button className="calendar-nav-btn" onClick={prevMonth}>‹</button>
+        <span className="calendar-month-label">{MONTH_NAMES[month]} {year}</span>
+        <button className="calendar-nav-btn" onClick={nextMonth}>›</button>
+      </div>
+      <div className="calendar-grid">
+        {DAY_NAMES.map((d) => (
+          <div key={d} className="calendar-day-name">{d}</div>
+        ))}
+        {cells.map((day, i) => {
+          if (day === null) return <div key={`e-${i}`} />;
+          const sel = isSelected(day);
+          const tod = isToday(day);
+          return (
+            <button
+              key={day}
+              className={`calendar-day${sel ? ' selected' : ''}${tod ? ' today' : ''}`}
+              onClick={() => onChange(new Date(year, month, day))}
+            >
+              {day}
+            </button>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+// ─── New Time Block Modal ────────────────────────────────────────────────────
+
 export function NewBlockModal() {
   const show = useStore((s) => s.showNewBlockModal);
   const setShow = useStore((s) => s.setShowNewBlockModal);
   const addTimeBlock = useStore((s) => s.addTimeBlock);
 
   const [name, setName] = useState('');
-  const [weeks, setWeeks] = useState(6);
+  const [deadline, setDeadline] = useState<Date | null>(() => {
+    const d = new Date();
+    d.setDate(d.getDate() + 42); // 6 weeks default
+    return d;
+  });
 
   if (!show) return null;
 
   const handleCreate = () => {
-    if (!name.trim()) return;
+    if (!name.trim() || !deadline) return;
     const now = Date.now();
     addTimeBlock({
       name: name.trim(),
       startDate: now,
-      endDate: now + weeks * 7 * 24 * 60 * 60 * 1000,
+      endDate: deadline.getTime(),
     });
     debouncedSave();
     setName('');
-    setWeeks(6);
+    setDeadline(null);
     setShow(false);
   };
+
+  const countdown = deadline ? (() => {
+    const ms = deadline.getTime() - Date.now();
+    if (ms <= 0) return 'in the past';
+    const days = Math.floor(ms / 86400000);
+    const weeks = Math.floor(days / 7);
+    const remDays = days % 7;
+    if (weeks > 0) return `${weeks}w ${remDays}d`;
+    return `${days}d`;
+  })() : null;
 
   return (
     <AnimatePresence>
@@ -38,11 +121,11 @@ export function NewBlockModal() {
         onClick={() => setShow(false)}
       >
         <motion.div
-          className="modal"
-          initial={{ scale: 0.9, opacity: 0 }}
-          animate={{ scale: 1, opacity: 1 }}
-          exit={{ scale: 0.9, opacity: 0 }}
-          transition={{ type: 'spring', damping: 25, stiffness: 400 }}
+          className="modal modal-wide"
+          initial={{ scale: 0.92, opacity: 0, y: 20 }}
+          animate={{ scale: 1, opacity: 1, y: 0 }}
+          exit={{ scale: 0.92, opacity: 0, y: 20 }}
+          transition={{ type: 'spring', damping: 28, stiffness: 380 }}
           onClick={(e) => e.stopPropagation()}
         >
           <h2>New Time Block</h2>
@@ -57,18 +140,21 @@ export function NewBlockModal() {
             />
           </div>
           <div className="modal-field">
-            <label>Duration (weeks)</label>
-            <input
-              type="number"
-              value={weeks}
-              onChange={(e) => setWeeks(parseInt(e.target.value) || 1)}
-              min={1}
-              max={52}
-            />
+            <label style={{ display: 'flex', justifyContent: 'space-between' }}>
+              <span>Deadline</span>
+              {countdown && (
+                <span style={{ fontFamily: 'var(--font-mono)', color: 'var(--accent)', fontSize: 11 }}>
+                  {countdown} from now
+                </span>
+              )}
+            </label>
+            <CalendarPicker value={deadline} onChange={setDeadline} />
           </div>
           <div className="modal-actions">
             <button className="btn btn-ghost" onClick={() => setShow(false)}>Cancel</button>
-            <button className="btn btn-primary" onClick={handleCreate}>Create Block</button>
+            <button className="btn btn-primary" onClick={handleCreate} disabled={!name.trim() || !deadline}>
+              Create Block
+            </button>
           </div>
         </motion.div>
       </motion.div>
@@ -76,7 +162,8 @@ export function NewBlockModal() {
   );
 }
 
-// New Category Modal — now with inline subcategory creation
+// ─── New Category Modal ──────────────────────────────────────────────────────
+
 export function NewCategoryModal() {
   const show = useStore((s) => s.showNewCategoryModal);
   const setShow = useStore((s) => s.setShowNewCategoryModal);
@@ -118,10 +205,10 @@ export function NewCategoryModal() {
       >
         <motion.div
           className="modal"
-          initial={{ scale: 0.9, opacity: 0 }}
-          animate={{ scale: 1, opacity: 1 }}
-          exit={{ scale: 0.9, opacity: 0 }}
-          transition={{ type: 'spring', damping: 25, stiffness: 400 }}
+          initial={{ scale: 0.92, opacity: 0, y: 20 }}
+          animate={{ scale: 1, opacity: 1, y: 0 }}
+          exit={{ scale: 0.92, opacity: 0, y: 20 }}
+          transition={{ type: 'spring', damping: 28, stiffness: 380 }}
           onClick={(e) => e.stopPropagation()}
         >
           <h2>New Category</h2>
@@ -136,7 +223,6 @@ export function NewCategoryModal() {
             />
           </div>
 
-          {/* Subcategories */}
           <div className="modal-field">
             <label>Subcategories (optional)</label>
             <div style={{ display: 'flex', gap: 6 }}>
@@ -152,19 +238,11 @@ export function NewCategoryModal() {
             {subcategories.length > 0 && (
               <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4, marginTop: 6 }}>
                 {subcategories.map((sub, i) => (
-                  <span key={i} style={{
-                    fontSize: 11,
-                    padding: '2px 8px',
-                    background: 'var(--bg-tertiary)',
-                    borderRadius: 'var(--radius-sm)',
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: 4,
-                  }}>
+                  <span key={i} className="tag">
                     {sub}
                     <button
                       onClick={() => setSubcategories(subcategories.filter((_, j) => j !== i))}
-                      style={{ fontSize: 12, color: 'var(--text-tertiary)', cursor: 'pointer', background: 'none', border: 'none' }}
+                      style={{ fontSize: 12, color: 'var(--text-tertiary)', cursor: 'pointer', background: 'none', border: 'none', marginLeft: 2 }}
                     >&times;</button>
                   </span>
                 ))}
@@ -185,11 +263,13 @@ export function NewCategoryModal() {
   );
 }
 
-// New Task Modal — now with subcategory selection
+// ─── New Task Modal ──────────────────────────────────────────────────────────
+
 export function NewTaskModal() {
   const show = useStore((s) => s.showNewTaskModal);
   const setShow = useStore((s) => s.setShowNewTaskModal);
   const categories = useStore((s) => s.categories);
+  const tasks = useStore((s) => s.tasks);
   const addTask = useStore((s) => s.addTask);
   const activeBlockId = useStore((s) => s.activeBlockId);
   const assignTaskToBlock = useStore((s) => s.assignTaskToBlock);
@@ -199,12 +279,21 @@ export function NewTaskModal() {
   const [subcategoryId, setSubcategoryId] = useState('');
   const [weight, setWeight] = useState(1);
   const [assignToBlock, setAssignToBlock] = useState(true);
+  const [dependsOn, setDependsOn] = useState<string[]>([]);
+  const [showDeps, setShowDeps] = useState(false);
 
   const catList = useMemo(() => Object.values(categories), [categories]);
+  const taskList = useMemo(() => Object.values(tasks), [tasks]);
   const selectedCat = categoryId ? categories[categoryId] : null;
   const subcategories = selectedCat?.subcategories || [];
 
   if (!show) return null;
+
+  const toggleDep = (taskId: string) => {
+    setDependsOn((prev) =>
+      prev.includes(taskId) ? prev.filter((id) => id !== taskId) : [...prev, taskId]
+    );
+  };
 
   const handleCreate = () => {
     if (!title.trim() || !categoryId) return;
@@ -213,6 +302,7 @@ export function NewTaskModal() {
       categoryId,
       subcategoryId: subcategoryId || undefined,
       weight,
+      dependsOn: dependsOn.length > 0 ? dependsOn : undefined,
     });
     if (assignToBlock && activeBlockId) {
       assignTaskToBlock(taskId, activeBlockId);
@@ -220,7 +310,8 @@ export function NewTaskModal() {
     debouncedSave();
     setTitle('');
     setWeight(1);
-    // Keep category and subcategory for rapid entry within same category
+    setDependsOn([]);
+    // Keep category for rapid entry
   };
 
   const handleClose = () => {
@@ -228,6 +319,8 @@ export function NewTaskModal() {
     setCategoryId('');
     setSubcategoryId('');
     setWeight(1);
+    setDependsOn([]);
+    setShowDeps(false);
     setShow(false);
   };
 
@@ -242,10 +335,10 @@ export function NewTaskModal() {
       >
         <motion.div
           className="modal"
-          initial={{ scale: 0.9, opacity: 0 }}
-          animate={{ scale: 1, opacity: 1 }}
-          exit={{ scale: 0.9, opacity: 0 }}
-          transition={{ type: 'spring', damping: 25, stiffness: 400 }}
+          initial={{ scale: 0.92, opacity: 0, y: 20 }}
+          animate={{ scale: 1, opacity: 1, y: 0 }}
+          exit={{ scale: 0.92, opacity: 0, y: 20 }}
+          transition={{ type: 'spring', damping: 28, stiffness: 380 }}
           onClick={(e) => e.stopPropagation()}
         >
           <h2>Add Task</h2>
@@ -280,18 +373,78 @@ export function NewTaskModal() {
             </div>
           )}
           <div className="modal-field">
-            <label>Weight (effort: 1-5)</label>
-            <input
-              type="number"
-              value={weight}
-              onChange={(e) => setWeight(Math.max(1, Math.min(5, parseInt(e.target.value) || 1)))}
-              min={1}
-              max={5}
-            />
-            <p style={{ fontSize: 11, color: 'var(--text-tertiary)', marginTop: 2 }}>
+            <label>Weight (effort: 1–5)</label>
+            <div className="weight-picker">
+              {[1, 2, 3, 4, 5].map((w) => (
+                <button
+                  key={w}
+                  className={`weight-btn${weight === w ? ' active' : ''}`}
+                  onClick={() => setWeight(w)}
+                  type="button"
+                >
+                  {w}
+                </button>
+              ))}
+            </div>
+            <p style={{ fontSize: 11, color: 'var(--text-tertiary)', marginTop: 4 }}>
               Larger weight = bigger tile on the treemap
             </p>
           </div>
+
+          {/* Chain-quest dependencies */}
+          {taskList.length > 0 && (
+            <div className="modal-field">
+              <button
+                className="dep-toggle"
+                onClick={() => setShowDeps(!showDeps)}
+                type="button"
+              >
+                <span className="dep-toggle-icon">{showDeps ? '▾' : '▸'}</span>
+                Dependencies
+                {dependsOn.length > 0 && (
+                  <span className="dep-badge">{dependsOn.length}</span>
+                )}
+              </button>
+              <AnimatePresence>
+                {showDeps && (
+                  <motion.div
+                    initial={{ height: 0, opacity: 0 }}
+                    animate={{ height: 'auto', opacity: 1 }}
+                    exit={{ height: 0, opacity: 0 }}
+                    transition={{ duration: 0.2 }}
+                    style={{ overflow: 'hidden' }}
+                  >
+                    <div className="dep-list">
+                      <p style={{ fontSize: 11, color: 'var(--text-tertiary)', marginBottom: 6 }}>
+                        Select tasks that must be completed before this one can be started.
+                      </p>
+                      {taskList.map((task) => {
+                        const cat = categories[task.categoryId];
+                        const selected = dependsOn.includes(task.id);
+                        return (
+                          <div
+                            key={task.id}
+                            className={`dep-item${selected ? ' selected' : ''}`}
+                            onClick={() => toggleDep(task.id)}
+                          >
+                            <div className={`check${selected ? ' done' : ''}`}
+                              style={selected ? { borderColor: cat?.color, background: cat?.color } : {}}
+                            >
+                              {selected && <span style={{ fontSize: 9, color: 'white' }}>✓</span>}
+                            </div>
+                            <span className="dot" style={{ background: cat?.color || 'gray', width: 6, height: 6, borderRadius: '50%', flexShrink: 0 }} />
+                            <span style={{ fontSize: 12, flex: 1 }}>{task.title}</span>
+                            {task.completed && <span style={{ fontSize: 10, color: 'var(--text-tertiary)' }}>done</span>}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </motion.div>
+                )}
+              </AnimatePresence>
+            </div>
+          )}
+
           {activeBlockId && (
             <div className="modal-field" style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
               <input
@@ -315,7 +468,8 @@ export function NewTaskModal() {
   );
 }
 
-// Task assignment modal — for assigning pool tasks to a block
+// ─── Assign Tasks Modal ──────────────────────────────────────────────────────
+
 export function AssignTasksModal({ blockId, onClose }: { blockId: string; onClose: () => void }) {
   const tasks = useStore((s) => s.tasks);
   const categories = useStore((s) => s.categories);
@@ -349,10 +503,10 @@ export function AssignTasksModal({ blockId, onClose }: { blockId: string; onClos
       <motion.div
         className="modal"
         style={{ maxHeight: '70vh', display: 'flex', flexDirection: 'column' }}
-        initial={{ scale: 0.9, opacity: 0 }}
-        animate={{ scale: 1, opacity: 1 }}
-        exit={{ scale: 0.9, opacity: 0 }}
-        transition={{ type: 'spring', damping: 25, stiffness: 400 }}
+        initial={{ scale: 0.92, opacity: 0, y: 20 }}
+        animate={{ scale: 1, opacity: 1, y: 0 }}
+        exit={{ scale: 0.92, opacity: 0, y: 20 }}
+        transition={{ type: 'spring', damping: 28, stiffness: 380 }}
         onClick={(e) => e.stopPropagation()}
       >
         <h2>Assign Tasks to {block.name}</h2>
@@ -396,5 +550,261 @@ export function AssignTasksModal({ blockId, onClose }: { blockId: string; onClos
         </div>
       </motion.div>
     </motion.div>
+  );
+}
+
+// ─── Task Completion Survey ──────────────────────────────────────────────────
+
+const DURATION_OPTIONS = [
+  { label: '< 15 min', value: 10 },
+  { label: '30 min', value: 30 },
+  { label: '1 hour', value: 60 },
+  { label: '2 hours', value: 120 },
+  { label: '4 hours', value: 240 },
+  { label: 'Full day', value: 480 },
+];
+
+export function TaskCompletionSurvey() {
+  const taskId = useStore((s) => s.completionSurveyTaskId);
+  const tasks = useStore((s) => s.tasks);
+  const categories = useStore((s) => s.categories);
+  const setTaskActualDuration = useStore((s) => s.setTaskActualDuration);
+  const setCompletionSurveyTask = useStore((s) => s.setCompletionSurveyTask);
+  const [customMinutes, setCustomMinutes] = useState('');
+  const [showCustom, setShowCustom] = useState(false);
+
+  if (!taskId) return null;
+  const task = tasks[taskId];
+  if (!task) return null;
+  const cat = task.categoryId ? categories[task.categoryId] : null;
+
+  const handleSelect = (minutes: number) => {
+    setTaskActualDuration(taskId, minutes);
+    debouncedSave();
+    setShowCustom(false);
+    setCustomMinutes('');
+  };
+
+  const handleCustomSubmit = () => {
+    const mins = parseInt(customMinutes);
+    if (mins > 0) handleSelect(mins);
+  };
+
+  const handleSkip = () => {
+    setCompletionSurveyTask(null);
+    setShowCustom(false);
+    setCustomMinutes('');
+  };
+
+  return (
+    <AnimatePresence>
+      <motion.div
+        className="survey-overlay"
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        exit={{ opacity: 0 }}
+        onClick={handleSkip}
+      >
+        <motion.div
+          className="survey-card"
+          initial={{ scale: 0.85, opacity: 0, y: 40 }}
+          animate={{ scale: 1, opacity: 1, y: 0 }}
+          exit={{ scale: 0.85, opacity: 0, y: 40 }}
+          transition={{ type: 'spring', damping: 22, stiffness: 350 }}
+          onClick={(e) => e.stopPropagation()}
+          style={{ '--cat-color': cat?.color || 'var(--accent)' } as React.CSSProperties}
+        >
+          <div className="survey-checkmark">
+            <svg width="32" height="32" viewBox="0 0 32 32">
+              <circle cx="16" cy="16" r="14" fill="none" stroke={cat?.color || 'var(--accent)'} strokeWidth="2" />
+              <motion.path
+                d="M9 16 L14 21 L23 11"
+                fill="none"
+                stroke={cat?.color || 'var(--accent)'}
+                strokeWidth="2.5"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                initial={{ pathLength: 0 }}
+                animate={{ pathLength: 1 }}
+                transition={{ duration: 0.4, delay: 0.1 }}
+              />
+            </svg>
+          </div>
+          <div className="survey-title">Task complete!</div>
+          <div className="survey-task-name">{task.title}</div>
+          <div className="survey-question">How long did this take?</div>
+          <div className="survey-options">
+            {DURATION_OPTIONS.map((opt) => (
+              <button
+                key={opt.value}
+                className="survey-option"
+                style={{ '--hover-color': cat?.color || 'var(--accent)' } as React.CSSProperties}
+                onClick={() => handleSelect(opt.value)}
+              >
+                {opt.label}
+              </button>
+            ))}
+            <button
+              className="survey-option survey-option-custom"
+              style={{ '--hover-color': cat?.color || 'var(--accent)' } as React.CSSProperties}
+              onClick={() => setShowCustom(!showCustom)}
+            >
+              Custom
+            </button>
+          </div>
+          <AnimatePresence>
+            {showCustom && (
+              <motion.div
+                initial={{ height: 0, opacity: 0 }}
+                animate={{ height: 'auto', opacity: 1 }}
+                exit={{ height: 0, opacity: 0 }}
+                style={{ overflow: 'hidden' }}
+              >
+                <div className="survey-custom-input">
+                  <input
+                    type="number"
+                    value={customMinutes}
+                    onChange={(e) => setCustomMinutes(e.target.value)}
+                    placeholder="Minutes..."
+                    autoFocus
+                    onKeyDown={(e) => e.key === 'Enter' && handleCustomSubmit()}
+                    style={{ width: '100%', textAlign: 'center' }}
+                  />
+                  <button className="btn btn-primary btn-sm" onClick={handleCustomSubmit}>
+                    Save
+                  </button>
+                </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
+          <button className="survey-skip" onClick={handleSkip}>Skip</button>
+        </motion.div>
+      </motion.div>
+    </AnimatePresence>
+  );
+}
+
+// ─── Pomodoro Settings Modal ─────────────────────────────────────────────────
+
+export function PomodoroSettingsModal() {
+  const open = useStore((s) => s.pomodoroSettingsOpen);
+  const setPomodoroSettingsOpen = useStore((s) => s.setPomodoroSettingsOpen);
+  const pomodoro = useStore((s) => s.pomodoro);
+  const setPomodoroDurations = useStore((s) => s.setPomodoroDurations);
+
+  const [work, setWork] = useState(Math.round(pomodoro.workDuration / 60));
+  const [brk, setBrk] = useState(Math.round(pomodoro.breakDuration / 60));
+  const [longBrk, setLongBrk] = useState(Math.round(pomodoro.longBreakDuration / 60));
+
+  if (!open) return null;
+
+  const handleSave = () => {
+    setPomodoroDurations(
+      Math.max(1, work) * 60,
+      Math.max(1, brk) * 60,
+      Math.max(1, longBrk) * 60
+    );
+    debouncedSave();
+    setPomodoroSettingsOpen(false);
+  };
+
+  const totalSessions = pomodoro.sessions.length;
+  const workSessions = pomodoro.sessions.filter((s) => s.mode === 'work').length;
+  const totalFocusMinutes = Math.round(
+    pomodoro.sessions
+      .filter((s) => s.mode === 'work')
+      .reduce((sum, s) => sum + (s.endTime - s.startTime) / 60000, 0)
+  );
+
+  return (
+    <AnimatePresence>
+      <motion.div
+        className="modal-overlay"
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        exit={{ opacity: 0 }}
+        onClick={() => setPomodoroSettingsOpen(false)}
+      >
+        <motion.div
+          className="modal"
+          initial={{ scale: 0.92, opacity: 0, y: 20 }}
+          animate={{ scale: 1, opacity: 1, y: 0 }}
+          exit={{ scale: 0.92, opacity: 0, y: 20 }}
+          transition={{ type: 'spring', damping: 28, stiffness: 380 }}
+          onClick={(e) => e.stopPropagation()}
+        >
+          <h2>Pomodoro Settings</h2>
+
+          {/* Analytics summary */}
+          {totalSessions > 0 && (
+            <div className="pomo-stats">
+              <div className="pomo-stat">
+                <span className="pomo-stat-value">{workSessions}</span>
+                <span className="pomo-stat-label">sessions</span>
+              </div>
+              <div className="pomo-stat">
+                <span className="pomo-stat-value">{totalFocusMinutes}</span>
+                <span className="pomo-stat-label">focus mins</span>
+              </div>
+              <div className="pomo-stat">
+                <span className="pomo-stat-value">{totalSessions - workSessions}</span>
+                <span className="pomo-stat-label">breaks</span>
+              </div>
+            </div>
+          )}
+
+          <div className="modal-field">
+            <label>Focus duration (minutes)</label>
+            <div className="duration-input-row">
+              <input
+                type="range"
+                min={5}
+                max={60}
+                step={5}
+                value={work}
+                onChange={(e) => setWork(parseInt(e.target.value))}
+                className="duration-slider"
+              />
+              <span className="duration-value">{work}m</span>
+            </div>
+          </div>
+          <div className="modal-field">
+            <label>Short break (minutes)</label>
+            <div className="duration-input-row">
+              <input
+                type="range"
+                min={1}
+                max={30}
+                step={1}
+                value={brk}
+                onChange={(e) => setBrk(parseInt(e.target.value))}
+                className="duration-slider"
+              />
+              <span className="duration-value">{brk}m</span>
+            </div>
+          </div>
+          <div className="modal-field">
+            <label>Long break (minutes)</label>
+            <div className="duration-input-row">
+              <input
+                type="range"
+                min={5}
+                max={60}
+                step={5}
+                value={longBrk}
+                onChange={(e) => setLongBrk(parseInt(e.target.value))}
+                className="duration-slider"
+              />
+              <span className="duration-value">{longBrk}m</span>
+            </div>
+          </div>
+
+          <div className="modal-actions">
+            <button className="btn btn-ghost" onClick={() => setPomodoroSettingsOpen(false)}>Cancel</button>
+            <button className="btn btn-primary" onClick={handleSave}>Save</button>
+          </div>
+        </motion.div>
+      </motion.div>
+    </AnimatePresence>
   );
 }

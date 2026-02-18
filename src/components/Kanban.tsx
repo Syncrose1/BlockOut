@@ -33,6 +33,11 @@ export function Kanban() {
     return Array.from(catMap.values());
   }, [visibleTasks, categories]);
 
+  const isTaskLocked = useCallback((task: Task): boolean => {
+    if (!task.dependsOn || task.dependsOn.length === 0) return false;
+    return task.dependsOn.some((depId) => !tasks[depId]?.completed);
+  }, [tasks]);
+
   const handleDragStart = useCallback((e: React.DragEvent, taskId: string) => {
     setDraggedTask(taskId);
     e.dataTransfer.effectAllowed = 'move';
@@ -67,35 +72,69 @@ export function Kanban() {
               transition: 'opacity 0.3s ease',
             }}
           >
-            <div className="kanban-column-header">
+            <div
+              className="kanban-column-header"
+              style={{ borderBottom: `2px solid ${category.color}22` }}
+            >
               <span className="dot" style={{ background: category.color }} />
               {category.name}
               <span className="count">{completed}/{colTasks.length}</span>
             </div>
             <div className="kanban-column-body">
               {colTasks
-                .sort((a, b) => (a.completed === b.completed ? 0 : a.completed ? 1 : -1))
-                .map((task) => (
-                  <div
-                    key={task.id}
-                    className={`kanban-card ${task.completed ? 'completed' : ''}`}
-                    draggable
-                    onDragStart={(e) => handleDragStart(e, task.id)}
-                    onDragEnd={handleDragEnd}
-                    onClick={() => {
-                      toggleTask(task.id);
-                      debouncedSave();
-                    }}
-                  >
+                .sort((a, b) => {
+                  // locked last, then incomplete, then completed
+                  const aLocked = isTaskLocked(a);
+                  const bLocked = isTaskLocked(b);
+                  if (aLocked !== bLocked) return aLocked ? 1 : -1;
+                  return a.completed === b.completed ? 0 : a.completed ? 1 : -1;
+                })
+                .map((task) => {
+                  const locked = isTaskLocked(task);
+                  const pendingDeps = locked
+                    ? (task.dependsOn || [])
+                        .filter((depId) => !tasks[depId]?.completed)
+                        .map((depId) => tasks[depId]?.title || 'Unknown')
+                    : [];
+
+                  return (
                     <div
-                      className={`check ${task.completed ? 'done' : ''}`}
-                      style={task.completed ? { borderColor: category.color, background: category.color } : {}}
+                      key={task.id}
+                      className={`kanban-card${task.completed ? ' completed' : ''}${locked ? ' locked' : ''}`}
+                      draggable={!locked}
+                      onDragStart={(e) => !locked && handleDragStart(e, task.id)}
+                      onDragEnd={handleDragEnd}
+                      onClick={() => {
+                        if (!locked) {
+                          toggleTask(task.id);
+                          debouncedSave();
+                        }
+                      }}
+                      title={locked ? `Waiting on: ${pendingDeps.join(', ')}` : undefined}
                     >
-                      {task.completed && <span style={{ fontSize: 10, color: 'white' }}>&#x2713;</span>}
+                      {locked ? (
+                        <div className="lock-icon" title={`Requires: ${pendingDeps.join(', ')}`}>
+                          🔒
+                        </div>
+                      ) : (
+                        <div
+                          className={`check ${task.completed ? 'done' : ''}`}
+                          style={task.completed ? { borderColor: category.color, background: category.color } : {}}
+                        >
+                          {task.completed && <span style={{ fontSize: 10, color: 'white' }}>&#x2713;</span>}
+                        </div>
+                      )}
+                      <span style={{ flex: 1 }}>{task.title}</span>
+                      {task.actualDuration != null && (
+                        <span className="task-duration-badge" title="Actual time spent">
+                          {task.actualDuration >= 60
+                            ? `${(task.actualDuration / 60).toFixed(1)}h`
+                            : `${task.actualDuration}m`}
+                        </span>
+                      )}
                     </div>
-                    {task.title}
-                  </div>
-                ))}
+                  );
+                })}
             </div>
           </div>
         );

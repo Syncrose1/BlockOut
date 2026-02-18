@@ -17,6 +17,7 @@ export function Pomodoro() {
   const resetPomodoro = useStore((s) => s.resetPomodoro);
   const tickPomodoro = useStore((s) => s.tickPomodoro);
   const exitFocusMode = useStore((s) => s.exitFocusMode);
+  const setPomodoroSettingsOpen = useStore((s) => s.setPomodoroSettingsOpen);
 
   // Timer tick
   useEffect(() => {
@@ -30,7 +31,6 @@ export function Pomodoro() {
     if (pomodoro.timeRemaining === 0 && !pomodoro.isRunning) {
       try {
         const ctx = new AudioContext();
-        // Play a pleasant two-tone chime
         const playNote = (freq: number, delay: number) => {
           const osc = ctx.createOscillator();
           const gain = ctx.createGain();
@@ -45,11 +45,9 @@ export function Pomodoro() {
           osc.stop(ctx.currentTime + delay + 0.6);
         };
         if (pomodoro.mode === 'work') {
-          // Entering break — ascending chime
           playNote(523, 0);
           playNote(659, 0.2);
         } else {
-          // Back to work — descending chime
           playNote(659, 0);
           playNote(523, 0.2);
         }
@@ -62,7 +60,6 @@ export function Pomodoro() {
   const modeLabel = pomodoro.mode === 'work' ? 'Focus' : pomodoro.mode === 'break' ? 'Break' : 'Long Break';
   const focusedCategory = pomodoro.focusedCategoryId ? categories[pomodoro.focusedCategoryId] : null;
 
-  // Progress for ring
   const totalTime =
     pomodoro.mode === 'work'
       ? pomodoro.workDuration
@@ -76,6 +73,12 @@ export function Pomodoro() {
     : pomodoro.mode === 'work'
     ? 'hsl(0, 72%, 62%)'
     : 'hsl(120, 60%, 50%)';
+
+  // Session count for today
+  const todayStr = new Date().toISOString().slice(0, 10);
+  const todaySessions = pomodoro.sessions.filter(
+    (s) => s.mode === 'work' && new Date(s.endTime).toISOString().slice(0, 10) === todayStr
+  ).length;
 
   return (
     <AnimatePresence>
@@ -109,6 +112,24 @@ export function Pomodoro() {
             transform="rotate(-90 22 22)"
             style={{ transition: 'stroke-dashoffset 1s linear' }}
           />
+          {/* Glow effect when running */}
+          {pomodoro.isRunning && (
+            <circle
+              cx="22" cy="22" r="18"
+              fill="none"
+              stroke={ringColor}
+              strokeWidth="1"
+              strokeLinecap="round"
+              strokeDasharray={`${2 * Math.PI * 18}`}
+              strokeDashoffset={`${2 * Math.PI * 18 * (1 - progress)}`}
+              transform="rotate(-90 22 22)"
+              style={{
+                filter: `drop-shadow(0 0 4px ${ringColor})`,
+                transition: 'stroke-dashoffset 1s linear',
+                opacity: 0.6,
+              }}
+            />
+          )}
         </svg>
 
         <div style={{ flex: 1 }}>
@@ -127,17 +148,28 @@ export function Pomodoro() {
             )}
           </div>
           <div className="pomodoro-timer">{formatTime(pomodoro.timeRemaining)}</div>
-          <div className="pomodoro-sessions">
-            {Array.from({ length: 4 }).map((_, i) => (
-              <div
-                key={i}
-                className={`pip ${i < pomodoro.sessionsCompleted % 4 ? 'filled' : ''}`}
-                style={i < pomodoro.sessionsCompleted % 4 && focusedCategory
-                  ? { background: focusedCategory.color }
-                  : {}
-                }
-              />
-            ))}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <div className="pomodoro-sessions">
+              {Array.from({ length: 4 }).map((_, i) => (
+                <div
+                  key={i}
+                  className={`pip ${i < pomodoro.sessionsCompleted % 4 ? 'filled' : ''}`}
+                  style={i < pomodoro.sessionsCompleted % 4 && focusedCategory
+                    ? { background: focusedCategory.color }
+                    : {}
+                  }
+                />
+              ))}
+            </div>
+            {todaySessions > 0 && (
+              <span style={{
+                fontSize: 9,
+                color: 'var(--text-tertiary)',
+                fontFamily: 'var(--font-mono)',
+              }}>
+                {todaySessions} today
+              </span>
+            )}
           </div>
         </div>
 
@@ -153,6 +185,14 @@ export function Pomodoro() {
           )}
           <button className="pomodoro-btn" onClick={resetPomodoro} title="Reset">
             &#x21BA;
+          </button>
+          <button
+            className="pomodoro-btn"
+            onClick={() => setPomodoroSettingsOpen(true)}
+            title="Settings"
+            style={{ fontSize: 13 }}
+          >
+            ⚙
           </button>
           {focusMode && (
             <button className="pomodoro-btn" onClick={exitFocusMode} title="Exit focus mode"
