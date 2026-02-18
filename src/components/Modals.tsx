@@ -1064,6 +1064,12 @@ export function TaskEditModal() {
   const [showDeps, setShowDeps] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
 
+  const catList = useMemo(() => Object.values(categories), [categories]);
+  const otherTasks = useMemo(
+    () => Object.values(tasks).filter((t) => t.id !== editingTaskId),
+    [tasks, editingTaskId]
+  );
+
   // Sync fields whenever the target task changes
   useEffect(() => {
     if (!task) return;
@@ -1079,13 +1085,8 @@ export function TaskEditModal() {
 
   if (!editingTaskId || !task) return null;
 
-  const catList = useMemo(() => Object.values(categories), [categories]);
   const selectedCat = categories[categoryId];
   const subcategories = selectedCat?.subcategories ?? [];
-  const otherTasks = useMemo(
-    () => Object.values(tasks).filter((t) => t.id !== editingTaskId),
-    [tasks, editingTaskId]
-  );
 
   const toggleDep = (id: string) =>
     setDependsOn((prev) => (prev.includes(id) ? prev.filter((d) => d !== id) : [...prev, id]));

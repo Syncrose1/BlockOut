@@ -510,7 +510,7 @@ export function Treemap() {
 
   // ── Event handlers ────────────────────────────────────────────────────────────
   const handleMouseMove = useCallback((e: React.MouseEvent) => {
-    const rect = containerRef.current?.getBoundingClientRect();
+    const rect = canvasRef.current?.getBoundingClientRect();
     if (!rect) return;
     const node = findNodeAt(e.clientX - rect.left, e.clientY - rect.top);
     hoveredIdRef.current = node?.id ?? null;
@@ -520,7 +520,7 @@ export function Treemap() {
   }, [findNodeAt]);
 
   const handleDoubleClick = useCallback((e: React.MouseEvent) => {
-    const rect = containerRef.current?.getBoundingClientRect();
+    const rect = canvasRef.current?.getBoundingClientRect();
     if (!rect) return;
     const node = findNodeAt(e.clientX - rect.left, e.clientY - rect.top);
     if (!node) return;
@@ -557,7 +557,7 @@ export function Treemap() {
 
   const handleContextMenu = useCallback((e: React.MouseEvent) => {
     e.preventDefault();
-    const rect = containerRef.current?.getBoundingClientRect();
+    const rect = canvasRef.current?.getBoundingClientRect();
     if (!rect) return;
     const node = findNodeAt(e.clientX - rect.left, e.clientY - rect.top);
     if (node && tasksRef.current[node.id]) {
@@ -567,7 +567,7 @@ export function Treemap() {
 
   const handleMouseDown = useCallback((e: React.MouseEvent) => {
     if (e.button !== 0) return;
-    const rect = containerRef.current?.getBoundingClientRect();
+    const rect = canvasRef.current?.getBoundingClientRect();
     if (!rect) return;
     const node = findNodeAt(e.clientX - rect.left, e.clientY - rect.top);
     if (node && tasksRef.current[node.id]) {
@@ -587,22 +587,6 @@ export function Treemap() {
   const handleDragEnd = useCallback(() => setDraggedTask(null), [setDraggedTask]);
   const handleMouseLeave = useCallback(() => { hoveredIdRef.current = null; }, []);
 
-  if (visibleTasks.length === 0) {
-    return (
-      <div className="empty-state">
-        <div className="empty-state-icon">&#x2B22;</div>
-        <h3>No tasks here yet</h3>
-        <p>
-          {showTimelessPool
-            ? 'Add categories and tasks to start building your task pool.'
-            : activeBlockId
-            ? 'Assign tasks from the pool to this block, or create new ones.'
-            : 'Select a time block or view the task pool to get started.'}
-        </p>
-      </div>
-    );
-  }
-
   return (
     <div
       ref={containerRef}
@@ -616,7 +600,21 @@ export function Treemap() {
       onDragEnd={handleDragEnd}
       draggable
     >
-      <canvas ref={canvasRef} style={{ width: size.w, height: size.h }} />
+      {visibleTasks.length === 0 ? (
+        <div className="empty-state">
+          <div className="empty-state-icon">&#x2B22;</div>
+          <h3>No tasks here yet</h3>
+          <p>
+            {showTimelessPool
+              ? 'Add categories and tasks to start building your task pool.'
+              : activeBlockId
+              ? 'Assign tasks from the pool to this block, or create new ones.'
+              : 'Select a time block or view the task pool to get started.'}
+          </p>
+        </div>
+      ) : (
+        <canvas ref={canvasRef} style={{ width: size.w, height: size.h }} />
+      )}
     </div>
   );
 }

@@ -1,6 +1,6 @@
 import { useEffect, useRef } from 'react';
 import { useStore } from '../store';
-import { motion, AnimatePresence, useMotionValue, animate } from 'framer-motion';
+import { motion, AnimatePresence, useMotionValue } from 'framer-motion';
 
 function formatTime(seconds: number): string {
   const m = Math.floor(seconds / 60);
@@ -22,9 +22,6 @@ export function Pomodoro() {
   // Drag offset from natural position (bottom-right corner)
   const x = useMotionValue(0);
   const y = useMotionValue(0);
-  const widgetRef = useRef<HTMLDivElement>(null);
-  // 'home' = bottom-right (natural), 'alt' = top-left
-  const dockedCorner = useRef<'home' | 'alt'>('home');
 
   // Timer tick
   useEffect(() => {
@@ -64,32 +61,6 @@ export function Pomodoro() {
     }
   }, [pomodoro.timeRemaining, pomodoro.isRunning, pomodoro.mode]);
 
-  const swapCorner = () => {
-    const el = widgetRef.current;
-    if (!el) return;
-    const rect = el.getBoundingClientRect();
-    const ww = window.innerWidth;
-    const wh = window.innerHeight;
-
-    if (dockedCorner.current === 'home') {
-      // Move to top-left.
-      // Widget CSS: position fixed, bottom:20, right:20.
-      // Natural left edge: ww - rect.width - 20.  Target left edge: 20.
-      // dx = 20 - (ww - rect.width - 20) = rect.width + 40 - ww
-      // Natural top edge: wh - rect.height - 20. Target top edge: 20.
-      // dy = 20 - (wh - rect.height - 20) = rect.height + 40 - wh
-      const targetX = rect.width + 40 - ww;
-      const targetY = rect.height + 40 - wh;
-      animate(x, targetX, { type: 'spring', damping: 24, stiffness: 300 });
-      animate(y, targetY, { type: 'spring', damping: 24, stiffness: 300 });
-      dockedCorner.current = 'alt';
-    } else {
-      animate(x, 0, { type: 'spring', damping: 24, stiffness: 300 });
-      animate(y, 0, { type: 'spring', damping: 24, stiffness: 300 });
-      dockedCorner.current = 'home';
-    }
-  };
-
   const modeLabel = pomodoro.mode === 'work' ? 'Focus' : pomodoro.mode === 'break' ? 'Break' : 'Long Break';
   const focusedCategory = pomodoro.focusedCategoryId ? categories[pomodoro.focusedCategoryId] : null;
 
@@ -115,7 +86,6 @@ export function Pomodoro() {
   return (
     <AnimatePresence>
       <motion.div
-        ref={widgetRef}
         className="pomodoro-widget"
         drag
         dragMomentum={false}
@@ -126,11 +96,6 @@ export function Pomodoro() {
         initial={{ y: 60, opacity: 0 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ type: 'spring', damping: 20, stiffness: 300 }}
-        onDragEnd={() => {
-          // After a free drag, clear docked corner so the swap button
-          // snaps back to home rather than jumping to a stale alt position
-          dockedCorner.current = 'home';
-        }}
       >
         {/* Drag handle strip — a visual hint on the left edge */}
         <div
@@ -245,15 +210,6 @@ export function Pomodoro() {
             style={{ fontSize: 13 }}
           >
             ⚙
-          </button>
-          {/* Corner swap button */}
-          <button
-            className="pomodoro-btn"
-            onClick={swapCorner}
-            title="Move to opposite corner"
-            style={{ fontSize: 13, opacity: 0.6 }}
-          >
-            ⇱
           </button>
           {focusMode && (
             <button className="pomodoro-btn" onClick={exitFocusMode} title="Exit focus mode" style={{ fontSize: 12 }}>
