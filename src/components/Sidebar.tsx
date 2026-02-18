@@ -113,8 +113,9 @@ export function Sidebar() {
       <div className="sidebar-header">
         <div className="sidebar-logo">
           <div className="logo-icon">
-            {/* Pixel-art B: viewBox 0 0 15 31, cell=3, gap=1, step=4 */}
-            <svg height="28" viewBox="0 0 15 31" xmlns="http://www.w3.org/2000/svg">
+            {/* Pixel-art BO: cell=3, gap=1, step=4 | B at x=0, O at x=17 */}
+            <svg height="26" viewBox="0 0 32 31" xmlns="http://www.w3.org/2000/svg">
+              {/* ── B letter ── */}
               <rect x="0"  y="0"  width="3" height="3" rx="0.5" fill="#22c55e"/>
               <rect x="4"  y="0"  width="3" height="3" rx="0.5" fill="#22c55e"/>
               <rect x="8"  y="0"  width="3" height="3" rx="0.5" fill="#22c55e"/>
@@ -134,6 +135,30 @@ export function Sidebar() {
               <rect x="0"  y="28" width="3" height="3" rx="0.5" fill="#22c55e"/>
               <rect x="4"  y="28" width="3" height="3" rx="0.5" fill="#22c55e"/>
               <rect x="8"  y="28" width="3" height="3" rx="0.5" fill="#22c55e"/>
+              {/* ── O letter (green) ── */}
+              <rect x="17" y="0"  width="3" height="3" rx="0.5" fill="#22c55e"/>
+              <rect x="21" y="0"  width="3" height="3" rx="0.5" fill="#22c55e"/>
+              <rect x="25" y="0"  width="3" height="3" rx="0.5" fill="#22c55e"/>
+              <rect x="17" y="4"  width="3" height="3" rx="0.5" fill="#22c55e"/>
+              <rect x="25" y="4"  width="3" height="3" rx="0.5" fill="#22c55e"/>
+              <rect x="17" y="8"  width="3" height="3" rx="0.5" fill="#22c55e"/>
+              <rect x="25" y="8"  width="3" height="3" rx="0.5" fill="#22c55e"/>
+              <rect x="17" y="12" width="3" height="3" rx="0.5" fill="#22c55e"/>
+              <rect x="25" y="12" width="3" height="3" rx="0.5" fill="#22c55e"/>
+              <rect x="17" y="16" width="3" height="3" rx="0.5" fill="#22c55e"/>
+              <rect x="25" y="16" width="3" height="3" rx="0.5" fill="#22c55e"/>
+              <rect x="17" y="20" width="3" height="3" rx="0.5" fill="#22c55e"/>
+              <rect x="25" y="20" width="3" height="3" rx="0.5" fill="#22c55e"/>
+              <rect x="17" y="24" width="3" height="3" rx="0.5" fill="#22c55e"/>
+              <rect x="25" y="24" width="3" height="3" rx="0.5" fill="#22c55e"/>
+              <rect x="17" y="28" width="3" height="3" rx="0.5" fill="#22c55e"/>
+              <rect x="21" y="28" width="3" height="3" rx="0.5" fill="#22c55e"/>
+              <rect x="25" y="28" width="3" height="3" rx="0.5" fill="#22c55e"/>
+              {/* ── O ghost slots (dashed outline) ── */}
+              <rect x="29" y="8"  width="3" height="3" rx="0.5" fill="none" stroke="#555" strokeWidth="0.5" strokeDasharray="1,0.5"/>
+              <rect x="29" y="16" width="3" height="3" rx="0.5" fill="none" stroke="#555" strokeWidth="0.5" strokeDasharray="1,0.5"/>
+              <rect x="29" y="20" width="3" height="3" rx="0.5" fill="none" stroke="#555" strokeWidth="0.5" strokeDasharray="1,0.5"/>
+              <rect x="29" y="28" width="3" height="3" rx="0.5" fill="none" stroke="#555" strokeWidth="0.5" strokeDasharray="1,0.5"/>
             </svg>
           </div>
           BlockOut
