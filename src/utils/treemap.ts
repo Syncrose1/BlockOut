@@ -139,12 +139,13 @@ export function layoutTreemap(
 
   return nodes.map((node, i) => {
     const r = rects[i];
+    // Round to integer pixels for crisp rendering
     const result: TreemapNode = {
       ...node,
-      x: r.x + padding / 2,
-      y: r.y + padding / 2,
-      w: r.w - padding,
-      h: r.h - padding,
+      x: Math.round(r.x + padding / 2),
+      y: Math.round(r.y + padding / 2),
+      w: Math.round(r.w - padding),
+      h: Math.round(r.h - padding),
     };
 
     // Recursively layout children within this tile
@@ -158,8 +159,8 @@ export function layoutTreemap(
         3
       ).map((child) => ({
         ...child,
-        x: child.x! + result.x! + innerPad,
-        y: child.y! + result.y! + headerHeight + innerPad,
+        x: Math.round(child.x! + result.x! + innerPad),
+        y: Math.round(child.y! + result.y! + headerHeight + innerPad),
       }));
     }
 

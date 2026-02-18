@@ -63,6 +63,7 @@ export function Treemap() {
 
   // Animation state in plain refs — zero React re-renders during animation
   const hoveredIdRef = useRef<string | null>(null);
+  const hoverTransitionsRef = useRef<Map<string, { startTime: number; entering: boolean; progress: number }>>(new Map());
   const particlesRef = useRef<Particle[]>([]);
   const dissolvingRef = useRef<Map<string, Dissolve>>(new Map());
   const sparkleCounterRef = useRef(0);
@@ -237,6 +238,9 @@ export function Treemap() {
     }
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
     ctx.clearRect(0, 0, w, h);
+    
+    // Enable crisp rendering
+    ctx.imageSmoothingEnabled = false;
 
     const now = Date.now();
     const currLayout = layoutRef.current;
@@ -307,9 +311,13 @@ export function Treemap() {
 
       // ── Label — proportional font size ──────────────────────────────────────
       if (tw > 22 && th > 12) {
-        const area = tw * th;
-        // Scale font with tile area, capped between 9–13 px
-        const fontSize = Math.max(9, Math.min(13, Math.sqrt(area) / 6.5));
+        // Scale font based on tile dimensions, more responsive to size changes
+        // Use both width and height to determine appropriate size
+        const minDim = Math.min(tw, th);
+        const scaleFactor = Math.min(tw, th * 2) / 120; // Reference size for scaling
+        const baseSize = Math.max(8, Math.min(16, minDim * 0.12));
+        const responsiveSize = baseSize * Math.max(0.8, Math.min(1.3, scaleFactor));
+        const fontSize = Math.max(8, Math.min(18, responsiveSize));
         const isActive = taskNode.completed || !!dissolve;
         ctx.font = `${isActive ? '600' : '500'} ${fontSize.toFixed(0)}px Inter, sans-serif`;
         ctx.textBaseline = 'middle';
@@ -319,8 +327,9 @@ export function Treemap() {
           ? 'rgba(255,255,255,0.92)'
           : 'rgba(255,255,255,0.65)';
 
-        const labelX = tx + (isLocked && tw > 24 ? 20 : 6);
-        const labelMaxW = tw - (isLocked && tw > 24 ? 26 : 12);
+        // Center the text in the tile, account for lock icon if present
+        const centerX = tx + tw / 2;
+        const labelMaxW = isLocked ? tw - 24 : tw - 12;
 
         // Accurate ellipsis using measureText
         const truncate = (text: string, font: string, maxW: number): string => {
@@ -338,20 +347,59 @@ export function Treemap() {
         const titleFont = `${isActive ? '600' : '500'} ${fontSize.toFixed(0)}px Inter, sans-serif`;
         const label = truncate(taskNode.name, titleFont, labelMaxW);
 
-        // For large tiles: show notes on a second line
+        // Handle hover transitions for smooth animations
         const task = currTasks[taskNode.id];
-        const showNotes = th > 54 && tw > 58 && !!task?.notes;
-        const labelY = showNotes ? ty + th * 0.38 : ty + th / 2;
+        const hasNotes = !!task?.notes && task.notes.trim() !== '';
+        const canShowNotes = th > 54 && tw > 58 && hasNotes;
+        
+        // Get or create hover transition state - start at 0 progress (hidden)
+        let hoverTrans = hoverTransitionsRef.current.get(taskNode.id);
+        if (!hoverTrans) {
+          hoverTrans = { startTime: now, entering: false, progress: 0 };
+          hoverTransitionsRef.current.set(taskNode.id, hoverTrans);
+        }
+        
+        // Update transition when hover state changes
+        if (hoverTrans.entering !== isHovered) {
+          hoverTrans.startTime = now;
+          hoverTrans.entering = isHovered;
+        }
+        
+        // Calculate animation progress (200ms duration for snappier feel)
+        const HOVER_ANIM_DURATION = 200;
+        const elapsed = now - hoverTrans.startTime;
+        const animProgress = Math.min(1, elapsed / HOVER_ANIM_DURATION);
+        // When entering: progress goes 0->1, when leaving: progress goes 1->0
+        const targetProgress = isHovered ? 1 : 0;
+        const currentProgress = hoverTrans.entering 
+          ? animProgress 
+          : (1 - animProgress);
+        hoverTrans.progress = currentProgress;
+        const easedProgress = 1 - Math.pow(1 - currentProgress, 3); // ease-out-cubic
+        
+        // Animate notes in/out based on hover state and transition progress
+        // easedProgress goes 0->1 when entering, 1->0 when leaving
+        const notesOpacity = canShowNotes ? easedProgress : 0;
+        
+        // Animate label position: moves up when notes appear, down when leaving
+        const baseLabelY = ty + th / 2;
+        const notesLabelY = ty + th * 0.38;
+        const labelY = canShowNotes 
+          ? baseLabelY - (baseLabelY - notesLabelY) * easedProgress
+          : baseLabelY;
+        
         ctx.font = titleFont;
-        ctx.fillText(label, labelX, labelY);
+        ctx.textAlign = 'center';
+        ctx.fillText(label, centerX, labelY);
 
-        if (showNotes && task?.notes) {
+        // Draw notes with fade animation
+        if (canShowNotes && notesOpacity > 0.01 && task.notes) {
           const noteSize = Math.max(8, fontSize - 1.5);
           const noteFont = `400 ${noteSize.toFixed(0)}px Inter, sans-serif`;
           const note = truncate(task.notes, noteFont, labelMaxW);
           ctx.font = noteFont;
-          ctx.fillStyle = 'rgba(255,255,255,0.32)';
-          ctx.fillText(note, labelX, ty + th * 0.62);
+          ctx.fillStyle = `rgba(255,255,255,${0.32 * notesOpacity})`;
+          ctx.fillText(note, centerX, ty + th * 0.62);
         }
       }
 
@@ -385,6 +433,9 @@ export function Treemap() {
           ctx.fill();
         }
       }
+      
+      // Reset text alignment so it doesn't affect other elements
+      ctx.textAlign = 'left';
     };
 
     // ── Category containers + children ────────────────────────────────────────
@@ -503,6 +554,19 @@ export function Treemap() {
       particlesRef.current = particlesRef.current.filter((p) => now - p.startTime < 700);
       dissolvingRef.current.forEach((v, k) => {
         if (now - v.startTime > 600) dissolvingRef.current.delete(k);
+      });
+      // Cleanup completed hover transitions
+      hoverTransitionsRef.current.forEach((trans, id) => {
+        const isHovered = hoveredIdRef.current === id;
+        // Calculate current progress
+        const elapsed = now - trans.startTime;
+        const animProgress = Math.min(1, elapsed / 200);
+        const currentProgress = trans.entering ? animProgress : (1 - animProgress);
+        
+        // Remove if animation complete and not currently hovered
+        if (currentProgress >= 0.99 && !isHovered) {
+          hoverTransitionsRef.current.delete(id);
+        }
       });
       rafRef.current = requestAnimationFrame(loop);
     };

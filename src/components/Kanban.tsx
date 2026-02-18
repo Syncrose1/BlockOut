@@ -128,21 +128,13 @@ export function Kanban() {
                           {task.completed && <span style={{ fontSize: 10, color: 'white' }}>&#x2713;</span>}
                         </div>
                       )}
-                      <span style={{ flex: 1 }}>{task.title}</span>
-                      {task.notes && hoveredCardId === task.id && (
-                        <span style={{
-                          fontSize: 10,
-                          color: 'var(--text-tertiary)',
-                          maxWidth: 80,
-                          overflow: 'hidden',
-                          textOverflow: 'ellipsis',
-                          whiteSpace: 'nowrap',
-                          flexShrink: 0,
-                        }} title={task.notes}>
+                      <span className="kanban-card-title">{task.title}</span>
+                      {hoveredCardId === task.id && task.notes && task.notes.trim() !== '' && (
+                        <span className="kanban-card-notes" title={task.notes}>
                           {task.notes}
                         </span>
                       )}
-                      {task.actualDuration != null && (
+                      {hoveredCardId === task.id && task.actualDuration != null && task.actualDuration > 0 && (
                         <span className="task-duration-badge" title="Actual time spent">
                           {task.actualDuration >= 60
                             ? `${(task.actualDuration / 60).toFixed(1)}h`
