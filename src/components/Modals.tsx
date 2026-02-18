@@ -7,6 +7,7 @@ import {
   setCloudConfig,
   saveToCloud,
   getLastSyncedTime,
+  resolveConflict,
 } from '../utils/persistence';
 
 // ─── Calendar Date Picker ────────────────────────────────────────────────────
@@ -1034,6 +1035,115 @@ export function PomodoroSettingsModal() {
           <div className="modal-actions">
             <button className="btn btn-ghost" onClick={() => setPomodoroSettingsOpen(false)}>Cancel</button>
             <button className="btn btn-primary" onClick={handleSave}>Save</button>
+          </div>
+        </motion.div>
+      </motion.div>
+    </AnimatePresence>
+  );
+}
+
+// ─── Conflict Resolution Modal ────────────────────────────────────────────────
+
+function snapshotSummary(data: Record<string, unknown>) {
+  const tasks = Object.values((data.tasks as object) ?? {}) as { completed?: boolean }[];
+  const cats = Object.keys((data.categories as object) ?? {}).length;
+  const active = tasks.filter((t) => !t.completed).length;
+  const done = tasks.filter((t) => t.completed).length;
+  const lastModified = data.lastModified as number | undefined;
+  return { active, done, cats, lastModified };
+}
+
+export function ConflictResolutionModal() {
+  const conflict = useStore((s) => s.conflictState);
+  const [resolving, setResolving] = useState(false);
+
+  if (!conflict) return null;
+
+  const local = snapshotSummary(conflict.local);
+  const remote = snapshotSummary(conflict.remote);
+  const remoteVersion = (conflict.remote.version as number) ?? '?';
+
+  const handleResolve = async (choice: 'local' | 'remote') => {
+    setResolving(true);
+    await resolveConflict(choice);
+    setResolving(false);
+  };
+
+  const col: React.CSSProperties = {
+    flex: 1,
+    background: 'var(--surface-2)',
+    borderRadius: 8,
+    padding: '12px 14px',
+    fontSize: 13,
+    display: 'flex',
+    flexDirection: 'column',
+    gap: 4,
+  };
+
+  return (
+    <AnimatePresence>
+      <motion.div
+        className="modal-overlay"
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        exit={{ opacity: 0 }}
+        // Not dismissable — user must make a choice
+      >
+        <motion.div
+          className="modal"
+          initial={{ scale: 0.92, opacity: 0, y: 20 }}
+          animate={{ scale: 1, opacity: 1, y: 0 }}
+          exit={{ scale: 0.92, opacity: 0, y: 20 }}
+          transition={{ type: 'spring', damping: 28, stiffness: 380 }}
+          style={{ maxWidth: 520 }}
+        >
+          <h2>Sync conflict</h2>
+          <p style={{ color: 'var(--text-secondary)', fontSize: 14, marginBottom: 16 }}>
+            The cloud has received writes (version {remoteVersion}) that this device
+            hasn't seen, and you also made local changes while offline. Choose which
+            version to keep — the other will be discarded.
+          </p>
+
+          <div style={{ display: 'flex', gap: 10, marginBottom: 20 }}>
+            <div style={col}>
+              <div style={{ fontWeight: 600, marginBottom: 4 }}>This device (local)</div>
+              <div>{local.active} active task{local.active !== 1 ? 's' : ''}</div>
+              <div style={{ color: 'var(--text-tertiary)' }}>{local.done} completed</div>
+              <div style={{ color: 'var(--text-tertiary)' }}>{local.cats} categor{local.cats !== 1 ? 'ies' : 'y'}</div>
+              {local.lastModified ? (
+                <div style={{ color: 'var(--text-tertiary)', marginTop: 4, fontSize: 11 }}>
+                  Last edited {new Date(local.lastModified).toLocaleString()}
+                </div>
+              ) : null}
+            </div>
+            <div style={col}>
+              <div style={{ fontWeight: 600, marginBottom: 4 }}>Cloud (v{remoteVersion})</div>
+              <div>{remote.active} active task{remote.active !== 1 ? 's' : ''}</div>
+              <div style={{ color: 'var(--text-tertiary)' }}>{remote.done} completed</div>
+              <div style={{ color: 'var(--text-tertiary)' }}>{remote.cats} categor{remote.cats !== 1 ? 'ies' : 'y'}</div>
+              {remote.lastModified ? (
+                <div style={{ color: 'var(--text-tertiary)', marginTop: 4, fontSize: 11 }}>
+                  Last edited {new Date(remote.lastModified).toLocaleString()}
+                </div>
+              ) : null}
+            </div>
+          </div>
+
+          <div className="modal-actions">
+            <button
+              className="btn btn-ghost"
+              onClick={() => handleResolve('local')}
+              disabled={resolving}
+            >
+              Keep local
+            </button>
+            <button
+              className="btn btn-primary"
+              onClick={() => handleResolve('remote')}
+              disabled={resolving}
+            >
+              {resolving ? 'Applying…' : 'Keep cloud'}
+            </button>
           </div>
         </motion.div>
       </motion.div>

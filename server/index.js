@@ -48,9 +48,21 @@ app.get('/api/data', (req, res) => {
 app.put('/api/data', (req, res) => {
   if (!checkAuth(req, res)) return;
   try {
-    const payload = { ...req.body, lastModified: req.body.lastModified ?? Date.now() };
+    // Read the current version from disk so we can increment it
+    let currentVersion = 0;
+    if (fs.existsSync(DATA_FILE)) {
+      try {
+        const existing = JSON.parse(fs.readFileSync(DATA_FILE, 'utf-8'));
+        currentVersion = existing.version ?? 0;
+      } catch (_) { /* ignore parse errors */ }
+    }
+    const payload = {
+      ...req.body,
+      lastModified: req.body.lastModified ?? Date.now(),
+      version: currentVersion + 1,
+    };
     fs.writeFileSync(DATA_FILE, JSON.stringify(payload, null, 2));
-    res.json({ ok: true, lastModified: payload.lastModified });
+    res.json({ ok: true, lastModified: payload.lastModified, version: payload.version });
   } catch (err) {
     console.error('Error writing data:', err);
     res.status(500).json({ error: 'Failed to write data' });

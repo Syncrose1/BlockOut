@@ -74,6 +74,11 @@ interface BlockOutState {
   // Sync
   syncStatus: 'idle' | 'syncing' | 'synced' | 'error';
   syncSettingsOpen: boolean;
+  // null when no conflict pending; populated when local and remote have both diverged
+  conflictState: {
+    local: Record<string, unknown>;
+    remote: Record<string, unknown>;
+  } | null;
 
   // Actions — Categories
   addCategory: (name: string) => string;
@@ -127,6 +132,7 @@ interface BlockOutState {
   // Actions — Sync
   setSyncStatus: (status: 'idle' | 'syncing' | 'synced' | 'error') => void;
   setSyncSettingsOpen: (open: boolean) => void;
+  setConflictState: (state: { local: Record<string, unknown>; remote: Record<string, unknown> } | null) => void;
 
   // Persistence
   loadData: (data: {
@@ -166,6 +172,7 @@ export const useStore = create<BlockOutState>((set, get) => ({
   pomodoroSettingsOpen: false,
   syncStatus: 'idle',
   syncSettingsOpen: false,
+  conflictState: null,
 
   drag: {
     draggedTaskId: null,
@@ -436,6 +443,7 @@ export const useStore = create<BlockOutState>((set, get) => ({
   setPomodoroSettingsOpen: (open) => set({ pomodoroSettingsOpen: open }),
   setSyncStatus: (status) => set({ syncStatus: status }),
   setSyncSettingsOpen: (open) => set({ syncSettingsOpen: open }),
+  setConflictState: (state) => set({ conflictState: state }),
 
   // Focus mode
   enterFocusMode: (categoryId) => set((state) => ({

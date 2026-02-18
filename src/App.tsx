@@ -14,6 +14,7 @@ import {
   TaskCompletionSurvey,
   PomodoroSettingsModal,
   SyncSettingsModal,
+  ConflictResolutionModal,
 } from './components/Modals';
 
 export function App() {
@@ -53,6 +54,7 @@ export function App() {
       <TaskCompletionSurvey />
       <PomodoroSettingsModal />
       <SyncSettingsModal />
+      <ConflictResolutionModal />
     </div>
   );
 }
