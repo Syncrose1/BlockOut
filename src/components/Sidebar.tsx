@@ -283,6 +283,38 @@ export function Sidebar() {
         </div>
       </div>
 
+      {/* Footer - Help & Tour */}
+      <div
+        style={{
+          marginTop: 'auto',
+          padding: '16px',
+          borderTop: '1px solid var(--border)',
+          fontSize: 12,
+        }}
+      >
+        <button
+          onClick={() => {
+            // Reset onboarding state and restart
+            localStorage.removeItem('blockout-onboarding');
+            window.location.reload();
+          }}
+          style={{
+            background: 'none',
+            border: 'none',
+            color: 'var(--text-tertiary)',
+            cursor: 'pointer',
+            fontSize: 12,
+            padding: 0,
+            display: 'flex',
+            alignItems: 'center',
+            gap: 6,
+          }}
+        >
+          <span>?</span>
+          Restart Tour
+        </button>
+      </div>
+
       {categorySettingsId && (
         <CategorySettingsModal
           categoryId={categorySettingsId}

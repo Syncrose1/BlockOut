@@ -194,7 +194,7 @@ export function OnboardingTour() {
           pointerEvents: 'none',
         }}
       >
-        {/* Spotlight overlay */}
+        {/* Spotlight overlay - blocks clicks outside tooltip but doesn't dismiss */}
         <div
           style={{
             position: 'absolute',
@@ -202,7 +202,7 @@ export function OnboardingTour() {
             background: 'rgba(0, 0, 0, 0.5)',
             pointerEvents: 'auto',
           }}
-          onClick={tour.skipTour}
+          onClick={(e) => e.stopPropagation()}
         />
 
         {/* Tooltip */}
