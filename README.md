@@ -403,30 +403,6 @@ vercel link
 
 The API automatically detects and uses Vercel KV when available.
 
-#### Option D: MongoDB Atlas (512MB Free)
-Great if you prefer document databases.
-
-1. Sign up at [mongodb.com/atlas](https://mongodb.com/atlas)
-2. Create a free M0 cluster
-3. Get your connection string
-4. Add to Vercel:
-
-```bash
-vercel env add MONGODB_URI
-```
-
-#### Option E: Neon PostgreSQL (500MB Free)
-Serverless Postgres with generous free tier.
-
-1. Sign up at [neon.tech](https://neon.tech)
-2. Create a project
-3. Get connection string
-4. Add to Vercel:
-
-```bash
-vercel env add DATABASE_URL
-```
-
 ### Vercel Project Structure
 
 ```
