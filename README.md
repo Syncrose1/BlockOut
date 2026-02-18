@@ -15,6 +15,11 @@ A visual task management app built for people juggling tasks across different ti
 - **Drag-and-drop** — move tasks between the pool and blocks from the sidebar
 - **Daily streak tracker** — flame icon that grows with consecutive completion days
 - **Export as PNG** — capture the treemap as a downloadable image
+- **Export/Import JSON** — backup and restore all data, or transfer between instances
+- **Activity heatmap** — GitHub-style 365-day visualization of productivity
+- **Category analytics** — completion rates and statistics per category
+- **Onboarding tour** — guided introduction for new users
+- **Cloud sync** — self-hosted sync across devices via your own server
 - **PWA support** — installable on mobile with offline caching
 - **Self-hosted** — runs on your own machine, accessible across a Tailnet
 
@@ -103,6 +108,199 @@ BlockOut/
 ## Data storage
 
 All data is persisted to `data.json` in the project root via the Express API. The frontend also saves to `localStorage` as a fallback. No external database required.
+
+## Cloud Sync Setup
+
+BlockOut supports self-hosted cloud sync so you can access your tasks across multiple devices on your Tailnet.
+
+### Quick Start
+
+1. **Start the server with a token** (for basic auth):
+```bash
+BLOCKOUT_TOKEN=my-secret-token npm start
+```
+
+2. **Configure the app:**
+   - Click "Sync" in the topbar
+   - Enter your server URL: `https://blockout.yourdomain.com` (or `http://192.168.x.x:3001` for local network)
+   - Enter your token: `my-secret-token`
+   - Click "Test & sync now"
+
+### Environment Variables
+
+| Variable | Description | Default |
+|----------|-------------|---------|
+| `PORT` | Server port | `3001` |
+| `BLOCKOUT_TOKEN` | Optional Bearer token for auth | (none) |
+| `DATA_DIR` | Where to store data.json | Project root |
+
+### Docker Deployment
+
+**Dockerfile (create in project root):**
+
+```dockerfile
+FROM node:18-alpine
+
+WORKDIR /app
+
+# Copy package files
+COPY package*.json ./
+RUN npm ci --only=production
+
+# Copy app files
+COPY . .
+
+# Build frontend
+RUN npm run build
+
+# Create data directory
+RUN mkdir -p /data
+
+# Set environment
+ENV NODE_ENV=production
+ENV PORT=3001
+ENV DATA_DIR=/data
+
+# Expose port
+EXPOSE 3001
+
+# Start server
+CMD ["node", "server/index.js"]
+```
+
+**Build and run:**
+
+```bash
+# Build the image
+docker build -t blockout .
+
+# Run with data persistence
+docker run -d \
+  --name blockout \
+  -p 3001:3001 \
+  -e BLOCKOUT_TOKEN=your-secret-token \
+  -v blockout-data:/data \
+  --restart unless-stopped \
+  blockout
+```
+
+**Docker Compose (recommended):**
+
+Create `docker-compose.yml`:
+
+```yaml
+version: '3.8'
+
+services:
+  blockout:
+    build: .
+    container_name: blockout
+    ports:
+      - "3001:3001"
+    environment:
+      - BLOCKOUT_TOKEN=${BLOCKOUT_TOKEN:-your-secret-token}
+      - PORT=3001
+      - DATA_DIR=/data
+    volumes:
+      - ./data:/data
+    restart: unless-stopped
+```
+
+Run with:
+
+```bash
+# Set your token
+export BLOCKOUT_TOKEN=your-secret-token
+
+# Start
+docker-compose up -d
+
+# View logs
+docker-compose logs -f
+
+# Update after code changes
+docker-compose up -d --build
+```
+
+### Tailscale Setup
+
+To access BlockOut across devices on your Tailnet:
+
+1. **Install Tailscale** on your server and all client devices:
+```bash
+# Ubuntu/Debian
+curl -fsSL https://tailscale.com/install.sh | sh
+sudo tailscale up
+
+# macOS
+brew install tailscale
+sudo tailscale up
+
+# See https://tailscale.com/download for others
+```
+
+2. **Start BlockOut** bound to all interfaces:
+```bash
+npm start
+# or with Docker, it already binds to 0.0.0.0
+```
+
+3. **Get your Tailnet hostname:**
+```bash
+tailscale status
+```
+
+4. **Access from other devices:**
+```
+http://<tailnet-hostname>:3001
+```
+
+### Reverse Proxy (HTTPS)
+
+For HTTPS access behind a reverse proxy:
+
+**Nginx example:**
+
+```nginx
+server {
+    listen 443 ssl;
+    server_name blockout.yourdomain.com;
+
+    ssl_certificate /path/to/cert.pem;
+    ssl_certificate_key /path/to/key.pem;
+
+    location / {
+        proxy_pass http://localhost:3001;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection 'upgrade';
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_cache_bypass $http_upgrade;
+    }
+}
+```
+
+### Data Backup
+
+Your data is stored in `data.json` (or `/data/data.json` in Docker). Back up regularly:
+
+```bash
+# Local backup
+cp data.json data.json.backup.$(date +%Y%m%d)
+
+# Or use the Export feature in the app (JSON export)
+```
+
+### Security Notes
+
+- The `BLOCKOUT_TOKEN` provides basic Bearer token authentication
+- Without a token, the API is open to anyone who can reach the server
+- Always use HTTPS in production (via reverse proxy)
+- Bind to localhost only if you don't need network access: `npm run dev`
+- Data is stored as plain JSON - no encryption at rest
 
 ## License
 
