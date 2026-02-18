@@ -289,6 +289,7 @@ export function NewTaskModal() {
   const [assignToBlock, setAssignToBlock] = useState(true);
   const [dependsOn, setDependsOn] = useState<string[]>([]);
   const [showDeps, setShowDeps] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   const catList = useMemo(() => Object.values(categories), [categories]);
   const taskList = useMemo(() => Object.values(tasks), [tasks]);
@@ -304,7 +305,15 @@ export function NewTaskModal() {
   };
 
   const handleCreate = () => {
-    if (!title.trim() || !categoryId) return;
+    if (!title.trim()) {
+      setError('Please enter a task title');
+      return;
+    }
+    if (!categoryId) {
+      setError('Please select a category. Create one in the sidebar if needed!');
+      return;
+    }
+    setError(null);
     const taskId = addTask({
       title: title.trim(),
       categoryId,
@@ -329,6 +338,7 @@ export function NewTaskModal() {
     setWeight(1);
     setDependsOn([]);
     setShowDeps(false);
+    setError(null);
     setShow(false);
   };
 
@@ -354,15 +364,35 @@ export function NewTaskModal() {
             <label>Title</label>
             <input
               value={title}
-              onChange={(e) => setTitle(e.target.value)}
+              onChange={(e) => { setTitle(e.target.value); setError(null); }}
               placeholder="e.g. Study respiratory physiology"
               autoFocus
               onKeyDown={(e) => e.key === 'Enter' && handleCreate()}
             />
           </div>
+          {/* Error message display */}
+          {error && (
+            <div className="modal-field">
+              <div style={{
+                padding: '12px 16px',
+                background: 'hsla(0, 72%, 62%, 0.1)',
+                border: '1px solid hsla(0, 72%, 62%, 0.3)',
+                borderRadius: 'var(--radius-sm)',
+                color: 'hsl(0, 72%, 62%)',
+                fontSize: 13,
+                display: 'flex',
+                alignItems: 'center',
+                gap: 8,
+              }}>
+                <span>⚠️</span>
+                {error}
+              </div>
+            </div>
+          )}
+
           <div className="modal-field">
             <label>Category</label>
-            <select value={categoryId} onChange={(e) => { setCategoryId(e.target.value); setSubcategoryId(''); }}>
+            <select value={categoryId} onChange={(e) => { setCategoryId(e.target.value); setSubcategoryId(''); setError(null); }}>
               <option value="">Select category...</option>
               {catList.map((cat) => (
                 <option key={cat.id} value={cat.id}>{cat.name}</option>

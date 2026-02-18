@@ -1,7 +1,8 @@
-import { useMemo, useState, useCallback } from 'react';
+import { useMemo, useState, useCallback, useEffect, useRef } from 'react';
 import { useStore } from '../store';
 import { AssignTasksModal, ExportImportModal } from './Modals';
 import { exportTreemapAsImage } from './Treemap';
+import { exportToFile } from '../utils/analytics';
 import type { ViewMode } from '../types';
 
 function formatCountdown(endDate: number): string {
@@ -37,6 +38,8 @@ export function Topbar() {
 
   const [showAssign, setShowAssign] = useState(false);
   const [showExportImport, setShowExportImport] = useState(false);
+  const [exportDropdownOpen, setExportDropdownOpen] = useState(false);
+  const dropdownRef = useRef<HTMLDivElement>(null);
 
   const block = activeBlockId ? timeBlocks[activeBlockId] : null;
 
@@ -59,6 +62,20 @@ export function Topbar() {
     { id: 'kanban', label: 'Kanban' },
     { id: 'timeline', label: 'Timeline' },
   ];
+
+  // Close dropdown when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
+        setExportDropdownOpen(false);
+      }
+    };
+    
+    if (exportDropdownOpen) {
+      document.addEventListener('mousedown', handleClickOutside);
+      return () => document.removeEventListener('mousedown', handleClickOutside);
+    }
+  }, [exportDropdownOpen]);
 
   const handleExport = useCallback(async () => {
     const dataUrl = await exportTreemapAsImage();
@@ -161,25 +178,97 @@ export function Topbar() {
           ))}
         </div>
 
-        {/* Export buttons */}
-        {viewMode === 'treemap' && total > 0 && (
-          <>
-            <button
-              className="btn btn-ghost btn-sm"
-              onClick={handleExport}
-              title="Export treemap as PNG"
+        {/* Export dropdown - always show import, conditionally show PNG export */}
+        <div ref={dropdownRef} style={{ position: 'relative' }}>
+          <button
+            className="btn btn-ghost btn-sm"
+            onClick={() => setExportDropdownOpen(!exportDropdownOpen)}
+            title="Export/Import"
+          >
+            Export ▼
+          </button>
+          
+          {exportDropdownOpen && (
+            <div
+              style={{
+                position: 'absolute',
+                top: '100%',
+                right: 0,
+                marginTop: 4,
+                background: 'var(--bg-secondary)',
+                border: '1px solid var(--border)',
+                borderRadius: 'var(--radius-sm)',
+                boxShadow: 'var(--shadow-lg)',
+                zIndex: 100,
+                minWidth: 160,
+              }}
             >
-              Export PNG
-            </button>
-            <button
-              className="btn btn-ghost btn-sm"
-              onClick={() => setShowExportImport(true)}
-              title="Export/Import data"
-            >
-              Data
-            </button>
-          </>
-        )}
+              <button
+                onClick={() => {
+                  setShowExportImport(true);
+                  setExportDropdownOpen(false);
+                }}
+                style={{
+                  display: 'block',
+                  width: '100%',
+                  padding: '8px 12px',
+                  background: 'none',
+                  border: 'none',
+                  color: 'var(--text-primary)',
+                  fontSize: 13,
+                  textAlign: 'left',
+                  cursor: 'pointer',
+                  borderBottom: '1px solid var(--border)',
+                }}
+              >
+                📤 Export/Import Data
+              </button>
+              
+              <button
+                onClick={() => {
+                  exportToFile('full');
+                  setExportDropdownOpen(false);
+                }}
+                style={{
+                  display: 'block',
+                  width: '100%',
+                  padding: '8px 12px',
+                  background: 'none',
+                  border: 'none',
+                  color: 'var(--text-primary)',
+                  fontSize: 13,
+                  textAlign: 'left',
+                  cursor: 'pointer',
+                  borderBottom: '1px solid var(--border)',
+                }}
+              >
+                💾 Export JSON
+              </button>
+              
+              {viewMode === 'treemap' && total > 0 && (
+                <button
+                  onClick={() => {
+                    handleExport();
+                    setExportDropdownOpen(false);
+                  }}
+                  style={{
+                    display: 'block',
+                    width: '100%',
+                    padding: '8px 12px',
+                    background: 'none',
+                    border: 'none',
+                    color: 'var(--text-primary)',
+                    fontSize: 13,
+                    textAlign: 'left',
+                    cursor: 'pointer',
+                  }}
+                >
+                  🖼️ Export PNG
+                </button>
+              )}
+            </div>
+          )}
+        </div>
 
         {block && !showTimelessPool && (
           <button
