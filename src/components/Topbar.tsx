@@ -70,6 +70,22 @@ export function Topbar() {
 
   const focusedCategory = focusedCategoryId ? categories[focusedCategoryId] : null;
 
+  const syncStatus = useStore((s) => s.syncStatus);
+  const setSyncSettingsOpen = useStore((s) => s.setSyncSettingsOpen);
+
+  const syncDotColor: Record<string, string> = {
+    idle: 'var(--text-tertiary)',
+    syncing: 'hsl(48, 90%, 60%)',
+    synced: 'hsl(140, 60%, 50%)',
+    error: 'hsl(0, 72%, 62%)',
+  };
+  const syncTitle: Record<string, string> = {
+    idle: 'Cloud sync (not configured)',
+    syncing: 'Syncing…',
+    synced: 'Synced',
+    error: 'Sync error — click to configure',
+  };
+
   return (
     <>
       <div className="topbar">
@@ -163,6 +179,25 @@ export function Topbar() {
             Assign Tasks
           </button>
         )}
+
+        {/* Sync status */}
+        <button
+          title={syncTitle[syncStatus]}
+          onClick={() => setSyncSettingsOpen(true)}
+          style={{
+            background: 'none', border: 'none', cursor: 'pointer',
+            display: 'flex', alignItems: 'center', gap: 5,
+            color: 'var(--text-tertiary)', fontSize: 12, padding: '4px 6px',
+          }}
+        >
+          <span style={{
+            width: 7, height: 7, borderRadius: '50%',
+            background: syncDotColor[syncStatus],
+            display: 'inline-block',
+            transition: 'background 0.3s',
+          }} />
+          Sync
+        </button>
 
         <button
           className="btn btn-primary btn-sm"

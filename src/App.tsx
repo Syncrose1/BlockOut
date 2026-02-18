@@ -1,6 +1,6 @@
 import { useEffect } from 'react';
 import { useStore } from './store';
-import { loadFromServer, debouncedSave } from './utils/persistence';
+import { loadData, debouncedSave, startPeriodicCloudSync } from './utils/persistence';
 import { Sidebar } from './components/Sidebar';
 import { Topbar } from './components/Topbar';
 import { Treemap } from './components/Treemap';
@@ -13,22 +13,28 @@ import {
   NewTaskModal,
   TaskCompletionSurvey,
   PomodoroSettingsModal,
+  SyncSettingsModal,
 } from './components/Modals';
 
 export function App() {
   const viewMode = useStore((s) => s.viewMode);
 
-  // Load data on mount
+  // Load data on mount (IndexedDB first, then merge from cloud if configured)
   useEffect(() => {
-    loadFromServer();
+    loadData();
   }, []);
 
-  // Auto-save on any state change
+  // Debounced local save on every state change
   useEffect(() => {
     const unsub = useStore.subscribe(() => {
       debouncedSave();
     });
     return unsub;
+  }, []);
+
+  // Periodic cloud push + on-unload push
+  useEffect(() => {
+    return startPeriodicCloudSync();
   }, []);
 
   return (
@@ -46,6 +52,7 @@ export function App() {
       <NewTaskModal />
       <TaskCompletionSurvey />
       <PomodoroSettingsModal />
+      <SyncSettingsModal />
     </div>
   );
 }

@@ -1,0 +1,16 @@
+services:
+  blockout:
+    build: .
+    ports:
+      - "3001:3001"
+    volumes:
+      # Persist data.json across container restarts
+      - blockout-data:/app/data
+    environment:
+      # Uncomment and set a strong random token to protect the API
+      # BLOCKOUT_TOKEN: changeme
+      PORT: 3001
+    restart: unless-stopped
+
+volumes:
+  blockout-data:

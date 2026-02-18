@@ -1,7 +1,13 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useStore } from '../store';
-import { debouncedSave } from '../utils/persistence';
+import {
+  debouncedSave,
+  getCloudConfig,
+  setCloudConfig,
+  saveToCloud,
+  getLastSyncedTime,
+} from '../utils/persistence';
 
 // ─── Calendar Date Picker ────────────────────────────────────────────────────
 
@@ -1027,6 +1033,173 @@ export function PomodoroSettingsModal() {
 
           <div className="modal-actions">
             <button className="btn btn-ghost" onClick={() => setPomodoroSettingsOpen(false)}>Cancel</button>
+            <button className="btn btn-primary" onClick={handleSave}>Save</button>
+          </div>
+        </motion.div>
+      </motion.div>
+    </AnimatePresence>
+  );
+}
+
+// ─── Sync Settings Modal ──────────────────────────────────────────────────────
+
+function formatRelativeTime(ts: number): string {
+  const diff = Math.floor((Date.now() - ts) / 1000);
+  if (diff < 60) return 'just now';
+  if (diff < 3600) return `${Math.floor(diff / 60)}m ago`;
+  if (diff < 86400) return `${Math.floor(diff / 3600)}h ago`;
+  return `${Math.floor(diff / 86400)}d ago`;
+}
+
+export function SyncSettingsModal() {
+  const open = useStore((s) => s.syncSettingsOpen);
+  const setSyncSettingsOpen = useStore((s) => s.setSyncSettingsOpen);
+  const syncStatus = useStore((s) => s.syncStatus);
+  const setSyncStatus = useStore((s) => s.setSyncStatus);
+
+  const [url, setUrl] = useState(() => getCloudConfig().url);
+  const [token, setToken] = useState(() => getCloudConfig().token);
+  const [testing, setTesting] = useState(false);
+  const [testResult, setTestResult] = useState<'ok' | 'fail' | null>(null);
+  const [lastSynced, setLastSynced] = useState<number | null>(getLastSyncedTime);
+
+  // Refresh lastSynced display whenever modal opens
+  useEffect(() => {
+    if (open) {
+      const cfg = getCloudConfig();
+      setUrl(cfg.url);
+      setToken(cfg.token);
+      setLastSynced(getLastSyncedTime());
+      setTestResult(null);
+    }
+  }, [open]);
+
+  if (!open) return null;
+
+  const handleSave = () => {
+    setCloudConfig(url, token);
+    setSyncSettingsOpen(false);
+  };
+
+  const handleTestAndSync = async () => {
+    setTesting(true);
+    setTestResult(null);
+    // Save config first so saveToCloud picks it up
+    setCloudConfig(url, token);
+    try {
+      setSyncStatus('syncing');
+      await saveToCloud();
+      setTestResult('ok');
+      setLastSynced(getLastSyncedTime());
+    } catch {
+      setTestResult('fail');
+      setSyncStatus('error');
+    } finally {
+      setTesting(false);
+    }
+  };
+
+  const hasUrl = url.trim().length > 0;
+
+  const statusDot: Record<string, string> = {
+    idle: 'var(--text-tertiary)',
+    syncing: 'hsl(48, 90%, 60%)',
+    synced: 'hsl(140, 60%, 50%)',
+    error: 'hsl(0, 72%, 62%)',
+  };
+  const statusLabel: Record<string, string> = {
+    idle: 'not configured',
+    syncing: 'syncing…',
+    synced: 'synced',
+    error: 'sync error',
+  };
+
+  return (
+    <AnimatePresence>
+      <motion.div
+        className="modal-overlay"
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        exit={{ opacity: 0 }}
+        onClick={() => setSyncSettingsOpen(false)}
+      >
+        <motion.div
+          className="modal"
+          initial={{ scale: 0.92, opacity: 0, y: 20 }}
+          animate={{ scale: 1, opacity: 1, y: 0 }}
+          exit={{ scale: 0.92, opacity: 0, y: 20 }}
+          transition={{ type: 'spring', damping: 28, stiffness: 380 }}
+          onClick={(e) => e.stopPropagation()}
+        >
+          <h2>Cloud Sync</h2>
+
+          {/* Status */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 18, fontSize: 13 }}>
+            <span style={{
+              width: 8, height: 8, borderRadius: '50%',
+              background: statusDot[syncStatus], flexShrink: 0,
+            }} />
+            <span style={{ color: 'var(--text-secondary)' }}>
+              {statusLabel[syncStatus]}
+              {lastSynced && syncStatus !== 'syncing'
+                ? ` · last synced ${formatRelativeTime(lastSynced)}`
+                : ''}
+            </span>
+          </div>
+
+          <div className="modal-field">
+            <label>Remote server URL</label>
+            <input
+              value={url}
+              onChange={(e) => setUrl(e.target.value)}
+              placeholder="https://blockout.yourdomain.com"
+              autoFocus
+            />
+            <div style={{ fontSize: 11, color: 'var(--text-tertiary)', marginTop: 4 }}>
+              Your self-hosted BlockOut server. Leave blank to disable cloud sync.
+            </div>
+          </div>
+
+          <div className="modal-field">
+            <label>Token (optional)</label>
+            <input
+              value={token}
+              onChange={(e) => setToken(e.target.value)}
+              type="password"
+              placeholder="Set via BLOCKOUT_TOKEN on the server"
+            />
+            <div style={{ fontSize: 11, color: 'var(--text-tertiary)', marginTop: 4 }}>
+              Must match the <code>BLOCKOUT_TOKEN</code> env variable on your server.
+            </div>
+          </div>
+
+          {testResult === 'ok' && (
+            <div style={{ fontSize: 13, color: 'hsl(140, 60%, 50%)', marginBottom: 12 }}>
+              Connection successful — data pushed to server.
+            </div>
+          )}
+          {testResult === 'fail' && (
+            <div style={{ fontSize: 13, color: 'hsl(0, 72%, 62%)', marginBottom: 12 }}>
+              Connection failed. Check the URL and token.
+            </div>
+          )}
+
+          <div style={{ fontSize: 12, color: 'var(--text-tertiary)', marginBottom: 16 }}>
+            Data syncs automatically every 5 minutes and on page close.
+            Local (IndexedDB) is always the primary store — cloud is a backup.
+          </div>
+
+          <div className="modal-actions">
+            <button className="btn btn-ghost" onClick={() => setSyncSettingsOpen(false)}>Cancel</button>
+            {hasUrl && (
+              <button
+                className="btn btn-ghost"
+                onClick={handleTestAndSync}
+                disabled={testing}
+              >
+                {testing ? 'Testing…' : 'Test & sync now'}
+              </button>
+            )}
             <button className="btn btn-primary" onClick={handleSave}>Save</button>
           </div>
         </motion.div>

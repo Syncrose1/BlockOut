@@ -71,6 +71,10 @@ interface BlockOutState {
   // Pomodoro
   pomodoro: PomodoroState;
 
+  // Sync
+  syncStatus: 'idle' | 'syncing' | 'synced' | 'error';
+  syncSettingsOpen: boolean;
+
   // Actions — Categories
   addCategory: (name: string) => string;
   addSubcategory: (categoryId: string, name: string) => void;
@@ -120,6 +124,10 @@ interface BlockOutState {
   setPomodoroDurations: (work: number, brk: number, longBrk: number) => void;
   setFocusedTask: (taskId: string | undefined) => void;
 
+  // Actions — Sync
+  setSyncStatus: (status: 'idle' | 'syncing' | 'synced' | 'error') => void;
+  setSyncSettingsOpen: (open: boolean) => void;
+
   // Persistence
   loadData: (data: {
     tasks: Record<string, Task>;
@@ -156,6 +164,8 @@ export const useStore = create<BlockOutState>((set, get) => ({
   focusMode: false,
   completionSurveyTaskId: null,
   pomodoroSettingsOpen: false,
+  syncStatus: 'idle',
+  syncSettingsOpen: false,
 
   drag: {
     draggedTaskId: null,
@@ -424,6 +434,8 @@ export const useStore = create<BlockOutState>((set, get) => ({
   setEditingTaskId: (id) => set({ editingTaskId: id }),
   setCompletionSurveyTask: (id) => set({ completionSurveyTaskId: id }),
   setPomodoroSettingsOpen: (open) => set({ pomodoroSettingsOpen: open }),
+  setSyncStatus: (status) => set({ syncStatus: status }),
+  setSyncSettingsOpen: (open) => set({ syncSettingsOpen: open }),
 
   // Focus mode
   enterFocusMode: (categoryId) => set((state) => ({
