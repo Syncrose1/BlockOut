@@ -112,6 +112,7 @@ export function Sidebar() {
     <div className="sidebar">
       <div className="sidebar-header">
         <div className="sidebar-logo">
+          <img src="/bo-logo-v3.png" alt="" height="24" style={{ imageRendering: 'pixelated' }} />
           BlockOut
         </div>
         {/* Streak display */}
