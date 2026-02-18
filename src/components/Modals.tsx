@@ -684,6 +684,232 @@ export function TaskCompletionSurvey() {
   );
 }
 
+// ─── Category Settings Modal ─────────────────────────────────────────────────
+
+export function CategorySettingsModal({
+  categoryId,
+  onClose,
+}: {
+  categoryId: string;
+  onClose: () => void;
+}) {
+  const categories = useStore((s) => s.categories);
+  const tasks = useStore((s) => s.tasks);
+  const renameCategory = useStore((s) => s.renameCategory);
+  const addSubcategory = useStore((s) => s.addSubcategory);
+  const deleteSubcategory = useStore((s) => s.deleteSubcategory);
+  const deleteCategory = useStore((s) => s.deleteCategory);
+  const exitFocusMode = useStore((s) => s.exitFocusMode);
+  const pomodoro = useStore((s) => s.pomodoro);
+
+  const cat = categories[categoryId];
+
+  const [nameInput, setNameInput] = useState(cat?.name ?? '');
+  const [subInput, setSubInput] = useState('');
+  const [confirmDelete, setConfirmDelete] = useState(false);
+
+  if (!cat) return null;
+
+  const allCatTasks = Object.values(tasks).filter((t) => t.categoryId === categoryId);
+  const activeTasks = allCatTasks.filter((t) => !t.completed);
+  const completedTasks = allCatTasks.filter((t) => t.completed);
+
+  const subCounts = (subId: string) => {
+    const sub = allCatTasks.filter((t) => t.subcategoryId === subId);
+    return { active: sub.filter((t) => !t.completed).length, completed: sub.filter((t) => t.completed).length };
+  };
+
+  const handleRename = () => {
+    const trimmed = nameInput.trim();
+    if (trimmed && trimmed !== cat.name) {
+      renameCategory(categoryId, trimmed);
+      debouncedSave();
+    }
+  };
+
+  const handleAddSub = () => {
+    if (subInput.trim()) {
+      addSubcategory(categoryId, subInput.trim());
+      debouncedSave();
+      setSubInput('');
+    }
+  };
+
+  const handleDeleteSub = (subId: string) => {
+    deleteSubcategory(categoryId, subId);
+    debouncedSave();
+  };
+
+  const handleDeleteCategory = () => {
+    if (pomodoro.focusedCategoryId === categoryId) exitFocusMode();
+    deleteCategory(categoryId);
+    debouncedSave();
+    onClose();
+  };
+
+  return (
+    <AnimatePresence>
+      <motion.div
+        className="modal-overlay"
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        exit={{ opacity: 0 }}
+        onClick={onClose}
+      >
+        <motion.div
+          className="modal"
+          initial={{ scale: 0.92, opacity: 0, y: 20 }}
+          animate={{ scale: 1, opacity: 1, y: 0 }}
+          exit={{ scale: 0.92, opacity: 0, y: 20 }}
+          transition={{ type: 'spring', damping: 28, stiffness: 380 }}
+          onClick={(e) => e.stopPropagation()}
+        >
+          {!confirmDelete ? (
+            <>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 16 }}>
+                <span style={{
+                  width: 12, height: 12, borderRadius: '50%',
+                  background: cat.color, flexShrink: 0, display: 'inline-block',
+                }} />
+                <h2 style={{ margin: 0 }}>Category Settings</h2>
+              </div>
+
+              <div className="modal-field">
+                <label>Category ID</label>
+                <div style={{
+                  fontFamily: 'monospace', fontSize: 11,
+                  color: 'var(--text-tertiary)', padding: '4px 0',
+                  wordBreak: 'break-all',
+                }}>
+                  {categoryId}
+                </div>
+              </div>
+
+              <div className="modal-field">
+                <label>Name</label>
+                <div style={{ display: 'flex', gap: 6 }}>
+                  <input
+                    value={nameInput}
+                    onChange={(e) => setNameInput(e.target.value)}
+                    onKeyDown={(e) => e.key === 'Enter' && handleRename()}
+                    style={{ flex: 1 }}
+                  />
+                  <button
+                    className="btn btn-ghost btn-sm"
+                    onClick={handleRename}
+                    disabled={!nameInput.trim() || nameInput.trim() === cat.name}
+                  >
+                    Rename
+                  </button>
+                </div>
+              </div>
+
+              <div style={{ fontSize: 12, color: 'var(--text-tertiary)', marginBottom: 14 }}>
+                {activeTasks.length} active task{activeTasks.length !== 1 ? 's' : ''}
+                {completedTasks.length > 0 && ` · ${completedTasks.length} completed`}
+              </div>
+
+              <div className="modal-field">
+                <label>Subcategories</label>
+                {cat.subcategories.length === 0 ? (
+                  <div style={{ fontSize: 12, color: 'var(--text-tertiary)', padding: '4px 0 8px' }}>
+                    No subcategories yet.
+                  </div>
+                ) : (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 4, marginBottom: 8 }}>
+                    {cat.subcategories.map((sub) => {
+                      const counts = subCounts(sub.id);
+                      return (
+                        <div
+                          key={sub.id}
+                          style={{
+                            display: 'flex', alignItems: 'center', gap: 8,
+                            background: 'var(--surface-2)', borderRadius: 6,
+                            padding: '5px 8px',
+                          }}
+                        >
+                          <span style={{ flex: 1, fontSize: 13 }}>{sub.name}</span>
+                          <span style={{ fontSize: 11, color: 'var(--text-tertiary)', whiteSpace: 'nowrap' }}>
+                            {counts.active} active{counts.completed > 0 ? ` · ${counts.completed} completed` : ''}
+                          </span>
+                          <button
+                            style={{
+                              background: 'none', border: 'none', cursor: 'pointer',
+                              color: 'var(--text-tertiary)', fontSize: 16, lineHeight: 1, padding: '0 2px',
+                            }}
+                            title="Remove subcategory"
+                            onClick={() => handleDeleteSub(sub.id)}
+                          >
+                            ×
+                          </button>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+                <div style={{ display: 'flex', gap: 6, marginTop: 2 }}>
+                  <input
+                    value={subInput}
+                    onChange={(e) => setSubInput(e.target.value)}
+                    placeholder="New subcategory name"
+                    onKeyDown={(e) => e.key === 'Enter' && (e.preventDefault(), handleAddSub())}
+                    style={{ flex: 1 }}
+                  />
+                  <button className="btn btn-ghost btn-sm" onClick={handleAddSub}>Add</button>
+                </div>
+              </div>
+
+              <div className="modal-actions" style={{ justifyContent: 'space-between', marginTop: 8 }}>
+                <button
+                  className="btn"
+                  style={{ color: 'var(--danger, #e05c5c)', background: 'none', border: '1px solid var(--danger, #e05c5c)' }}
+                  onClick={() => setConfirmDelete(true)}
+                >
+                  Delete Category
+                </button>
+                <button className="btn btn-ghost" onClick={onClose}>Close</button>
+              </div>
+            </>
+          ) : (
+            <>
+              <h2>Delete &ldquo;{cat.name}&rdquo;?</h2>
+              <p style={{ color: 'var(--text-secondary)', fontSize: 14, marginBottom: 10 }}>
+                This action is <strong>permanent</strong> and cannot be undone.
+              </p>
+              {(activeTasks.length > 0 || completedTasks.length > 0) && (
+                <div style={{
+                  background: 'var(--surface-2)', borderRadius: 8,
+                  padding: '10px 14px', marginBottom: 16, fontSize: 13,
+                }}>
+                  The following will also be permanently deleted:
+                  <ul style={{ margin: '6px 0 0', paddingLeft: 18 }}>
+                    {activeTasks.length > 0 && (
+                      <li>{activeTasks.length} active task{activeTasks.length !== 1 ? 's' : ''}</li>
+                    )}
+                    {completedTasks.length > 0 && (
+                      <li>{completedTasks.length} completed task{completedTasks.length !== 1 ? 's' : ''}</li>
+                    )}
+                  </ul>
+                </div>
+              )}
+              <div className="modal-actions">
+                <button className="btn btn-ghost" onClick={() => setConfirmDelete(false)}>Go back</button>
+                <button
+                  className="btn btn-primary"
+                  style={{ background: 'var(--danger, #e05c5c)', borderColor: 'var(--danger, #e05c5c)' }}
+                  onClick={handleDeleteCategory}
+                >
+                  Delete permanently
+                </button>
+              </div>
+            </>
+          )}
+        </motion.div>
+      </motion.div>
+    </AnimatePresence>
+  );
+}
+
 // ─── Pomodoro Settings Modal ─────────────────────────────────────────────────
 
 export function PomodoroSettingsModal() {

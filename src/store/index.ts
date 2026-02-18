@@ -74,6 +74,8 @@ interface BlockOutState {
   // Actions — Categories
   addCategory: (name: string) => string;
   addSubcategory: (categoryId: string, name: string) => void;
+  deleteSubcategory: (categoryId: string, subcategoryId: string) => void;
+  renameCategory: (id: string, name: string) => void;
   deleteCategory: (id: string) => void;
 
   // Actions — Tasks
@@ -209,6 +211,36 @@ export const useStore = create<BlockOutState>((set, get) => ({
           },
         },
       };
+    });
+  },
+
+  deleteSubcategory: (categoryId, subcategoryId) => {
+    set((state) => {
+      const cat = state.categories[categoryId];
+      if (!cat) return state;
+      return {
+        categories: {
+          ...state.categories,
+          [categoryId]: {
+            ...cat,
+            subcategories: cat.subcategories.filter((s) => s.id !== subcategoryId),
+          },
+        },
+        // Clear subcategoryId from tasks that referenced it
+        tasks: Object.fromEntries(
+          Object.entries(state.tasks).map(([tid, t]) =>
+            t.subcategoryId === subcategoryId ? [tid, { ...t, subcategoryId: undefined }] : [tid, t]
+          )
+        ),
+      };
+    });
+  },
+
+  renameCategory: (id, name) => {
+    set((state) => {
+      const cat = state.categories[id];
+      if (!cat) return state;
+      return { categories: { ...state.categories, [id]: { ...cat, name } } };
     });
   },
 
@@ -396,7 +428,7 @@ export const useStore = create<BlockOutState>((set, get) => ({
   // Focus mode
   enterFocusMode: (categoryId) => set((state) => ({
     focusMode: true,
-    pomodoro: { ...state.pomodoro, focusedCategoryId: categoryId, isRunning: true },
+    pomodoro: { ...state.pomodoro, focusedCategoryId: categoryId },
   })),
   exitFocusMode: () => set((state) => ({
     focusMode: false,

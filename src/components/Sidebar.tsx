@@ -1,6 +1,7 @@
 import { useStore } from '../store';
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import { debouncedSave } from '../utils/persistence';
+import { CategorySettingsModal } from './Modals';
 
 function formatCountdown(endDate: number): string {
   const now = Date.now();
@@ -18,6 +19,8 @@ function formatCountdown(endDate: number): string {
 }
 
 export function Sidebar() {
+  const [categorySettingsId, setCategorySettingsId] = useState<string | null>(null);
+
   const timeBlocks = useStore((s) => s.timeBlocks);
   const activeBlockId = useStore((s) => s.activeBlockId);
   const showTimelessPool = useStore((s) => s.showTimelessPool);
@@ -237,21 +240,37 @@ export function Sidebar() {
           {Object.values(categories).map((cat) => {
             const isFocused = focusMode && pomodoro.focusedCategoryId === cat.id;
             return (
-              <button
-                key={cat.id}
-                className={`sidebar-item ${isFocused ? 'active' : ''}`}
-                onClick={() => enterFocusMode(cat.id)}
-                title="Click to enter focus mode for this category"
-              >
-                <span className="dot" style={{
-                  background: cat.color,
-                  boxShadow: isFocused ? `0 0 8px ${cat.color}` : 'none',
-                }} />
-                {cat.name}
-                <span className="block-countdown">
-                  {Object.values(tasks).filter((t) => t.categoryId === cat.id).length}
-                </span>
-              </button>
+              <div key={cat.id} style={{ display: 'flex', alignItems: 'center' }}>
+                <button
+                  className={`sidebar-item ${isFocused ? 'active' : ''}`}
+                  style={{ flex: 1 }}
+                  onClick={() => enterFocusMode(cat.id)}
+                  title="Click to enter focus mode for this category"
+                >
+                  <span className="dot" style={{
+                    background: cat.color,
+                    boxShadow: isFocused ? `0 0 8px ${cat.color}` : 'none',
+                  }} />
+                  {cat.name}
+                  <span className="block-countdown">
+                    {Object.values(tasks).filter((t) => t.categoryId === cat.id).length}
+                  </span>
+                </button>
+                <button
+                  onClick={(e) => { e.stopPropagation(); setCategorySettingsId(cat.id); }}
+                  title="Category settings"
+                  style={{
+                    background: 'none', border: 'none', cursor: 'pointer',
+                    color: 'var(--text-tertiary)', padding: '4px 6px',
+                    fontSize: 13, lineHeight: 1, flexShrink: 0,
+                    opacity: 0.6,
+                  }}
+                  onMouseEnter={(e) => (e.currentTarget.style.opacity = '1')}
+                  onMouseLeave={(e) => (e.currentTarget.style.opacity = '0.6')}
+                >
+                  ⚙
+                </button>
+              </div>
             );
           })}
           <button
@@ -263,6 +282,13 @@ export function Sidebar() {
           </button>
         </div>
       </div>
+
+      {categorySettingsId && (
+        <CategorySettingsModal
+          categoryId={categorySettingsId}
+          onClose={() => setCategorySettingsId(null)}
+        />
+      )}
     </div>
   );
 }
