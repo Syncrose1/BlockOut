@@ -332,21 +332,40 @@ export function Treemap() {
         const centerX = tx + tw / 2;
         const labelMaxW = isLocked ? tw - 24 : tw - 12;
 
-        // Accurate ellipsis using measureText
-        const truncate = (text: string, font: string, maxW: number): string => {
-          ctx.font = font;
-          if (ctx.measureText(text).width <= maxW) return text;
-          let lo = 0, hi = text.length;
-          while (lo < hi) {
-            const mid = (lo + hi + 1) >> 1;
-            if (ctx.measureText(text.slice(0, mid) + '\u2026').width <= maxW) lo = mid;
-            else hi = mid - 1;
+        const titleFont = `${isActive ? '600' : '500'} ${fontSize.toFixed(0)}px Inter, sans-serif`;
+        ctx.font = titleFont;
+
+        // Word wrap function - splits text into lines that fit within maxWidth
+        const wrapText = (text: string, maxW: number): string[] => {
+          const words = text.split(' ');
+          const lines: string[] = [];
+          let currentLine = '';
+          
+          for (const word of words) {
+            const testLine = currentLine ? currentLine + ' ' + word : word;
+            const metrics = ctx.measureText(testLine);
+            if (metrics.width > maxW && currentLine) {
+              lines.push(currentLine);
+              currentLine = word;
+            } else {
+              currentLine = testLine;
+            }
           }
-          return text.slice(0, lo) + '\u2026';
+          if (currentLine) lines.push(currentLine);
+          return lines.length > 0 ? lines : [text];
         };
 
-        const titleFont = `${isActive ? '600' : '500'} ${fontSize.toFixed(0)}px Inter, sans-serif`;
-        const label = truncate(taskNode.name, titleFont, labelMaxW);
+        // Wrap the task name
+        const lines = wrapText(taskNode.name, labelMaxW);
+        // Limit lines based on available height (each line needs ~lineHeight px)
+        const lineHeight = fontSize * 1.2;
+        const maxLines = Math.max(1, Math.floor((th - 8) / lineHeight));
+        const displayLines = lines.slice(0, maxLines);
+        // If we truncated lines, add ellipsis to last line
+        if (lines.length > maxLines && displayLines.length > 0) {
+          const lastLine = displayLines[displayLines.length - 1];
+          displayLines[displayLines.length - 1] = lastLine + '…';
+        }
 
         // Handle hover transitions for smooth animations
         const task = currTasks[taskNode.id];
@@ -390,16 +409,31 @@ export function Treemap() {
           ? baseLabelY - (baseLabelY - notesLabelY) * easedProgress
           : baseLabelY;
         
+        // Draw wrapped text lines centered
         ctx.font = titleFont;
         ctx.textAlign = 'center';
-        ctx.fillText(label, centerX, labelY);
+        const totalTextHeight = displayLines.length * lineHeight;
+        const startY = labelY - (totalTextHeight / 2) + (lineHeight / 2);
+        displayLines.forEach((line, i) => {
+          ctx.fillText(line, centerX, startY + (i * lineHeight));
+        });
 
-        // Draw notes with fade animation
+        // Draw notes with fade animation (simple truncation for notes)
         if (canShowNotes && notesOpacity > 0.01 && task.notes) {
           const noteSize = Math.max(8, fontSize - 1.5);
           const noteFont = `400 ${noteSize.toFixed(0)}px Inter, sans-serif`;
-          const note = truncate(task.notes, noteFont, labelMaxW);
           ctx.font = noteFont;
+          // Simple truncate for notes
+          let note = task.notes;
+          if (ctx.measureText(note).width > labelMaxW) {
+            let lo = 0, hi = note.length;
+            while (lo < hi) {
+              const mid = (lo + hi + 1) >> 1;
+              if (ctx.measureText(note.slice(0, mid) + '…').width <= labelMaxW) lo = mid;
+              else hi = mid - 1;
+            }
+            note = note.slice(0, lo) + '…';
+          }
           ctx.fillStyle = `rgba(255,255,255,${0.32 * notesOpacity})`;
           ctx.fillText(note, centerX, ty + th * 0.62);
         }
