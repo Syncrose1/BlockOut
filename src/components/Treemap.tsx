@@ -352,10 +352,12 @@ export function Treemap() {
         const hasNotes = !!task?.notes && task.notes.trim() !== '';
         const canShowNotes = th > 54 && tw > 58 && hasNotes;
         
-        // Get or create hover transition state - start at 0 progress (hidden)
+        // Get or create hover transition state
         let hoverTrans = hoverTransitionsRef.current.get(taskNode.id);
         if (!hoverTrans) {
-          hoverTrans = { startTime: now, entering: false, progress: 0 };
+          // Initialize: start at 0 for hidden state, 1 for visible state
+          const initialProgress = isHovered ? 0 : 0;
+          hoverTrans = { startTime: now, entering: isHovered, progress: initialProgress };
           hoverTransitionsRef.current.set(taskNode.id, hoverTrans);
         }
         
@@ -363,22 +365,24 @@ export function Treemap() {
         if (hoverTrans.entering !== isHovered) {
           hoverTrans.startTime = now;
           hoverTrans.entering = isHovered;
+          // When starting a new animation, begin from the opposite end
+          // If we're entering, start from 0; if leaving, start from 1
+          hoverTrans.progress = isHovered ? 0 : 1;
         }
         
         // Calculate animation progress (200ms duration for snappier feel)
         const HOVER_ANIM_DURATION = 200;
         const elapsed = now - hoverTrans.startTime;
         const animProgress = Math.min(1, elapsed / HOVER_ANIM_DURATION);
-        // When entering: progress goes 0->1, when leaving: progress goes 1->0
-        const targetProgress = isHovered ? 1 : 0;
-        const currentProgress = hoverTrans.entering 
-          ? animProgress 
-          : (1 - animProgress);
+        
+        // Calculate current visual progress
+        // When entering: progress 0->1, when leaving: progress 1->0
+        const currentProgress = isHovered ? animProgress : (1 - animProgress);
         hoverTrans.progress = currentProgress;
+        
         const easedProgress = 1 - Math.pow(1 - currentProgress, 3); // ease-out-cubic
         
-        // Animate notes in/out based on hover state and transition progress
-        // easedProgress goes 0->1 when entering, 1->0 when leaving
+        // Animate notes in/out based on transition progress
         const notesOpacity = canShowNotes ? easedProgress : 0;
         
         // Animate label position: moves up when notes appear, down when leaving
@@ -558,13 +562,13 @@ export function Treemap() {
       // Cleanup completed hover transitions
       hoverTransitionsRef.current.forEach((trans, id) => {
         const isHovered = hoveredIdRef.current === id;
-        // Calculate current progress
+        // Calculate current progress (same logic as in drawFrame)
         const elapsed = now - trans.startTime;
         const animProgress = Math.min(1, elapsed / 200);
-        const currentProgress = trans.entering ? animProgress : (1 - animProgress);
+        const currentProgress = isHovered ? animProgress : (1 - animProgress);
         
         // Remove if animation complete and not currently hovered
-        if (currentProgress >= 0.99 && !isHovered) {
+        if (currentProgress <= 0.01 && !isHovered) {
           hoverTransitionsRef.current.delete(id);
         }
       });
