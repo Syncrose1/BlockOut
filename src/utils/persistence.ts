@@ -418,8 +418,11 @@ const CLOUD_PUSH_INTERVAL_MS = 5 * 60 * 1000;
 
 export function startPeriodicCloudSync(): () => void {
   const id = setInterval(async () => {
+    // Check if any cloud sync is configured (Dropbox or self-hosted)
     const { url } = getCloudConfig();
-    if (!url) return;
+    const hasDropbox = isDropboxConfigured();
+    if (!url && !hasDropbox) return;
+    
     try {
       useStore.getState().setSyncStatus('syncing');
       await saveToCloud();
@@ -431,7 +434,17 @@ export function startPeriodicCloudSync(): () => void {
 
   const handleUnload = () => {
     const { url, token } = getCloudConfig();
-    if (!url) return;
+    const hasDropbox = isDropboxConfigured();
+    if (!url && !hasDropbox) return;
+    
+    // For Dropbox, use syncToDropbox directly
+    if (hasDropbox) {
+      const data = useStore.getState().getSerializableState();
+      syncToDropbox(data).catch(() => {});
+      return;
+    }
+    
+    // Self-hosted sync
     const data = useStore.getState().getSerializableState();
     const payload = { ...data, lastModified: Date.now() };
     const headers: Record<string, string> = { 'Content-Type': 'application/json' };
