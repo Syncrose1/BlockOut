@@ -3,6 +3,7 @@ import { useStore } from '../store';
 import { layoutTreemap } from '../utils/treemap';
 import { TASK_GRAY } from '../utils/colors';
 import { debouncedSave } from '../utils/persistence';
+import { ArchivedTaskWarningModal } from './Modals';
 import type { TreemapNode, Task, Category } from '../types';
 
 // ─── Animation types ──────────────────────────────────────────────────────────
@@ -82,6 +83,18 @@ export function Treemap() {
   const focusedCategoryId = useStore((s) => s.pomodoro.focusedCategoryId);
   const setDraggedTask = useStore((s) => s.setDraggedTask);
   const setEditingTaskId = useStore((s) => s.setEditingTaskId);
+
+  // Archived task warning state
+  const [archivedWarningTaskId, setArchivedWarningTaskId] = useState<string | null>(null);
+  const [pendingAction, setPendingAction] = useState<'complete' | 'edit' | null>(null);
+
+  // Check if a task is in an archived block
+  const isTaskArchived = useCallback((taskId: string): boolean => {
+    if (showTimelessPool) return false;
+    const block = activeBlockId ? timeBlocks[activeBlockId] : null;
+    if (!block) return false;
+    return block.endDate <= Date.now();
+  }, [showTimelessPool, activeBlockId, timeBlocks]);
 
   const isTaskLocked = (taskId: string): boolean => {
     const task = tasks[taskId];
@@ -650,6 +663,13 @@ export function Treemap() {
       if (!allMet) return;
     }
 
+    // Check if task is in archived block
+    if (isTaskArchived(node.id)) {
+      setArchivedWarningTaskId(node.id);
+      setPendingAction('complete');
+      return;
+    }
+
     const wasCompleted = task?.completed ?? false;
     toggleTask(node.id);
     debouncedSave();
@@ -672,7 +692,7 @@ export function Treemap() {
         startTime: now,
       });
     }
-  }, [findNodeAt, toggleTask]);
+  }, [findNodeAt, toggleTask, isTaskArchived]);
 
   const handleContextMenu = useCallback((e: React.MouseEvent) => {
     e.preventDefault();
@@ -680,9 +700,15 @@ export function Treemap() {
     if (!rect) return;
     const node = findNodeAt(e.clientX - rect.left, e.clientY - rect.top);
     if (node && tasksRef.current[node.id]) {
+      // Check if task is in archived block
+      if (isTaskArchived(node.id)) {
+        setArchivedWarningTaskId(node.id);
+        setPendingAction('edit');
+        return;
+      }
       setEditingRef.current(node.id);
     }
-  }, [findNodeAt]);
+  }, [findNodeAt, isTaskArchived]);
 
   const handleMouseDown = useCallback((e: React.MouseEvent) => {
     if (e.button !== 0) return;
@@ -700,6 +726,10 @@ export function Treemap() {
       setDraggedTask(taskId);
       e.dataTransfer.effectAllowed = 'move';
       e.dataTransfer.setData('text/plain', taskId);
+      // Hide default drag preview by setting empty image
+      const img = new Image();
+      img.src = 'data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7';
+      e.dataTransfer.setDragImage(img, 0, 0);
     }
   }, [setDraggedTask]);
 
@@ -733,6 +763,43 @@ export function Treemap() {
         </div>
       ) : (
         <canvas ref={canvasRef} style={{ width: size.w, height: size.h }} />
+      )}
+
+      {archivedWarningTaskId && (
+        <ArchivedTaskWarningModal
+          taskId={archivedWarningTaskId}
+          onConfirm={() => {
+            if (pendingAction === 'complete') {
+              const node = leafNodesRef.current.find(n => n.id === archivedWarningTaskId);
+              if (node) {
+                toggleTask(archivedWarningTaskId);
+                debouncedSave();
+                const now = Date.now();
+                dissolvingRef.current.set(archivedWarningTaskId, {
+                  startTime: now,
+                  fromColor: TASK_GRAY,
+                  toColor: node.color,
+                });
+                particlesRef.current.push({
+                  id: archivedWarningTaskId + now,
+                  cx: node.x! + node.w! / 2,
+                  cy: node.y! + node.h! / 2,
+                  tx: node.x!, ty: node.y!, tw: node.w!, th: node.h!,
+                  color: node.color,
+                  startTime: now,
+                });
+              }
+            } else if (pendingAction === 'edit') {
+              setEditingTaskId(archivedWarningTaskId);
+            }
+            setArchivedWarningTaskId(null);
+            setPendingAction(null);
+          }}
+          onCancel={() => {
+            setArchivedWarningTaskId(null);
+            setPendingAction(null);
+          }}
+        />
       )}
     </div>
   );

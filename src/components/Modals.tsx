@@ -1440,6 +1440,75 @@ export function ConflictResolutionModal() {
   );
 }
 
+// ─── Archived Task Warning Modal ─────────────────────────────────────────────
+
+export function ArchivedTaskWarningModal({ taskId, onConfirm, onCancel }: { taskId: string; onConfirm: () => void; onCancel: () => void }) {
+  const tasks = useStore((s) => s.tasks);
+  const timeBlocks = useStore((s) => s.timeBlocks);
+
+  const task = tasks[taskId];
+  const block = Object.values(timeBlocks).find(b => b.taskIds.includes(taskId));
+
+  return (
+    <AnimatePresence>
+      <motion.div
+        className="modal-overlay"
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        exit={{ opacity: 0 }}
+        onClick={onCancel}
+      >
+        <motion.div
+          className="modal"
+          initial={{ scale: 0.92, opacity: 0, y: 20 }}
+          animate={{ scale: 1, opacity: 1, y: 0 }}
+          exit={{ scale: 0.92, opacity: 0, y: 20 }}
+          transition={{ type: 'spring', damping: 28, stiffness: 380 }}
+          onClick={(e) => e.stopPropagation()}
+          style={{ maxWidth: 420 }}
+        >
+          <h2 style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+            <span>⚠️</span>
+            Archived Time Block
+          </h2>
+
+          <p style={{ fontSize: 14, lineHeight: 1.6, marginBottom: 16 }}>
+            This task is in <strong>"{block?.name}"</strong> which ended on{' '}
+            <strong>{block ? new Date(block.endDate).toLocaleDateString() : 'unknown date'}</strong>.
+          </p>
+
+          <div style={{
+            padding: 16,
+            background: 'var(--bg-tertiary)',
+            borderRadius: 'var(--radius-sm)',
+            border: '1px solid var(--border)',
+            marginBottom: 20,
+            fontSize: 13,
+          }}>
+            <strong>BlockOut works best when you:</strong>
+            <ul style={{ margin: '8px 0 0 20px', padding: 0 }}>
+              <li>Set realistic deadlines</li>
+              <li>Review and complete tasks before the block ends</li>
+              <li>Use time blocks to create urgency and focus</li>
+            </ul>
+          </div>
+
+          <p style={{ fontSize: 13, color: 'var(--text-secondary)', marginBottom: 20 }}>
+            You can still complete and edit this task, but consider creating new time blocks for better organization.
+          </p>
+
+          <div className="modal-actions">
+            <button className="btn btn-ghost" onClick={onCancel}>Cancel</button>
+            <button className="btn btn-primary" onClick={onConfirm}>
+              Continue Anyway
+            </button>
+          </div>
+        </motion.div>
+      </motion.div>
+    </AnimatePresence>
+  );
+}
+
 // ─── Sync Settings Modal ──────────────────────────────────────────────────────
 
 function formatRelativeTime(ts: number): string {

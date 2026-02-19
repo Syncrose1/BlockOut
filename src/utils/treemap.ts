@@ -175,8 +175,8 @@ export function layoutTreemap(
         if (child.children && child.children.length > 0) {
           childWithAbsoluteCoords.children = child.children.map((grandchild) => ({
             ...grandchild,
-            x: Math.round(grandchild.x! + childWithAbsoluteCoords.x!), 
-            y: Math.round(grandchild.y! + childWithAbsoluteCoords.y!),
+            x: Math.round(grandchild.x! + childWithAbsoluteCoords.x! + innerPad), 
+            y: Math.round(grandchild.y! + childWithAbsoluteCoords.y! + innerPad),
           }));
         }
         
