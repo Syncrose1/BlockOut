@@ -3,7 +3,7 @@ import { useStore } from '../store';
 import { layoutTreemap } from '../utils/treemap';
 import { TASK_GRAY } from '../utils/colors';
 import { debouncedSave } from '../utils/persistence';
-import { ArchivedTaskWarningModal, BulkOperationsModal } from './Modals';
+import { ArchivedTaskWarningModal, UnifiedTaskContextMenu } from './Modals';
 import type { TreemapNode, Task, Category } from '../types';
 
 // ─── Animation types ──────────────────────────────────────────────────────────
@@ -323,8 +323,8 @@ export function Treemap() {
       ctx.fill();
 
       // ── Border ──────────────────────────────────────────────────────────────
-      // Check if this task is selected (only show highlight when multiple tasks selected)
-      const isSelected = selectedTaskIdsRef.current.includes(taskNode.id) && selectedTaskIdsRef.current.length > 1;
+      // Check if this task is selected
+      const isSelected = selectedTaskIdsRef.current.includes(taskNode.id);
       
       if (isSelected) {
         // Selected task - draw bright blue border
@@ -1004,35 +1004,17 @@ export function Treemap() {
         />
       )}
 
-      {/* Context Menu - Shows BulkOperationsModal for selected tasks */}
-      {contextMenu && selectedTaskIds.length > 0 && (
-        <div
-          style={{
-            position: 'fixed',
-            top: contextMenu.y,
-            left: contextMenu.x,
-            zIndex: 1000,
-          }}
-        >
-          <BulkOperationsModal
-            open={true}
-            onClose={() => {
-              setContextMenu(null);
-              clearTaskSelection();
-            }}
-          />
-        </div>
-      )}
-
-      {/* Single task right-click - open edit modal */}
-      {contextMenu && selectedTaskIds.length === 0 && contextMenu.taskId && (
-        <div style={{ display: 'none' }}>
-          {(() => {
-            setEditingTaskId(contextMenu.taskId);
+      {/* Unified Context Menu - Shows on right-click */}
+      {contextMenu && contextMenu.taskId && (
+        <UnifiedTaskContextMenu
+          open={true}
+          onClose={() => {
             setContextMenu(null);
-            return null;
-          })()}
-        </div>
+          }}
+          taskId={contextMenu.taskId}
+          x={contextMenu.x}
+          y={contextMenu.y}
+        />
       )}
     </div>
   );
