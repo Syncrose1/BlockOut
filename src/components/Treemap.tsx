@@ -207,8 +207,14 @@ export function Treemap() {
         if (node.children && node.children.length > 0) {
           node.children.forEach((child) => {
             if (child.children && child.children.length > 0) {
-              collect(child.children);
+              // This is a subcategory - collect its task children
+              child.children.forEach((task) => {
+                if (task.x !== undefined) {
+                  leaves.push(task);
+                }
+              });
             } else if (child.x !== undefined) {
+              // This is a direct task (no subcategory)
               leaves.push(child);
             }
           });
