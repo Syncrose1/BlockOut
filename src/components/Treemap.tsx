@@ -586,11 +586,11 @@ export function Treemap() {
           if (!activeBlock && !archivedBlock) {
             // Truly unassigned
             statusText = 'UNASSIGNED';
-            statusColor = 'hsl(140, 60%, 50%)'; // Green
+            statusColor = 'hsl(200, 70%, 65%)'; // Light blue
           } else if (archivedBlock && !activeBlock) {
             // Only in archived block
             statusText = 'ARCHIVED';
-            statusColor = 'hsl(30, 70%, 50%)'; // Orange
+            statusColor = 'hsl(270, 60%, 65%)'; // Light purple
           }
           
           if (statusText) {

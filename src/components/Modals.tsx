@@ -2795,7 +2795,7 @@ export function UnifiedTaskContextMenu({
               <br />
               This task is in "{archivedBlock?.name}" which ended on {new Date(archivedBlock!.endDate).toLocaleDateString()}.
               <br />
-              You can still move it to a new block, but editing details requires restoring the time block.
+              BlockOut works best when tasks are assigned to active time blocks.
             </div>
           )}
 
