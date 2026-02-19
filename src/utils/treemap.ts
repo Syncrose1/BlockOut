@@ -71,19 +71,12 @@ export function squarify(
   areas: number[],
   rect: Rect
 ): Rect[] {
-  console.log('Squarify called:', { areas, rect });
-  
   if (areas.length === 0) return [];
-  if (areas.length === 1) {
-    console.log('Single area, returning rect:', rect);
-    return [rect];
-  }
+  if (areas.length === 1) return [rect];
 
   const totalArea = areas.reduce((a, b) => a + b, 0);
   const scale = (rect.w * rect.h) / totalArea;
   const scaledAreas = areas.map((a) => a * scale);
-  
-  console.log('Scaled areas:', scaledAreas);
 
   const results: Rect[] = new Array(areas.length);
 
@@ -126,7 +119,6 @@ export function squarify(
     }
   }
 
-  console.log('Squarify results:', results);
   return results;
 }
 
@@ -160,13 +152,6 @@ export function layoutTreemap(
       const availableWidth = Math.max(20, result.w! - innerPad * 2);
       const availableHeight = Math.max(20, result.h! - headerHeight - innerPad * 2);
       
-      console.log(`Layout for ${node.name || 'unnamed'}:`, {
-        parentSize: { w: result.w, h: result.h },
-        available: { w: availableWidth, h: availableHeight },
-        childCount: node.children.length,
-        childrenNames: node.children.map(c => c.name)
-      });
-      
       // Layout children in the available space
       const childrenWithCoords = layoutTreemap(
         node.children,
@@ -177,13 +162,6 @@ export function layoutTreemap(
       
       // Convert children's coordinates to be absolute (relative to the canvas)
       result.children = childrenWithCoords.map((child) => {
-        console.log(`Processing child ${child.name}:`, {
-          childOriginal: { x: child.x, y: child.y, w: child.w, h: child.h },
-          result: { x: result.x, y: result.y },
-          innerPad,
-          headerHeight
-        });
-        
         const childWithAbsoluteCoords = {
           ...child,
           x: Math.round(child.x! + result.x! + innerPad),
@@ -192,32 +170,17 @@ export function layoutTreemap(
           h: Math.round(child.h!),
         };
         
-        console.log(`Child ${child.name} absolute:`, {
-          x: childWithAbsoluteCoords.x,
-          y: childWithAbsoluteCoords.y,
-          w: childWithAbsoluteCoords.w,
-          h: childWithAbsoluteCoords.h
-        });
-        
         // Also convert grandchildren (tasks within subcategories) to absolute coords
         // The recursive layoutTreemap call returns tasks with coordinates relative to
         // the subcategory's content area (starting from 0,0 within that area)
         if (child.children && child.children.length > 0) {
-          childWithAbsoluteCoords.children = child.children.map((grandchild) => {
-            const converted = {
-              ...grandchild,
-              x: Math.round(grandchild.x! + childWithAbsoluteCoords.x!), 
-              y: Math.round(grandchild.y! + childWithAbsoluteCoords.y!),
-              w: Math.round(Math.max(4, grandchild.w!)),
-              h: Math.round(Math.max(4, grandchild.h!)),
-            };
-            console.log(`Task ${grandchild.name} conversion:`, {
-              original: { x: grandchild.x, y: grandchild.y },
-              parent: { x: childWithAbsoluteCoords.x, y: childWithAbsoluteCoords.y },
-              result: { x: converted.x, y: converted.y }
-            });
-            return converted;
-          });
+          childWithAbsoluteCoords.children = child.children.map((grandchild) => ({
+            ...grandchild,
+            x: Math.round(grandchild.x! + childWithAbsoluteCoords.x!), 
+            y: Math.round(grandchild.y! + childWithAbsoluteCoords.y!),
+            w: Math.round(Math.max(4, grandchild.w!)),
+            h: Math.round(Math.max(4, grandchild.h!)),
+          }));
         }
         
         return childWithAbsoluteCoords;

@@ -122,21 +122,6 @@ export function Treemap() {
       catMap.get(cat.id)!.tasks.push(task);
     });
 
-    // Debug: Log treemap data structure
-    console.log('Building treemap data:', {
-      totalVisibleTasks: visibleTasks.length,
-      categories: Array.from(catMap.entries()).map(([catId, data]) => ({
-        catId,
-        catName: data.category.name,
-        taskCount: data.tasks.length,
-        subcategories: data.category.subcategories.map(s => s.name),
-        tasksWithSubcats: data.tasks.filter(t => t.subcategoryId).map(t => ({
-          taskName: t.title,
-          subcatId: t.subcategoryId
-        }))
-      }))
-    });
-
     const nodes: TreemapNode[] = [];
     catMap.forEach(({ category, tasks: catTasks }) => {
       const subMap = new Map<string, Task[]>();
@@ -212,22 +197,7 @@ export function Treemap() {
 
   const layout = useMemo(() => {
     if (size.w === 0 || size.h === 0 || treemapData.length === 0) return [];
-    const result = layoutTreemap(treemapData, size.w, size.h, 6);
-    
-    // Debug logging
-    result.forEach((cat, catIdx) => {
-      console.log(`Category ${catIdx} (${cat.name}):`, { x: cat.x, y: cat.y, w: cat.w, h: cat.h });
-      cat.children?.forEach((child, childIdx) => {
-        console.log(`  Child ${childIdx} (${child.name}):`, { x: child.x, y: child.y, w: child.w, h: child.h });
-        if (child.children) {
-          child.children.forEach((task, taskIdx) => {
-            console.log(`    Task ${taskIdx} (${task.name}):`, { x: task.x, y: task.y, w: task.w, h: task.h });
-          });
-        }
-      });
-    });
-    
-    return result;
+    return layoutTreemap(treemapData, size.w, size.h, 6);
   }, [treemapData, size]);
 
   const leafNodes = useMemo(() => {
