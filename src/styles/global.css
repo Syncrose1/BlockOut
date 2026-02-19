@@ -1314,8 +1314,11 @@ select {
 
 .sidebar-item.drag-over {
   background: var(--accent-dim) !important;
-  border: 1px dashed var(--accent) !important;
-  color: var(--text-primary) !important;
+  border: 2px dashed var(--accent) !important;
+  color: var(--accent) !important;
+  transform: scale(1.02);
+  box-shadow: 0 0 12px var(--accent);
+  font-weight: 600;
 }
 
 .kanban-card[draggable="true"] {
