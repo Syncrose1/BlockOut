@@ -127,11 +127,15 @@ export function Treemap() {
   const visibleTasks = useMemo(() => {
     if (showTimelessPool) {
       if (poolViewMode === 'unassigned') {
-        // Show only tasks not assigned to any active block
-        const assignedIds = new Set(
-          Object.values(timeBlocks).flatMap((b) => b.taskIds)
+        // Show tasks not assigned to any ACTIVE block
+        // (includes tasks not in any block, or only in archived blocks)
+        const now = Date.now();
+        const activeAssignedIds = new Set(
+          Object.values(timeBlocks)
+            .filter((b) => b.endDate > now)
+            .flatMap((b) => b.taskIds)
         );
-        return Object.values(tasks).filter((t) => !assignedIds.has(t.id));
+        return Object.values(tasks).filter((t) => !activeAssignedIds.has(t.id));
       }
       return Object.values(tasks);
     }
