@@ -79,6 +79,7 @@ export function Treemap() {
   const timeBlocks = useStore((s) => s.timeBlocks);
   const activeBlockId = useStore((s) => s.activeBlockId);
   const showTimelessPool = useStore((s) => s.showTimelessPool);
+  const poolViewMode = useStore((s) => s.poolViewMode);
   const toggleTask = useStore((s) => s.toggleTask);
   const focusMode = useStore((s) => s.focusMode);
   const focusedCategoryId = useStore((s) => s.pomodoro.focusedCategoryId);
@@ -124,12 +125,21 @@ export function Treemap() {
   };
 
   const visibleTasks = useMemo(() => {
-    if (showTimelessPool) return Object.values(tasks);
+    if (showTimelessPool) {
+      if (poolViewMode === 'unassigned') {
+        // Show only tasks not assigned to any active block
+        const assignedIds = new Set(
+          Object.values(timeBlocks).flatMap((b) => b.taskIds)
+        );
+        return Object.values(tasks).filter((t) => !assignedIds.has(t.id));
+      }
+      return Object.values(tasks);
+    }
     if (activeBlockId && timeBlocks[activeBlockId]) {
       return timeBlocks[activeBlockId].taskIds.map((id) => tasks[id]).filter(Boolean);
     }
     return [];
-  }, [tasks, timeBlocks, activeBlockId, showTimelessPool]);
+  }, [tasks, timeBlocks, activeBlockId, showTimelessPool, poolViewMode]);
 
   const treemapData = useMemo(() => {
     const catMap = new Map<string, { category: Category; tasks: Task[] }>();
@@ -956,7 +966,9 @@ export function Treemap() {
           <div className="empty-state-icon">&#x2B22;</div>
           <h3>No tasks here yet</h3>
           <p>
-            {showTimelessPool
+            {showTimelessPool && poolViewMode === 'unassigned'
+              ? 'All tasks are assigned to time blocks. Great job!'
+              : showTimelessPool
               ? 'Add categories and tasks to start building your task pool.'
               : activeBlockId
               ? 'Assign tasks from the pool to this block, or create new ones.'

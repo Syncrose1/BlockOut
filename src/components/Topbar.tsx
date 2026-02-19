@@ -27,6 +27,7 @@ export function Topbar() {
   const activeBlockId = useStore((s) => s.activeBlockId);
   const timeBlocks = useStore((s) => s.timeBlocks);
   const showTimelessPool = useStore((s) => s.showTimelessPool);
+  const poolViewMode = useStore((s) => s.poolViewMode);
   const tasks = useStore((s) => s.tasks);
   const viewMode = useStore((s) => s.viewMode);
   const setViewMode = useStore((s) => s.setViewMode);
@@ -107,7 +108,11 @@ export function Topbar() {
     <>
       <div className="topbar">
         <div className="topbar-title">
-          {showTimelessPool ? 'Task Pool' : block?.name || 'BlockOut'}
+          {showTimelessPool
+            ? poolViewMode === 'unassigned'
+              ? 'Unassigned Tasks'
+              : 'Task Pool'
+            : block?.name || 'BlockOut'}
         </div>
 
         {block && !showTimelessPool && (

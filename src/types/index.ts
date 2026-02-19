@@ -78,6 +78,8 @@ export interface SelectionState {
 
 export type ViewMode = 'treemap' | 'timeline';
 
+export type PoolViewMode = 'all' | 'unassigned'; // For filtering the task pool
+
 export interface TreemapNode {
   id: string;
   name: string;

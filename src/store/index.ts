@@ -57,6 +57,7 @@ interface BlockOutState {
   viewMode: ViewMode;
   selectedCategoryId: string | null;
   showTimelessPool: boolean;
+  poolViewMode: 'all' | 'unassigned';
   showNewBlockModal: boolean;
   showNewCategoryModal: boolean;
   showNewTaskModal: boolean;
@@ -118,6 +119,7 @@ interface BlockOutState {
   setViewMode: (mode: ViewMode) => void;
   setSelectedCategory: (id: string | null) => void;
   setShowTimelessPool: (show: boolean) => void;
+  setPoolViewMode: (mode: 'all' | 'unassigned') => void;
   setShowNewBlockModal: (show: boolean) => void;
   setShowNewCategoryModal: (show: boolean) => void;
   setShowNewTaskModal: (show: boolean) => void;
@@ -189,6 +191,7 @@ export const useStore = create<BlockOutState>((set, get) => ({
   viewMode: 'treemap',
   selectedCategoryId: null,
   showTimelessPool: false,
+  poolViewMode: 'all',
   showNewBlockModal: false,
   showNewCategoryModal: false,
   showNewTaskModal: false,
@@ -479,6 +482,7 @@ export const useStore = create<BlockOutState>((set, get) => ({
   setViewMode: (mode) => set({ viewMode: mode }),
   setSelectedCategory: (id) => set({ selectedCategoryId: id }),
   setShowTimelessPool: (show) => set({ showTimelessPool: show, activeBlockId: show ? null : get().activeBlockId }),
+  setPoolViewMode: (mode: 'all' | 'unassigned') => set({ poolViewMode: mode }),
   setShowNewBlockModal: (show) => set({ showNewBlockModal: show }),
   setShowNewCategoryModal: (show) => set({ showNewCategoryModal: show }),
   setShowNewTaskModal: (show) => set({ showNewTaskModal: show }),

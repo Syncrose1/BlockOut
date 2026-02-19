@@ -33,6 +33,8 @@ export function Sidebar() {
   const drag = useStore((s) => s.drag);
   const setActiveBlock = useStore((s) => s.setActiveBlock);
   const setShowTimelessPool = useStore((s) => s.setShowTimelessPool);
+  const poolViewMode = useStore((s) => s.poolViewMode);
+  const setPoolViewMode = useStore((s) => s.setPoolViewMode);
   const setShowNewBlockModal = useStore((s) => s.setShowNewBlockModal);
   const setShowNewCategoryModal = useStore((s) => s.setShowNewCategoryModal);
   const setDragOverBlock = useStore((s) => s.setDragOverBlock);
@@ -198,8 +200,11 @@ export function Sidebar() {
         <div className="sidebar-section">
           <div className="sidebar-section-title">Pool</div>
           <button
-            className={`sidebar-item ${showTimelessPool ? 'active' : ''} ${drag.dragOverPool ? 'drag-over' : ''} ${drag.isDragging && !drag.dragOverPool ? 'drag-preview' : ''}`}
-            onClick={() => setShowTimelessPool(true)}
+            className={`sidebar-item ${showTimelessPool && poolViewMode === 'all' ? 'active' : ''} ${drag.dragOverPool ? 'drag-over' : ''} ${drag.isDragging && !drag.dragOverPool ? 'drag-preview' : ''}`}
+            onClick={() => {
+              setPoolViewMode('all');
+              setShowTimelessPool(true);
+            }}
             onDragOver={handleDragOverPool}
             onDrop={handleDropPool}
             onDragLeave={handleDragLeave}
@@ -210,8 +215,11 @@ export function Sidebar() {
           </button>
           {unassignedTasks > 0 && (
             <button
-              className="sidebar-item"
-              onClick={() => setShowTimelessPool(true)}
+              className={`sidebar-item ${showTimelessPool && poolViewMode === 'unassigned' ? 'active' : ''}`}
+              onClick={() => {
+                setPoolViewMode('unassigned');
+                setShowTimelessPool(true);
+              }}
               style={{ paddingLeft: 40, fontSize: 12 }}
             >
               Unassigned
