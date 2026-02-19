@@ -122,6 +122,16 @@ export function Treemap() {
       catMap.get(cat.id)!.tasks.push(task);
     });
 
+    console.log('Building treemap data:', {
+      totalVisibleTasks: visibleTasks.length,
+      categories: Array.from(catMap.entries()).map(([catId, data]) => ({
+        catId,
+        catName: data.category.name,
+        taskCount: data.tasks.length,
+        subcategories: data.category.subcategories.map(s => s.name)
+      }))
+    });
+
     const nodes: TreemapNode[] = [];
     catMap.forEach(({ category, tasks: catTasks }) => {
       const subMap = new Map<string, Task[]>();
@@ -197,7 +207,26 @@ export function Treemap() {
 
   const layout = useMemo(() => {
     if (size.w === 0 || size.h === 0 || treemapData.length === 0) return [];
-    return layoutTreemap(treemapData, size.w, size.h, 6);
+    const result = layoutTreemap(treemapData, size.w, size.h, 6);
+    
+    // Debug: Log subcategory task positions
+    result.forEach(cat => {
+      cat.children?.forEach(child => {
+        if (child.children && child.children.length > 0) {
+          console.log(`Subcategory "${child.name}" tasks:`, 
+            child.children.map(t => ({
+              name: t.name,
+              x: t.x,
+              y: t.y,
+              w: t.w,
+              h: t.h
+            }))
+          );
+        }
+      });
+    });
+    
+    return result;
   }, [treemapData, size]);
 
   const leafNodes = useMemo(() => {
