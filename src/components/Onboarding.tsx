@@ -56,7 +56,7 @@ const TOUR_STEPS: TourStep[] = [
     id: 'views',
     target: '.view-switcher',
     title: 'Switch Views',
-    content: 'Try Kanban for a board layout, or Timeline to see blocks chronologically.',
+    content: 'Switch to Timeline view to see blocks chronologically.',
     position: 'bottom',
   },
   {

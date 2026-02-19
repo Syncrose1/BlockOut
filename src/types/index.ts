@@ -70,7 +70,7 @@ export interface DragState {
   isDragging: boolean; // True when any drag operation is active
 }
 
-export type ViewMode = 'treemap' | 'kanban' | 'timeline';
+export type ViewMode = 'treemap' | 'timeline';
 
 export interface TreemapNode {
   id: string;

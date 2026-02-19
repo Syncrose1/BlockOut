@@ -59,7 +59,6 @@ export function Topbar() {
 
   const views: { id: ViewMode; label: string }[] = [
     { id: 'treemap', label: 'Treemap' },
-    { id: 'kanban', label: 'Kanban' },
     { id: 'timeline', label: 'Timeline' },
   ];
 

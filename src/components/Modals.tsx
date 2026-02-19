@@ -556,7 +556,7 @@ export function AssignTasksModal({ blockId, onClose }: { blockId: string; onClos
       >
         <h2>Assign Tasks to {block.name}</h2>
         <p style={{ fontSize: 12, color: 'var(--text-tertiary)', marginBottom: 12 }}>
-          Pull tasks from your pool into this time block. You can also drag tasks from the treemap or kanban onto blocks in the sidebar.
+          Pull tasks from your pool into this time block. You can also drag tasks from the treemap onto blocks in the sidebar.
         </p>
         <div style={{ overflow: 'auto', flex: 1 }}>
           {allTasks.length === 0 && (
@@ -1081,7 +1081,7 @@ export function PomodoroSettingsModal() {
 }
 
 // ─── Task Edit Modal ─────────────────────────────────────────────────────────
-// Opened via right-click on a treemap tile, or the ··· button on a kanban card.
+// Opened via right-click on a treemap tile.
 
 export function TaskEditModal() {
   const editingTaskId = useStore((s) => s.editingTaskId);
