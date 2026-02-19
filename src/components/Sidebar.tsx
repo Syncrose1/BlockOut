@@ -2,6 +2,7 @@ import { useStore } from '../store';
 import { useMemo, useState } from 'react';
 import { debouncedSave } from '../utils/persistence';
 import { CategorySettingsModal, BlockSettingsModal } from './Modals';
+import { AnalyticsModal } from './AnalyticsModal';
 
 function formatCountdown(endDate: number): string {
   const now = Date.now();
@@ -21,6 +22,7 @@ function formatCountdown(endDate: number): string {
 export function Sidebar() {
   const [categorySettingsId, setCategorySettingsId] = useState<string | null>(null);
   const [blockSettingsId, setBlockSettingsId] = useState<string | null>(null);
+  const [showAnalyticsModal, setShowAnalyticsModal] = useState(false);
 
   const timeBlocks = useStore((s) => s.timeBlocks);
   const activeBlockId = useStore((s) => s.activeBlockId);
@@ -103,15 +105,6 @@ export function Sidebar() {
   };
 
   // Streak flame levels based on current streak
-  const flameLevel = streak.currentStreak === 0 ? 0
-    : streak.currentStreak <= 2 ? 1
-    : streak.currentStreak <= 6 ? 2
-    : streak.currentStreak <= 13 ? 3
-    : 4;
-
-  const flameColors = ['var(--text-tertiary)', 'hsl(30, 80%, 55%)', 'hsl(20, 90%, 55%)', 'hsl(10, 95%, 55%)', 'hsl(0, 100%, 55%)'];
-  const flameScales = [1, 1, 1.1, 1.2, 1.4];
-
   // Helper to check if a block is a valid drop target for the dragged task
   const isValidDropTarget = (blockId: string | 'pool'): boolean => {
     const draggedTaskId = drag.draggedTaskId;
@@ -150,32 +143,38 @@ export function Sidebar() {
         </div>
         {/* Streak display */}
         {streak.currentStreak > 0 && (
-          <div className="streak-display" style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: 6,
-            marginTop: 8,
-            fontSize: 12,
-            color: flameColors[flameLevel],
-          }}>
+          <button
+            onClick={() => setShowAnalyticsModal(true)}
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: 8,
+              marginTop: 8,
+              padding: '6px 10px',
+              background: 'transparent',
+              border: '1px solid hsl(210, 80%, 55%)',
+              borderRadius: 'var(--radius-sm)',
+              cursor: 'pointer',
+              transition: 'all 0.2s ease',
+            }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.background = 'hsla(210, 80%, 55%, 0.1)';
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.background = 'transparent';
+            }}
+          >
             <span style={{
-              fontSize: 18 * flameScales[flameLevel],
-              filter: `drop-shadow(0 0 ${flameLevel * 3}px ${flameColors[flameLevel]})`,
-              transition: 'all 0.3s ease',
-              display: 'inline-block',
-              animation: flameLevel >= 2 ? 'flame-dance 1.5s ease-in-out infinite' : 'none',
+              fontSize: 11,
+              fontWeight: 700,
+              color: 'hsl(210, 80%, 60%)',
+              letterSpacing: '0.25em',
+              fontFamily: 'var(--font-mono)',
+              textTransform: 'uppercase',
             }}>
-              &#x1F525;
+              {streak.currentStreak}D streak
             </span>
-            <span style={{ fontFamily: 'var(--font-mono)', fontWeight: 600 }}>
-              {streak.currentStreak}d streak
-            </span>
-            {streak.longestStreak > streak.currentStreak && (
-              <span style={{ color: 'var(--text-tertiary)', fontSize: 10 }}>
-                (best: {streak.longestStreak}d)
-              </span>
-            )}
-          </div>
+          </button>
         )}
       </div>
 
@@ -406,6 +405,8 @@ export function Sidebar() {
           onClose={() => setBlockSettingsId(null)}
         />
       )}
+
+      <AnalyticsModal open={showAnalyticsModal} onClose={() => setShowAnalyticsModal(false)} />
     </div>
   );
 }
