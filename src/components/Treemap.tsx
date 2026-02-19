@@ -153,6 +153,7 @@ export function Treemap() {
             locked: isTaskLocked(task.id),
             categoryId: category.id,
             subcategoryId: subId,
+            depth: 2,
           })),
           categoryId: category.id,
           depth: 1,
@@ -168,6 +169,7 @@ export function Treemap() {
           completed: task.completed,
           locked: isTaskLocked(task.id),
           categoryId: category.id,
+          depth: 1,
         });
       });
 
