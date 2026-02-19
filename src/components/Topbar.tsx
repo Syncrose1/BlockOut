@@ -307,8 +307,12 @@ export function Topbar() {
           className="btn btn-ghost btn-sm"
           onClick={() => setShowAITaskGenerator(true)}
           title="Generate tasks with AI"
+          style={{ display: 'flex', alignItems: 'center', gap: 6 }}
         >
-          ✨ Smart Create
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none">
+            <path d="M12 2L22 12L12 22L2 12L12 2Z" fill="currentColor"/>
+          </svg>
+          Smart Create
         </button>
 
         <button

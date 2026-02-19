@@ -154,10 +154,19 @@ export function Pomodoro() {
         dragElastic={0}
         dragConstraints={dragConstraints}
         onDragStart={updateConstraints}
-        style={{ x, y, cursor: isResizing ? 'ew-resize' : 'grab', touchAction: 'none', scale, transformOrigin: 'bottom right' }}
+        style={{ 
+          x, 
+          y, 
+          cursor: isResizing ? 'ew-resize' : 'grab', 
+          touchAction: 'none',
+        }}
+        animate={{ 
+          opacity: 1, 
+          y: 0,
+          scale: scale,
+        }}
+        initial={{ y: 60, opacity: 0, scale: 1 }}
         whileDrag={{ cursor: 'grabbing' }}
-        initial={{ y: 60, opacity: 0 }}
-        animate={{ opacity: 1, y: 0 }}
         transition={{ type: 'spring', damping: 20, stiffness: 300 }}
       >
         {/* Drag handle strip — a visual hint on the left edge */}
