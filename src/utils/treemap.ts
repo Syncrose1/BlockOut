@@ -79,15 +79,12 @@ export function squarify(
   const scaledAreas = areas.map((a) => a * scale);
 
   const results: Rect[] = new Array(areas.length);
-  const indices = scaledAreas.map((_, i) => i);
 
-  // Sort by descending area for better layout
-  indices.sort((a, b) => scaledAreas[b] - scaledAreas[a]);
-
+  // Use original order - don't sort to maintain consistent mapping
   let currentRect = { ...rect };
   let row: number[] = [];
   let rowIndices: number[] = [];
-  let remaining = [...indices];
+  let remaining = scaledAreas.map((_, i) => i);
 
   while (remaining.length > 0) {
     const isHorizontal = currentRect.w > currentRect.h;
