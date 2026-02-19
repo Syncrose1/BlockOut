@@ -3,7 +3,7 @@ import { useStore } from '../store';
 import { layoutTreemap } from '../utils/treemap';
 import { TASK_GRAY } from '../utils/colors';
 import { debouncedSave } from '../utils/persistence';
-import { ArchivedTaskWarningModal } from './Modals';
+import { ArchivedTaskWarningModal, BulkOperationsModal } from './Modals';
 import type { TreemapNode, Task, Category } from '../types';
 
 // ─── Animation types ──────────────────────────────────────────────────────────
@@ -99,6 +99,13 @@ export function Treemap() {
   // Archived task warning state
   const [archivedWarningTaskId, setArchivedWarningTaskId] = useState<string | null>(null);
   const [pendingAction, setPendingAction] = useState<'complete' | 'edit' | null>(null);
+
+  // Context menu state
+  const [contextMenu, setContextMenu] = useState<{
+    x: number;
+    y: number;
+    taskId: string | null;
+  } | null>(null);
 
   // Check if a task is in an archived block
   const isTaskArchived = useCallback((taskId: string): boolean => {
@@ -745,17 +752,32 @@ export function Treemap() {
     e.preventDefault();
     const rect = canvasRef.current?.getBoundingClientRect();
     if (!rect) return;
-    const node = findNodeAt(e.clientX - rect.left, e.clientY - rect.top);
+    
+    const mx = e.clientX - rect.left;
+    const my = e.clientY - rect.top;
+    const node = findNodeAt(mx, my);
+    
+    // Check if right-clicking on a task
     if (node && tasksRef.current[node.id]) {
-      // Check if task is in archived block
+      // If task is archived, show warning
       if (isTaskArchived(node.id)) {
         setArchivedWarningTaskId(node.id);
         setPendingAction('edit');
         return;
       }
-      setEditingRef.current(node.id);
+      
+      // Show context menu at click position
+      setContextMenu({
+        x: e.clientX,
+        y: e.clientY,
+        taskId: node.id
+      });
+    } else {
+      // Clicked on empty space - clear selection and close menu
+      clearTaskSelection();
+      setContextMenu(null);
     }
-  }, [findNodeAt, isTaskArchived]);
+  }, [findNodeAt, isTaskArchived, clearTaskSelection]);
 
   // Find category container at mouse position (for category header drag)
   const findCategoryAt = useCallback((mx: number, my: number): TreemapNode | null => {
@@ -826,13 +848,13 @@ export function Treemap() {
     const mx = e.clientX - rect.left;
     const my = e.clientY - rect.top;
     
-    const isCtrlClick = e.ctrlKey || e.metaKey;
+    const isShiftClick = e.shiftKey;
     
     // First check if clicking on a category header
     const categoryNode = findCategoryAt(mx, my);
     if (categoryNode) {
       // Clicking on category header
-      if (isCtrlClick) {
+      if (isShiftClick) {
         // Add all tasks in category to selection
         selectAllTasksInCategory(categoryNode.id);
       } else {
@@ -852,8 +874,8 @@ export function Treemap() {
     }
     
     if (tasksRef.current[node.id]) {
-      // Clicking on a task
-      toggleTaskSelection(node.id, false, isCtrlClick);
+      // Clicking on a task - use shift for multiselect toggle
+      toggleTaskSelection(node.id, false, isShiftClick);
     }
   }, [findNodeAt, findCategoryAt, toggleTaskSelection, selectAllTasksInCategory, clearTaskSelection]);
 
@@ -980,6 +1002,37 @@ export function Treemap() {
             setPendingAction(null);
           }}
         />
+      )}
+
+      {/* Context Menu - Shows BulkOperationsModal for selected tasks */}
+      {contextMenu && selectedTaskIds.length > 0 && (
+        <div
+          style={{
+            position: 'fixed',
+            top: contextMenu.y,
+            left: contextMenu.x,
+            zIndex: 1000,
+          }}
+        >
+          <BulkOperationsModal
+            open={true}
+            onClose={() => {
+              setContextMenu(null);
+              clearTaskSelection();
+            }}
+          />
+        </div>
+      )}
+
+      {/* Single task right-click - open edit modal */}
+      {contextMenu && selectedTaskIds.length === 0 && contextMenu.taskId && (
+        <div style={{ display: 'none' }}>
+          {(() => {
+            setEditingTaskId(contextMenu.taskId);
+            setContextMenu(null);
+            return null;
+          })()}
+        </div>
       )}
     </div>
   );

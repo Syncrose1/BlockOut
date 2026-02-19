@@ -1964,17 +1964,17 @@ export function ExportImportModal({ open, onClose }: { open: boolean; onClose: (
                 </button>
 
                 {importError && (
-                  <div style={{ 
-                    padding: 12, 
-                    background: 'hsla(0, 72%, 62%, 0.1)', 
-                    border: '1px solid hsla(0, 72%, 62%, 0.3)',
-                    borderRadius: 6,
-                    color: 'hsl(0, 72%, 62%)',
-                    fontSize: 13,
-                    marginBottom: 16
-                  }}>
-                    {importError}
-                  </div>
+              <div style={{ 
+                padding: 12, 
+                background: 'hsla(0, 72%, 62%, 0.1)', 
+                border: '1px solid hsla(0, 72%, 62%, 0.3)',
+                borderRadius: 'var(--radius-sm)',
+                marginBottom: 20,
+                fontSize: 13,
+                color: 'hsl(0, 72%, 62%)'
+              }}>
+                This action cannot be undone.
+              </div>
                 )}
 
                 {importSuccess && (
