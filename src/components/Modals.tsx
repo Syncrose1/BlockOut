@@ -3036,12 +3036,12 @@ export function AITaskGeneratorModal({
   const addCategory = useStore((s) => s.addCategory);
   const assignTaskToBlock = useStore((s) => s.assignTaskToBlock);
 
-  const [input, setInput] = useState('');
-  const [isGenerating, setIsGenerating] = useState(false);
-  const [result, setResult] = useState<AIGenerationResult | null>(null);
+  const [copied, setCopied] = useState(false);
+  const [jsonInput, setJsonInput] = useState('');
+  const [result, setResult] = useState<any>(null);
   const [error, setError] = useState<string | null>(null);
   const [selectedBlockId, setSelectedBlockId] = useState<string>('');
-  const [showBlockSelector, setShowBlockSelector] = useState(false);
+  const [step, setStep] = useState<'prompt' | 'paste' | 'preview'>('prompt');
 
   // Generate example tasks for each category
   const getExampleTasks = (categoryId: string): string => {
@@ -3049,55 +3049,44 @@ export function AITaskGeneratorModal({
       .filter((t) => t.categoryId === categoryId)
       .slice(0, 2);
     if (catTasks.length === 0) return 'No example tasks yet';
-    return catTasks.map((t) => `"${t.title}"`).join(', ');
+    return catTasks.map((t) => `      - "${t.title}"`).join('\n');
   };
 
-  // Build the prompt with user's categories and example tasks
+  // Build the system prompt
   const buildPrompt = (): string => {
     const categoriesList = Object.values(categories).map((cat) => {
       const subcats = cat.subcategories.map((s) => `      - "${s.name}"`).join('\n');
       const examples = getExampleTasks(cat.id);
-      return `  - "${cat.name}"${subcats ? '\n    Subcategories:\n' + subcats : ''}\n    Example tasks: ${examples}`;
-    }).join('\n');
+      return `  - "${cat.name}"${subcats ? '\n    Subcategories:\n' + subcats : ''}\n    Example tasks:\n${examples}`;
+    }).join('\n\n');
 
-    return `You are a task management assistant for BlockOut, a productivity app. 
+    return `You are a task management assistant for BlockOut, a productivity app.
 
-The user has provided their input (which may be text description, pasted content, or references to images/ideas). 
-Your job is to analyze this input and generate tasks that fit into the user's existing category structure.
+Your job is to analyze the user's content (text, images, ideas) and generate tasks that fit into their existing category structure.
 
-EXISTING CATEGORIES (use these when possible):
+=== USER'S EXISTING CATEGORIES ===
 ${categoriesList || '  (No categories exist yet)'}
 
-IMPORTANT RULES:
+=== GUIDELINES ===
 1. ALWAYS prefer existing categories over creating new ones
-2. Only create a new category if the task truly doesn't fit any existing category
+2. Only create a new category if tasks truly don't fit any existing category
 3. Use subcategories when they exist and are appropriate
-4. Create realistic, actionable tasks
-5. Set appropriate weights (1-10) based on task size/importance
+4. Create realistic, actionable tasks (3-8 tasks is typical)
+5. Set appropriate weights (1-10): 3=small, 5=medium, 8+=large
 6. Add brief notes only if they provide useful context
-7. Set due dates only if explicitly mentioned or clearly implied
+7. Only set due dates if explicitly mentioned
 
-TASK STRUCTURE:
-- title: Clear, actionable task name
-- categoryName: Name of category (prefer existing)
-- subcategoryName: Name of subcategory if applicable
-- weight: 1-10 (default 3 for small tasks, 5 for medium, 8+ for large)
-- notes: Optional brief context
-- dueDate: ISO date string only if specified
+=== OUTPUT FORMAT ===
+Return ONLY a JSON object in this exact structure:
 
-NEW CATEGORIES (only if needed):
-If you must create a new category, include it with a name and optional subcategories.
-
-OUTPUT FORMAT:
-Return a JSON object with this structure:
 {
   "tasks": [
     {
-      "title": "Task name",
-      "categoryName": "Category Name",
-      "subcategoryName": "Subcategory Name",
-      "weight": 3,
-      "notes": "Optional notes"
+      "title": "Clear task name",
+      "categoryName": "Use existing category name",
+      "subcategoryName": "Use existing subcategory if applicable",
+      "weight": 5,
+      "notes": "Optional context"
     }
   ],
   "newCategories": [
@@ -3108,44 +3097,64 @@ Return a JSON object with this structure:
   ]
 }
 
-USER INPUT:
-"""`;
+=== USER CONTENT ===
+[User will paste their content/images here]
+
+Generate tasks based on the user's content above.`;
   };
 
-  const handleGenerate = async () => {
-    if (!input.trim()) return;
-    
-    setIsGenerating(true);
-    setError(null);
-    
+  const handleCopy = async () => {
     try {
-      const prompt = buildPrompt() + '\n' + input + '\n"""\n\nGenerate the tasks JSON:';
-      
-      // Copy prompt to clipboard for user to paste into their LLM
-      await navigator.clipboard.writeText(prompt);
-      
-      // For now, we'll show instructions since we don't have direct LLM integration
-      setResult({
-        tasks: [],
-        newCategories: []
-      });
-      setShowBlockSelector(true);
+      await navigator.clipboard.writeText(buildPrompt());
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
     } catch (err) {
-      setError('Failed to generate. Please try again.');
-    } finally {
-      setIsGenerating(false);
+      console.error('Failed to copy:', err);
+    }
+  };
+
+  const handleValidate = () => {
+    try {
+      const parsed = JSON.parse(jsonInput);
+      if (!parsed.tasks || !Array.isArray(parsed.tasks)) {
+        setError('Invalid format: missing "tasks" array');
+        return;
+      }
+      setResult(parsed);
+      setError(null);
+      setStep('preview');
+    } catch (err) {
+      setError('Invalid JSON format. Please check the response from your LLM.');
     }
   };
 
   const handleImport = () => {
     if (!result) return;
     
+    // Import new categories first
+    const categoryIdMap: Record<string, string> = {};
+    
+    if (result.newCategories) {
+      result.newCategories.forEach((newCat: any) => {
+        const id = addCategory({ 
+          name: newCat.name, 
+          subcategories: newCat.subcategories || [] 
+        });
+        categoryIdMap[newCat.name] = id;
+      });
+    }
+    
     // Import tasks
-    result.tasks.forEach((task) => {
+    result.tasks.forEach((task: any) => {
       // Find or create category
       let categoryId = Object.entries(categories).find(([_, c]) => 
         c.name.toLowerCase() === (task.categoryName || '').toLowerCase()
       )?.[0];
+      
+      // Check if it's a newly created category
+      if (!categoryId && task.categoryName && categoryIdMap[task.categoryName]) {
+        categoryId = categoryIdMap[task.categoryName];
+      }
       
       if (!categoryId && task.categoryName) {
         // Create new category
@@ -3167,6 +3176,10 @@ USER INPUT:
     });
     
     onClose();
+    // Reset state
+    setStep('prompt');
+    setJsonInput('');
+    setResult(null);
   };
 
   if (!open) return null;
@@ -3189,21 +3202,95 @@ USER INPUT:
           onClick={(e) => e.stopPropagation()}
           style={{ maxWidth: 700, maxHeight: '85vh', overflow: 'auto' }}
         >
-          <h2>Generate Tasks with AI</h2>
+          <h2>Smart Create with AI</h2>
           
           <p style={{ fontSize: 13, color: 'var(--text-secondary)', marginBottom: 20 }}>
-            Describe your tasks, paste meeting notes, or share ideas. The AI will organize them into your existing categories.
+            Generate tasks using your own LLM (ChatGPT, Claude, etc.) with a custom system prompt.
           </p>
 
-          {!showBlockSelector ? (
+          {step === 'prompt' && (
+            <>
+              <div style={{ marginBottom: 20 }}>
+                <div style={{ fontSize: 12, color: 'var(--text-secondary)', marginBottom: 8 }}>
+                  <strong>Step 1: Copy this system prompt</strong>
+                </div>
+                <div style={{ position: 'relative' }}>
+                  <pre style={{
+                    background: 'var(--bg-tertiary)',
+                    padding: 16,
+                    borderRadius: 'var(--radius-sm)',
+                    fontSize: 12,
+                    fontFamily: 'var(--font-mono)',
+                    overflow: 'auto',
+                    maxHeight: 300,
+                    whiteSpace: 'pre-wrap',
+                    wordBreak: 'break-word',
+                  }}>
+                    {buildPrompt()}
+                  </pre>
+                  <button
+                    onClick={handleCopy}
+                    style={{
+                      position: 'absolute',
+                      top: 8,
+                      right: 8,
+                      padding: '6px 12px',
+                      background: copied ? 'hsl(140, 60%, 40%)' : 'var(--bg-secondary)',
+                      border: '1px solid var(--border)',
+                      borderRadius: 'var(--radius-sm)',
+                      fontSize: 12,
+                      cursor: 'pointer',
+                    }}
+                  >
+                    {copied ? 'Copied!' : 'Copy'}
+                  </button>
+                </div>
+              </div>
+
+              <div style={{ 
+                padding: 16, 
+                background: 'var(--bg-tertiary)', 
+                borderRadius: 'var(--radius-sm)',
+                marginBottom: 20,
+                fontSize: 13,
+                lineHeight: 1.6
+              }}>
+                <strong>Step 2: Use with your LLM</strong>
+                <ol style={{ paddingLeft: 20, marginTop: 8 }}>
+                  <li>Open ChatGPT, Claude, or your preferred LLM</li>
+                  <li>Paste the system prompt above</li>
+                  <li>Add your content (text, describe images, paste notes)</li>
+                  <li>Get the JSON response</li>
+                </ol>
+              </div>
+
+              <div className="modal-actions">
+                <button className="btn btn-ghost" onClick={onClose}>Cancel</button>
+                <button className="btn btn-primary" onClick={() => setStep('paste')}>
+                  I have the JSON response →
+                </button>
+              </div>
+            </>
+          )}
+
+          {step === 'paste' && (
             <>
               <div className="modal-field">
-                <label>Your Input</label>
+                <label>Paste the JSON response from your LLM</label>
                 <textarea
-                  value={input}
-                  onChange={(e) => setInput(e.target.value)}
-                  placeholder="Example: 'I need to prepare for the quarterly review meeting next Friday. I should update the project timeline, create slides for the presentation, and schedule practice time with the team.'"
-                  rows={8}
+                  value={jsonInput}
+                  onChange={(e) => setJsonInput(e.target.value)}
+                  placeholder={`{
+  "tasks": [
+    {
+      "title": "Example task",
+      "categoryName": "Work",
+      "weight": 5
+    }
+  ],
+  "newCategories": []
+}`}
+                  rows={12}
                   style={{
                     width: '100%',
                     padding: 12,
@@ -3211,7 +3298,8 @@ USER INPUT:
                     border: '1px solid var(--border)',
                     borderRadius: 'var(--radius-sm)',
                     color: 'var(--text-primary)',
-                    fontSize: 14,
+                    fontSize: 13,
+                    fontFamily: 'var(--font-mono)',
                     resize: 'vertical',
                   }}
                 />
@@ -3231,121 +3319,108 @@ USER INPUT:
               )}
 
               <div className="modal-actions">
-                <button className="btn btn-ghost" onClick={onClose}>Cancel</button>
+                <button className="btn btn-ghost" onClick={() => setStep('prompt')}>← Back</button>
                 <button 
                   className="btn btn-primary" 
-                  onClick={handleGenerate}
-                  disabled={!input.trim() || isGenerating}
+                  onClick={handleValidate}
+                  disabled={!jsonInput.trim()}
                 >
-                  {isGenerating ? 'Preparing...' : 'Generate Prompt'}
+                  Preview Tasks
                 </button>
               </div>
             </>
-          ) : (
+          )}
+
+          {step === 'preview' && result && (
             <>
-              <div style={{ 
-                padding: 16, 
-                background: 'var(--bg-tertiary)', 
-                borderRadius: 'var(--radius-sm)',
-                marginBottom: 20
-              }}>
+              <div style={{ marginBottom: 20 }}>
                 <div style={{ fontSize: 13, color: 'var(--text-secondary)', marginBottom: 12 }}>
-                  <strong>Instructions:</strong>
+                  <strong>Preview ({result.tasks?.length || 0} tasks{result.newCategories?.length ? `, ${result.newCategories.length} new categories` : ''}):</strong>
                 </div>
-                <ol style={{ fontSize: 13, lineHeight: 1.6, paddingLeft: 20, color: 'var(--text-primary)' }}>
-                  <li>A detailed prompt has been copied to your clipboard</li>
-                  <li>Paste it into ChatGPT, Claude, or your preferred AI</li>
-                  <li>The AI will generate tasks formatted for BlockOut</li>
-                  <li>Copy the JSON response and paste it below</li>
-                </ol>
-              </div>
+                
+                <div style={{ 
+                  maxHeight: 200, 
+                  overflow: 'auto',
+                  padding: 12,
+                  background: 'var(--bg-tertiary)',
+                  borderRadius: 'var(--radius-sm)',
+                  fontSize: 13,
+                  marginBottom: 16
+                }}>
+                  {result.tasks?.map((task: any, i: number) => (
+                    <div key={i} style={{ padding: '6px 0', borderBottom: '1px solid var(--border-light)' }}>
+                      <strong>{task.title}</strong>
+                      {task.categoryName && (
+                        <span style={{ color: 'var(--text-secondary)', fontSize: 12 }}>
+                          {' '}→ {task.categoryName}
+                          {task.subcategoryName && ` › ${task.subcategoryName}`}
+                        </span>
+                      )}
+                      {task.weight && (
+                        <span style={{ color: 'var(--text-tertiary)', fontSize: 11, marginLeft: 8 }}>
+                          (weight: {task.weight})
+                        </span>
+                      )}
+                    </div>
+                  ))}
+                </div>
 
-              <div className="modal-field">
-                <label>AI Response (JSON)</label>
-                <textarea
-                  value={JSON.stringify(result, null, 2)}
-                  onChange={(e) => {
-                    try {
-                      const parsed = JSON.parse(e.target.value);
-                      setResult(parsed);
-                      setError(null);
-                    } catch {
-                      // Invalid JSON, ignore
-                    }
-                  }}
-                  placeholder='Paste the JSON response from the AI here...'
-                  rows={10}
-                  style={{
-                    width: '100%',
-                    padding: 12,
-                    background: 'var(--bg-tertiary)',
-                    border: '1px solid var(--border)',
-                    borderRadius: 'var(--radius-sm)',
-                    color: 'var(--text-primary)',
-                    fontSize: 13,
-                    fontFamily: 'var(--font-mono)',
-                    resize: 'vertical',
-                  }}
-                />
-              </div>
-
-              {result && result.tasks && result.tasks.length > 0 && (
-                <div style={{ marginBottom: 20 }}>
-                  <div style={{ fontSize: 13, color: 'var(--text-secondary)', marginBottom: 8 }}>
-                    <strong>Preview ({result.tasks.length} tasks):</strong>
-                  </div>
+                {result.newCategories?.length > 0 && (
                   <div style={{ 
-                    maxHeight: 150, 
-                    overflow: 'auto',
                     padding: 12,
-                    background: 'var(--bg-tertiary)',
+                    background: 'hsla(200, 70%, 50%, 0.1)',
                     borderRadius: 'var(--radius-sm)',
-                    fontSize: 13
+                    fontSize: 13,
+                    marginBottom: 16
                   }}>
-                    {result.tasks.map((task, i) => (
-                      <div key={i} style={{ padding: '4px 0', borderBottom: '1px solid var(--border-light)' }}>
-                        <strong>{task.title}</strong>
-                        {task.categoryName && <span style={{ color: 'var(--text-secondary)' }}> → {task.categoryName}</span>}
+                    <strong>New Categories:</strong>
+                    {result.newCategories.map((cat: any, i: number) => (
+                      <div key={i} style={{ marginTop: 4 }}>
+                        • {cat.name}
+                        {cat.subcategories?.length > 0 && (
+                          <span style={{ color: 'var(--text-secondary)' }}>
+                            {' '}({cat.subcategories.length} subcategories)
+                          </span>
+                        )}
                       </div>
                     ))}
                   </div>
-                </div>
-              )}
+                )}
 
-              <div className="modal-field">
-                <label>Add to Time Block (optional)</label>
-                <select
-                  value={selectedBlockId}
-                  onChange={(e) => setSelectedBlockId(e.target.value)}
-                  style={{
-                    width: '100%',
-                    padding: 10,
-                    background: 'var(--bg-tertiary)',
-                    border: '1px solid var(--border)',
-                    borderRadius: 'var(--radius-sm)',
-                    color: 'var(--text-primary)',
-                    fontSize: 14,
-                  }}
-                >
-                  <option value="">-- Task Pool (no block) --</option>
-                  {Object.values(timeBlocks)
-                    .filter((b) => b.endDate > Date.now())
-                    .map((block) => (
-                      <option key={block.id} value={block.id}>
-                        {block.name} {block.id === activeBlockId ? '(current)' : ''}
-                      </option>
-                    ))}
-                </select>
+                <div className="modal-field">
+                  <label>Add to Time Block (optional)</label>
+                  <select
+                    value={selectedBlockId}
+                    onChange={(e) => setSelectedBlockId(e.target.value)}
+                    style={{
+                      width: '100%',
+                      padding: 10,
+                      background: 'var(--bg-tertiary)',
+                      border: '1px solid var(--border)',
+                      borderRadius: 'var(--radius-sm)',
+                      color: 'var(--text-primary)',
+                      fontSize: 14,
+                    }}
+                  >
+                    <option value="">-- Task Pool (no block) --</option>
+                    {Object.values(timeBlocks)
+                      .filter((b) => b.endDate > Date.now())
+                      .map((block) => (
+                        <option key={block.id} value={block.id}>
+                          {block.name} {block.id === activeBlockId ? '(current)' : ''}
+                        </option>
+                      ))}
+                  </select>
+                </div>
               </div>
 
               <div className="modal-actions">
-                <button className="btn btn-ghost" onClick={() => setShowBlockSelector(false)}>Back</button>
+                <button className="btn btn-ghost" onClick={() => setStep('paste')}>← Edit JSON</button>
                 <button 
                   className="btn btn-primary" 
                   onClick={handleImport}
-                  disabled={!result || result.tasks.length === 0}
                 >
-                  Import {result?.tasks.length || 0} Tasks
+                  Import {result.tasks?.length || 0} Tasks
                 </button>
               </div>
             </>
