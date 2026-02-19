@@ -172,11 +172,13 @@ export function layoutTreemap(
         };
         
         // Also convert grandchildren (tasks within subcategories) to absolute coords
+        // The recursive layoutTreemap call already laid out tasks within subcategories
+        // Their coordinates are relative to subcategory's content area
         if (child.children && child.children.length > 0) {
           childWithAbsoluteCoords.children = child.children.map((grandchild) => ({
             ...grandchild,
-            x: Math.round(grandchild.x! + childWithAbsoluteCoords.x! + innerPad), 
-            y: Math.round(grandchild.y! + childWithAbsoluteCoords.y! + innerPad),
+            x: Math.round(grandchild.x! + childWithAbsoluteCoords.x!), 
+            y: Math.round(grandchild.y! + childWithAbsoluteCoords.y!),
           }));
         }
         
