@@ -152,6 +152,13 @@ export function layoutTreemap(
       const availableWidth = Math.max(20, result.w! - innerPad * 2);
       const availableHeight = Math.max(20, result.h! - headerHeight - innerPad * 2);
       
+      console.log(`Layout for ${node.name || 'unnamed'}:`, {
+        parentSize: { w: result.w, h: result.h },
+        available: { w: availableWidth, h: availableHeight },
+        childCount: node.children.length,
+        childrenNames: node.children.map(c => c.name)
+      });
+      
       // Layout children in the available space
       const childrenWithCoords = layoutTreemap(
         node.children,
