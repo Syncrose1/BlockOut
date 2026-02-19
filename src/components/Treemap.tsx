@@ -546,7 +546,7 @@ export function Treemap() {
                 ctx.fillStyle = catNode.color.replace('72%', '50%').replace('62%)', '50%)');
                 ctx.font = '500 9px Inter, sans-serif';
                 ctx.textBaseline = 'top';
-                ctx.fillText(child.name.toLowerCase(), child.x! + 4, child.y! + 3, child.w! - 8);
+                ctx.fillText(child.name.toUpperCase(), child.x! + 4, child.y! + 3, child.w! - 8);
               }
             }
             child.children.forEach(drawLeafTile);
