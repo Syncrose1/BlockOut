@@ -2996,3 +2996,362 @@ export function UnifiedTaskContextMenu({
     </AnimatePresence>
   );
 }
+
+// ─── AI Task Generator Modal ────────────────────────────────────────────────
+
+interface GeneratedTask {
+  title: string;
+  categoryId?: string;
+  subcategoryId?: string;
+  categoryName?: string;
+  weight?: number;
+  notes?: string;
+  dueDate?: string;
+}
+
+interface GeneratedCategory {
+  id?: string;
+  name: string;
+  color?: string;
+  subcategories?: { id?: string; name: string }[];
+}
+
+interface AIGenerationResult {
+  tasks: GeneratedTask[];
+  newCategories?: GeneratedCategory[];
+}
+
+export function AITaskGeneratorModal({
+  open,
+  onClose,
+}: {
+  open: boolean;
+  onClose: () => void;
+}) {
+  const tasks = useStore((s) => s.tasks);
+  const categories = useStore((s) => s.categories);
+  const timeBlocks = useStore((s) => s.timeBlocks);
+  const activeBlockId = useStore((s) => s.activeBlockId);
+  const addTask = useStore((s) => s.addTask);
+  const addCategory = useStore((s) => s.addCategory);
+  const assignTaskToBlock = useStore((s) => s.assignTaskToBlock);
+
+  const [input, setInput] = useState('');
+  const [isGenerating, setIsGenerating] = useState(false);
+  const [result, setResult] = useState<AIGenerationResult | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [selectedBlockId, setSelectedBlockId] = useState<string>('');
+  const [showBlockSelector, setShowBlockSelector] = useState(false);
+
+  // Generate example tasks for each category
+  const getExampleTasks = (categoryId: string): string => {
+    const catTasks = Object.values(tasks)
+      .filter((t) => t.categoryId === categoryId)
+      .slice(0, 2);
+    if (catTasks.length === 0) return 'No example tasks yet';
+    return catTasks.map((t) => `"${t.title}"`).join(', ');
+  };
+
+  // Build the prompt with user's categories and example tasks
+  const buildPrompt = (): string => {
+    const categoriesList = Object.values(categories).map((cat) => {
+      const subcats = cat.subcategories.map((s) => `      - "${s.name}"`).join('\n');
+      const examples = getExampleTasks(cat.id);
+      return `  - "${cat.name}"${subcats ? '\n    Subcategories:\n' + subcats : ''}\n    Example tasks: ${examples}`;
+    }).join('\n');
+
+    return `You are a task management assistant for BlockOut, a productivity app. 
+
+The user has provided their input (which may be text description, pasted content, or references to images/ideas). 
+Your job is to analyze this input and generate tasks that fit into the user's existing category structure.
+
+EXISTING CATEGORIES (use these when possible):
+${categoriesList || '  (No categories exist yet)'}
+
+IMPORTANT RULES:
+1. ALWAYS prefer existing categories over creating new ones
+2. Only create a new category if the task truly doesn't fit any existing category
+3. Use subcategories when they exist and are appropriate
+4. Create realistic, actionable tasks
+5. Set appropriate weights (1-10) based on task size/importance
+6. Add brief notes only if they provide useful context
+7. Set due dates only if explicitly mentioned or clearly implied
+
+TASK STRUCTURE:
+- title: Clear, actionable task name
+- categoryName: Name of category (prefer existing)
+- subcategoryName: Name of subcategory if applicable
+- weight: 1-10 (default 3 for small tasks, 5 for medium, 8+ for large)
+- notes: Optional brief context
+- dueDate: ISO date string only if specified
+
+NEW CATEGORIES (only if needed):
+If you must create a new category, include it with a name and optional subcategories.
+
+OUTPUT FORMAT:
+Return a JSON object with this structure:
+{
+  "tasks": [
+    {
+      "title": "Task name",
+      "categoryName": "Category Name",
+      "subcategoryName": "Subcategory Name",
+      "weight": 3,
+      "notes": "Optional notes"
+    }
+  ],
+  "newCategories": [
+    {
+      "name": "New Category Name",
+      "subcategories": [{"name": "Subcategory Name"}]
+    }
+  ]
+}
+
+USER INPUT:
+"""`;
+  };
+
+  const handleGenerate = async () => {
+    if (!input.trim()) return;
+    
+    setIsGenerating(true);
+    setError(null);
+    
+    try {
+      const prompt = buildPrompt() + '\n' + input + '\n"""\n\nGenerate the tasks JSON:';
+      
+      // Copy prompt to clipboard for user to paste into their LLM
+      await navigator.clipboard.writeText(prompt);
+      
+      // For now, we'll show instructions since we don't have direct LLM integration
+      setResult({
+        tasks: [],
+        newCategories: []
+      });
+      setShowBlockSelector(true);
+    } catch (err) {
+      setError('Failed to generate. Please try again.');
+    } finally {
+      setIsGenerating(false);
+    }
+  };
+
+  const handleImport = () => {
+    if (!result) return;
+    
+    // Import tasks
+    result.tasks.forEach((task) => {
+      // Find or create category
+      let categoryId = Object.entries(categories).find(([_, c]) => 
+        c.name.toLowerCase() === (task.categoryName || '').toLowerCase()
+      )?.[0];
+      
+      if (!categoryId && task.categoryName) {
+        // Create new category
+        categoryId = addCategory({ name: task.categoryName, subcategories: [] });
+      }
+      
+      // Add task
+      const taskId = addTask({
+        title: task.title,
+        categoryId: categoryId || Object.keys(categories)[0] || '',
+        weight: task.weight || 3,
+        notes: task.notes,
+      });
+      
+      // Assign to block if selected
+      if (selectedBlockId) {
+        assignTaskToBlock(taskId, selectedBlockId);
+      }
+    });
+    
+    onClose();
+  };
+
+  if (!open) return null;
+
+  return (
+    <AnimatePresence>
+      <motion.div
+        className="modal-overlay"
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        exit={{ opacity: 0 }}
+        onClick={onClose}
+      >
+        <motion.div
+          className="modal"
+          initial={{ scale: 0.92, opacity: 0, y: 20 }}
+          animate={{ scale: 1, opacity: 1, y: 0 }}
+          exit={{ scale: 0.92, opacity: 0, y: 20 }}
+          transition={{ type: 'spring', damping: 28, stiffness: 380 }}
+          onClick={(e) => e.stopPropagation()}
+          style={{ maxWidth: 700, maxHeight: '85vh', overflow: 'auto' }}
+        >
+          <h2>Generate Tasks with AI</h2>
+          
+          <p style={{ fontSize: 13, color: 'var(--text-secondary)', marginBottom: 20 }}>
+            Describe your tasks, paste meeting notes, or share ideas. The AI will organize them into your existing categories.
+          </p>
+
+          {!showBlockSelector ? (
+            <>
+              <div className="modal-field">
+                <label>Your Input</label>
+                <textarea
+                  value={input}
+                  onChange={(e) => setInput(e.target.value)}
+                  placeholder="Example: 'I need to prepare for the quarterly review meeting next Friday. I should update the project timeline, create slides for the presentation, and schedule practice time with the team.'"
+                  rows={8}
+                  style={{
+                    width: '100%',
+                    padding: 12,
+                    background: 'var(--bg-tertiary)',
+                    border: '1px solid var(--border)',
+                    borderRadius: 'var(--radius-sm)',
+                    color: 'var(--text-primary)',
+                    fontSize: 14,
+                    resize: 'vertical',
+                  }}
+                />
+              </div>
+
+              {error && (
+                <div style={{ 
+                  padding: 12, 
+                  background: 'hsla(0, 72%, 62%, 0.1)', 
+                  borderRadius: 'var(--radius-sm)',
+                  color: 'hsl(0, 72%, 62%)',
+                  marginBottom: 16,
+                  fontSize: 13
+                }}>
+                  {error}
+                </div>
+              )}
+
+              <div className="modal-actions">
+                <button className="btn btn-ghost" onClick={onClose}>Cancel</button>
+                <button 
+                  className="btn btn-primary" 
+                  onClick={handleGenerate}
+                  disabled={!input.trim() || isGenerating}
+                >
+                  {isGenerating ? 'Preparing...' : 'Generate Prompt'}
+                </button>
+              </div>
+            </>
+          ) : (
+            <>
+              <div style={{ 
+                padding: 16, 
+                background: 'var(--bg-tertiary)', 
+                borderRadius: 'var(--radius-sm)',
+                marginBottom: 20
+              }}>
+                <div style={{ fontSize: 13, color: 'var(--text-secondary)', marginBottom: 12 }}>
+                  <strong>Instructions:</strong>
+                </div>
+                <ol style={{ fontSize: 13, lineHeight: 1.6, paddingLeft: 20, color: 'var(--text-primary)' }}>
+                  <li>A detailed prompt has been copied to your clipboard</li>
+                  <li>Paste it into ChatGPT, Claude, or your preferred AI</li>
+                  <li>The AI will generate tasks formatted for BlockOut</li>
+                  <li>Copy the JSON response and paste it below</li>
+                </ol>
+              </div>
+
+              <div className="modal-field">
+                <label>AI Response (JSON)</label>
+                <textarea
+                  value={JSON.stringify(result, null, 2)}
+                  onChange={(e) => {
+                    try {
+                      const parsed = JSON.parse(e.target.value);
+                      setResult(parsed);
+                      setError(null);
+                    } catch {
+                      // Invalid JSON, ignore
+                    }
+                  }}
+                  placeholder='Paste the JSON response from the AI here...'
+                  rows={10}
+                  style={{
+                    width: '100%',
+                    padding: 12,
+                    background: 'var(--bg-tertiary)',
+                    border: '1px solid var(--border)',
+                    borderRadius: 'var(--radius-sm)',
+                    color: 'var(--text-primary)',
+                    fontSize: 13,
+                    fontFamily: 'var(--font-mono)',
+                    resize: 'vertical',
+                  }}
+                />
+              </div>
+
+              {result && result.tasks && result.tasks.length > 0 && (
+                <div style={{ marginBottom: 20 }}>
+                  <div style={{ fontSize: 13, color: 'var(--text-secondary)', marginBottom: 8 }}>
+                    <strong>Preview ({result.tasks.length} tasks):</strong>
+                  </div>
+                  <div style={{ 
+                    maxHeight: 150, 
+                    overflow: 'auto',
+                    padding: 12,
+                    background: 'var(--bg-tertiary)',
+                    borderRadius: 'var(--radius-sm)',
+                    fontSize: 13
+                  }}>
+                    {result.tasks.map((task, i) => (
+                      <div key={i} style={{ padding: '4px 0', borderBottom: '1px solid var(--border-light)' }}>
+                        <strong>{task.title}</strong>
+                        {task.categoryName && <span style={{ color: 'var(--text-secondary)' }}> → {task.categoryName}</span>}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              <div className="modal-field">
+                <label>Add to Time Block (optional)</label>
+                <select
+                  value={selectedBlockId}
+                  onChange={(e) => setSelectedBlockId(e.target.value)}
+                  style={{
+                    width: '100%',
+                    padding: 10,
+                    background: 'var(--bg-tertiary)',
+                    border: '1px solid var(--border)',
+                    borderRadius: 'var(--radius-sm)',
+                    color: 'var(--text-primary)',
+                    fontSize: 14,
+                  }}
+                >
+                  <option value="">-- Task Pool (no block) --</option>
+                  {Object.values(timeBlocks)
+                    .filter((b) => b.endDate > Date.now())
+                    .map((block) => (
+                      <option key={block.id} value={block.id}>
+                        {block.name} {block.id === activeBlockId ? '(current)' : ''}
+                      </option>
+                    ))}
+                </select>
+              </div>
+
+              <div className="modal-actions">
+                <button className="btn btn-ghost" onClick={() => setShowBlockSelector(false)}>Back</button>
+                <button 
+                  className="btn btn-primary" 
+                  onClick={handleImport}
+                  disabled={!result || result.tasks.length === 0}
+                >
+                  Import {result?.tasks.length || 0} Tasks
+                </button>
+              </div>
+            </>
+          )}
+        </motion.div>
+      </motion.div>
+    </AnimatePresence>
+  );
+}

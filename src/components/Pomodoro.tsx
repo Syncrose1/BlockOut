@@ -24,6 +24,11 @@ export function Pomodoro() {
   const y = useMotionValue(0);
   const widgetRef = useRef<HTMLDivElement>(null);
   const [dragConstraints, setDragConstraints] = useState({ top: -800, left: -1200, right: 0, bottom: 0 });
+  
+  // Resize state
+  const [scale, setScale] = useState(1);
+  const [isResizing, setIsResizing] = useState(false);
+  const resizeStartRef = useRef({ x: 0, scale: 1 });
 
   const updateConstraints = useCallback(() => {
     const el = widgetRef.current;
@@ -54,6 +59,37 @@ export function Pomodoro() {
     const interval = setInterval(tickPomodoro, 1000);
     return () => clearInterval(interval);
   }, [pomodoro.isRunning, tickPomodoro]);
+
+  // Resize handlers
+  const handleResizeStart = (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsResizing(true);
+    resizeStartRef.current = { x: e.clientX, scale };
+  };
+
+  useEffect(() => {
+    if (!isResizing) return;
+
+    const handleMouseMove = (e: MouseEvent) => {
+      const deltaX = e.clientX - resizeStartRef.current.x;
+      // Scale based on drag distance (100px drag = 0.5 scale change)
+      const scaleDelta = deltaX / 200;
+      const newScale = Math.min(1.75, Math.max(1, resizeStartRef.current.scale + scaleDelta));
+      setScale(newScale);
+    };
+
+    const handleMouseUp = () => {
+      setIsResizing(false);
+    };
+
+    window.addEventListener('mousemove', handleMouseMove);
+    window.addEventListener('mouseup', handleMouseUp);
+    return () => {
+      window.removeEventListener('mousemove', handleMouseMove);
+      window.removeEventListener('mouseup', handleMouseUp);
+    };
+  }, [isResizing, scale]);
 
   // Audio notification on timer end
   useEffect(() => {
@@ -118,7 +154,7 @@ export function Pomodoro() {
         dragElastic={0}
         dragConstraints={dragConstraints}
         onDragStart={updateConstraints}
-        style={{ x, y, cursor: 'grab', touchAction: 'none' }}
+        style={{ x, y, cursor: isResizing ? 'ew-resize' : 'grab', touchAction: 'none', scale, transformOrigin: 'bottom right' }}
         whileDrag={{ cursor: 'grabbing' }}
         initial={{ y: 60, opacity: 0 }}
         animate={{ opacity: 1, y: 0 }}
@@ -243,6 +279,36 @@ export function Pomodoro() {
               &times;
             </button>
           )}
+        </div>
+
+        {/* Resize handle */}
+        <div
+          onMouseDown={handleResizeStart}
+          title="Drag to resize"
+          style={{
+            position: 'absolute',
+            right: 4,
+            bottom: 4,
+            width: 12,
+            height: 12,
+            cursor: 'ew-resize',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            opacity: 0.4,
+            transition: 'opacity 0.2s',
+          }}
+          onMouseEnter={(e) => (e.currentTarget.style.opacity = '0.8')}
+          onMouseLeave={(e) => (e.currentTarget.style.opacity = '0.4')}
+        >
+          <svg width="8" height="8" viewBox="0 0 8 8">
+            <path
+              d="M0 8 L8 0 M4 8 L8 4"
+              stroke="var(--text-tertiary)"
+              strokeWidth="1.5"
+              fill="none"
+            />
+          </svg>
         </div>
       </motion.div>
     </AnimatePresence>

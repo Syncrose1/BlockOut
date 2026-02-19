@@ -1,6 +1,6 @@
 import { useMemo, useState, useCallback, useEffect, useRef } from 'react';
 import { useStore } from '../store';
-import { AssignTasksModal, ExportImportModal } from './Modals';
+import { AssignTasksModal, ExportImportModal, AITaskGeneratorModal } from './Modals';
 import { exportTreemapAsImage } from './Treemap';
 import { exportToFile } from '../utils/analytics';
 import type { ViewMode } from '../types';
@@ -40,6 +40,7 @@ export function Topbar() {
   const [showAssign, setShowAssign] = useState(false);
   const [showExportImport, setShowExportImport] = useState(false);
   const [exportDropdownOpen, setExportDropdownOpen] = useState(false);
+  const [showAITaskGenerator, setShowAITaskGenerator] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
 
   const block = activeBlockId ? timeBlocks[activeBlockId] : null;
@@ -303,6 +304,14 @@ export function Topbar() {
         </button>
 
         <button
+          className="btn btn-ghost btn-sm"
+          onClick={() => setShowAITaskGenerator(true)}
+          title="Generate tasks with AI"
+        >
+          ✨ Smart Create
+        </button>
+
+        <button
           className="btn btn-primary btn-sm"
           onClick={() => setShowNewTaskModal(true)}
         >
@@ -315,6 +324,7 @@ export function Topbar() {
       )}
 
       <ExportImportModal open={showExportImport} onClose={() => setShowExportImport(false)} />
+      <AITaskGeneratorModal open={showAITaskGenerator} onClose={() => setShowAITaskGenerator(false)} />
     </>
   );
 }

@@ -45,6 +45,7 @@ export function Sidebar() {
   const bulkAssignTasksToBlock = useStore((s) => s.bulkAssignTasksToBlock);
   const draggedTaskIds = useStore((s) => s.drag.draggedTaskIds);
   const enterFocusMode = useStore((s) => s.enterFocusMode);
+  const exitFocusMode = useStore((s) => s.exitFocusMode);
   const focusMode = useStore((s) => s.focusMode);
   const pomodoro = useStore((s) => s.pomodoro);
 
@@ -347,7 +348,13 @@ export function Sidebar() {
                 <button
                   className={`sidebar-item ${isFocused ? 'active' : ''}`}
                   style={{ flex: 1 }}
-                  onClick={() => enterFocusMode(cat.id)}
+                  onClick={() => {
+                    if (focusMode && pomodoro.focusedCategoryId === cat.id) {
+                      exitFocusMode();
+                    } else {
+                      enterFocusMode(cat.id);
+                    }
+                  }}
                   title="Click to enter focus mode for this category"
                 >
                   <span className="dot" style={{
