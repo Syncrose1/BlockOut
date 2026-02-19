@@ -91,11 +91,13 @@ export function Treemap() {
 
   // Check if a task is in an archived block
   const isTaskArchived = useCallback((taskId: string): boolean => {
-    if (showTimelessPool) return false;
-    const block = activeBlockId ? timeBlocks[activeBlockId] : null;
-    if (!block) return false;
-    return block.endDate <= Date.now();
-  }, [showTimelessPool, activeBlockId, timeBlocks]);
+    // Find which block contains this task
+    const containingBlock = Object.values(timeBlocks).find(block => 
+      block.taskIds.includes(taskId)
+    );
+    // Check if that block has ended
+    return containingBlock ? containingBlock.endDate <= Date.now() : false;
+  }, [timeBlocks]);
 
   const isTaskLocked = (taskId: string): boolean => {
     const task = tasks[taskId];
