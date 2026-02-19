@@ -1321,6 +1321,19 @@ select {
   font-weight: 600;
 }
 
+/* Preview state - white dashed border shown on ALL drop targets when dragging starts */
+.sidebar-item.drag-preview {
+  background: hsla(210, 20%, 25%, 0.5) !important;
+  border: 2px dashed rgba(255, 255, 255, 0.6) !important;
+  box-shadow: 0 0 8px rgba(255, 255, 255, 0.3);
+}
+
+.sidebar-item.drag-preview:hover {
+  background: hsla(210, 30%, 30%, 0.7) !important;
+  border-color: rgba(255, 255, 255, 0.8) !important;
+  box-shadow: 0 0 12px rgba(255, 255, 255, 0.5);
+}
+
 .kanban-card[draggable="true"] {
   cursor: grab;
 }

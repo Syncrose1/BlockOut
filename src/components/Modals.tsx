@@ -1881,3 +1881,141 @@ export function ExportImportModal({ open, onClose }: { open: boolean; onClose: (
     </AnimatePresence>
   );
 }
+
+// ─── Block Settings Modal ────────────────────────────────────────────────────
+
+export function BlockSettingsModal({ blockId, onClose }: { blockId: string; onClose: () => void }) {
+  const timeBlocks = useStore((s) => s.timeBlocks);
+  const deleteTimeBlock = useStore((s) => s.deleteTimeBlock);
+  const renameTimeBlock = useStore((s) => s.renameTimeBlock);
+  const setActiveBlock = useStore((s) => s.setActiveBlock);
+  const activeBlockId = useStore((s) => s.activeBlockId);
+
+  const block = timeBlocks[blockId];
+  const [name, setName] = useState(block?.name ?? '');
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+
+  if (!block) return null;
+
+  const handleSave = () => {
+    if (name.trim() && name !== block.name) {
+      renameTimeBlock(blockId, name.trim());
+      debouncedSave();
+    }
+    onClose();
+  };
+
+  const handleDelete = () => {
+    deleteTimeBlock(blockId);
+    if (activeBlockId === blockId) {
+      setActiveBlock(null);
+    }
+    debouncedSave();
+    onClose();
+  };
+
+  const isArchived = block.endDate <= Date.now();
+
+  return (
+    <AnimatePresence>
+      <motion.div
+        className="modal-overlay"
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        exit={{ opacity: 0 }}
+        onClick={onClose}
+      >
+        <motion.div
+          className="modal"
+          initial={{ scale: 0.92, opacity: 0, y: 20 }}
+          animate={{ scale: 1, opacity: 1, y: 0 }}
+          exit={{ scale: 0.92, opacity: 0, y: 20 }}
+          transition={{ type: 'spring', damping: 28, stiffness: 380 }}
+          onClick={(e) => e.stopPropagation()}
+        >
+          {!showDeleteConfirm ? (
+            <>
+              <h2>Block Settings</h2>
+              
+              <div className="modal-field">
+                <label>Block Name</label>
+                <input
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                  placeholder="e.g. 6 Week Placement"
+                  autoFocus
+                />
+              </div>
+
+              <div style={{ 
+                padding: 12, 
+                background: 'var(--bg-tertiary)', 
+                borderRadius: 'var(--radius-sm)',
+                marginBottom: 20,
+                fontSize: 13
+              }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
+                  <span style={{ color: 'var(--text-secondary)' }}>Start Date:</span>
+                  <span>{new Date(block.startDate).toLocaleDateString()}</span>
+                </div>
+                <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                  <span style={{ color: 'var(--text-secondary)' }}>End Date:</span>
+                  <span style={{ color: isArchived ? 'hsl(0, 72%, 62%)' : 'inherit' }}>
+                    {new Date(block.endDate).toLocaleDateString()}
+                    {isArchived && ' (Archived)'}
+                  </span>
+                </div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 4 }}>
+                  <span style={{ color: 'var(--text-secondary)' }}>Tasks:</span>
+                  <span>{block.taskIds.length}</span>
+                </div>
+              </div>
+
+              <div className="modal-actions">
+                <button className="btn btn-danger" onClick={() => setShowDeleteConfirm(true)}>
+                  Delete Block
+                </button>
+                <div style={{ display: 'flex', gap: 8 }}>
+                  <button className="btn btn-ghost" onClick={onClose}>Cancel</button>
+                  <button className="btn btn-primary" onClick={handleSave}>
+                    Save Changes
+                  </button>
+                </div>
+              </div>
+            </>
+          ) : (
+            <>
+              <h2 style={{ color: 'hsl(0, 72%, 62%)' }}>Delete Block?</h2>
+              
+              <p style={{ fontSize: 14, lineHeight: 1.6, marginBottom: 20 }}>
+                This will permanently delete <strong>"{block.name}"</strong> and remove all 
+                {block.taskIds.length} task assignments. The tasks themselves will remain in your pool.
+              </p>
+
+              <div style={{ 
+                padding: 12, 
+                background: 'hsla(0, 72%, 62%, 0.1)', 
+                border: '1px solid hsla(0, 72%, 62%, 0.3)',
+                borderRadius: 'var(--radius-sm)',
+                marginBottom: 20,
+                fontSize: 13,
+                color: 'hsl(0, 72%, 62%)'
+              }}>
+                ⚠️ This action cannot be undone.
+              </div>
+
+              <div className="modal-actions">
+                <button className="btn btn-ghost" onClick={() => setShowDeleteConfirm(false)}>
+                  Cancel
+                </button>
+                <button className="btn btn-danger" onClick={handleDelete}>
+                  Yes, Delete Block
+                </button>
+              </div>
+            </>
+          )}
+        </motion.div>
+      </motion.div>
+    </AnimatePresence>
+  );
+}

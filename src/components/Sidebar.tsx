@@ -1,7 +1,7 @@
 import { useStore } from '../store';
 import { useMemo, useState } from 'react';
 import { debouncedSave } from '../utils/persistence';
-import { CategorySettingsModal } from './Modals';
+import { CategorySettingsModal, BlockSettingsModal } from './Modals';
 
 function formatCountdown(endDate: number): string {
   const now = Date.now();
@@ -20,6 +20,7 @@ function formatCountdown(endDate: number): string {
 
 export function Sidebar() {
   const [categorySettingsId, setCategorySettingsId] = useState<string | null>(null);
+  const [blockSettingsId, setBlockSettingsId] = useState<string | null>(null);
 
   const timeBlocks = useStore((s) => s.timeBlocks);
   const activeBlockId = useStore((s) => s.activeBlockId);
@@ -111,6 +112,19 @@ export function Sidebar() {
   const flameColors = ['var(--text-tertiary)', 'hsl(30, 80%, 55%)', 'hsl(20, 90%, 55%)', 'hsl(10, 95%, 55%)', 'hsl(0, 100%, 55%)'];
   const flameScales = [1, 1, 1.1, 1.2, 1.4];
 
+  // Helper to get block item class with drag states
+  const getBlockItemClass = (blockId: string, isActive: boolean) => {
+    const isDragOver = drag.dragOverBlockId === blockId;
+    const isDraggingGlobal = drag.isDragging;
+    
+    let className = 'sidebar-item';
+    if (isActive) className += ' active';
+    if (isDragOver) className += ' drag-over';
+    if (isDraggingGlobal && !isDragOver) className += ' drag-preview';
+    
+    return className;
+  };
+
   return (
     <div className="sidebar">
       <div className="sidebar-header">
@@ -154,7 +168,7 @@ export function Sidebar() {
         <div className="sidebar-section">
           <div className="sidebar-section-title">Pool</div>
           <button
-            className={`sidebar-item ${showTimelessPool ? 'active' : ''} ${drag.dragOverPool ? 'drag-over' : ''}`}
+            className={`sidebar-item ${showTimelessPool ? 'active' : ''} ${drag.dragOverPool ? 'drag-over' : ''} ${drag.isDragging && !drag.dragOverPool ? 'drag-preview' : ''}`}
             onClick={() => setShowTimelessPool(true)}
             onDragOver={handleDragOverPool}
             onDrop={handleDropPool}
@@ -187,24 +201,40 @@ export function Sidebar() {
           {activeBlocks.map((block) => {
             const completedCount = block.taskIds.filter((id) => tasks[id]?.completed).length;
             const total = block.taskIds.length;
-            const isDragOver = drag.dragOverBlockId === block.id;
+            const isActive = activeBlockId === block.id && !showTimelessPool;
             return (
-              <button
-                key={block.id}
-                className={`sidebar-item ${activeBlockId === block.id && !showTimelessPool ? 'active' : ''} ${isDragOver ? 'drag-over' : ''}`}
-                onClick={() => setActiveBlock(block.id)}
-                onDragOver={(e) => handleDragOver(e, block.id)}
-                onDrop={(e) => handleDrop(e, block.id)}
-                onDragLeave={handleDragLeave}
-              >
-                <span className="dot" style={{ background: 'var(--accent)' }} />
-                <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                  {block.name}
-                </span>
-                <span className="block-countdown">
-                  {total > 0 ? `${completedCount}/${total}` : ''} {formatCountdown(block.endDate)}
-                </span>
-              </button>
+              <div key={block.id} style={{ display: 'flex', alignItems: 'center' }}>
+                <button
+                  className={getBlockItemClass(block.id, isActive)}
+                  onClick={() => setActiveBlock(block.id)}
+                  onDragOver={(e) => handleDragOver(e, block.id)}
+                  onDrop={(e) => handleDrop(e, block.id)}
+                  onDragLeave={handleDragLeave}
+                  style={{ flex: 1 }}
+                >
+                  <span className="dot" style={{ background: 'var(--accent)' }} />
+                  <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                    {block.name}
+                  </span>
+                  <span className="block-countdown">
+                    {total > 0 ? `${completedCount}/${total}` : ''} {formatCountdown(block.endDate)}
+                  </span>
+                </button>
+                <button
+                  onClick={(e) => { e.stopPropagation(); setBlockSettingsId(block.id); }}
+                  title="Block settings"
+                  style={{
+                    background: 'none', border: 'none', cursor: 'pointer',
+                    color: 'var(--text-tertiary)', padding: '4px 6px',
+                    fontSize: 13, lineHeight: 1, flexShrink: 0,
+                    opacity: 0.6,
+                  }}
+                  onMouseEnter={(e) => (e.currentTarget.style.opacity = '1')}
+                  onMouseLeave={(e) => (e.currentTarget.style.opacity = '0.6')}
+                >
+                  ⚙
+                </button>
+              </div>
             );
           })}
           <button
@@ -220,17 +250,37 @@ export function Sidebar() {
         {archivedBlocks.length > 0 && (
           <div className="sidebar-section">
             <div className="sidebar-section-title">Archived</div>
-            {archivedBlocks.map((block) => (
-              <button
-                key={block.id}
-                className={`sidebar-item ${activeBlockId === block.id && !showTimelessPool ? 'active' : ''}`}
-                onClick={() => setActiveBlock(block.id)}
-                style={{ opacity: 0.6 }}
-              >
-                <span className="dot" style={{ background: 'var(--text-tertiary)' }} />
-                {block.name}
-              </button>
-            ))}
+            {archivedBlocks.map((block) => {
+              const isActive = activeBlockId === block.id && !showTimelessPool;
+              return (
+                <div key={block.id} style={{ display: 'flex', alignItems: 'center' }}>
+                  <button
+                    className={getBlockItemClass(block.id, isActive)}
+                    onClick={() => setActiveBlock(block.id)}
+                    style={{ flex: 1, opacity: 0.6 }}
+                  >
+                    <span className="dot" style={{ background: 'var(--text-tertiary)' }} />
+                    <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                      {block.name}
+                    </span>
+                  </button>
+                  <button
+                    onClick={(e) => { e.stopPropagation(); setBlockSettingsId(block.id); }}
+                    title="Block settings"
+                    style={{
+                      background: 'none', border: 'none', cursor: 'pointer',
+                      color: 'var(--text-tertiary)', padding: '4px 6px',
+                      fontSize: 13, lineHeight: 1, flexShrink: 0,
+                      opacity: 0.6,
+                    }}
+                    onMouseEnter={(e) => (e.currentTarget.style.opacity = '1')}
+                    onMouseLeave={(e) => (e.currentTarget.style.opacity = '0.6')}
+                  >
+                    ⚙
+                  </button>
+                </div>
+              );
+            })}
           </div>
         )}
 
@@ -319,6 +369,13 @@ export function Sidebar() {
         <CategorySettingsModal
           categoryId={categorySettingsId}
           onClose={() => setCategorySettingsId(null)}
+        />
+      )}
+
+      {blockSettingsId && (
+        <BlockSettingsModal
+          blockId={blockSettingsId}
+          onClose={() => setBlockSettingsId(null)}
         />
       )}
     </div>

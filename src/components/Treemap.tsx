@@ -83,6 +83,7 @@ export function Treemap() {
   const focusedCategoryId = useStore((s) => s.pomodoro.focusedCategoryId);
   const setDraggedTask = useStore((s) => s.setDraggedTask);
   const setEditingTaskId = useStore((s) => s.setEditingTaskId);
+  const setIsDragging = useStore((s) => s.setIsDragging);
 
   // Archived task warning state
   const [archivedWarningTaskId, setArchivedWarningTaskId] = useState<string | null>(null);
@@ -724,6 +725,7 @@ export function Treemap() {
     const taskId = (containerRef.current as any)?.__pendingDragId;
     if (taskId) {
       setDraggedTask(taskId);
+      setIsDragging(true); // Set global dragging state
       e.dataTransfer.effectAllowed = 'move';
       e.dataTransfer.setData('text/plain', taskId);
       // Hide default drag preview by setting empty image
@@ -731,9 +733,12 @@ export function Treemap() {
       img.src = 'data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7';
       e.dataTransfer.setDragImage(img, 0, 0);
     }
-  }, [setDraggedTask]);
+  }, [setDraggedTask, setIsDragging]);
 
-  const handleDragEnd = useCallback(() => setDraggedTask(null), [setDraggedTask]);
+  const handleDragEnd = useCallback(() => {
+    setDraggedTask(null);
+    setIsDragging(false); // Clear global dragging state
+  }, [setDraggedTask, setIsDragging]);
   const handleMouseLeave = useCallback(() => { hoveredIdRef.current = null; }, []);
 
   return (

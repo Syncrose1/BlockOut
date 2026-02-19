@@ -128,6 +128,7 @@ interface BlockOutState {
   setDraggedTask: (taskId: string | null) => void;
   setDragOverBlock: (blockId: string | null) => void;
   setDragOverPool: (over: boolean) => void;
+  setIsDragging: (isDragging: boolean) => void;
 
   // Actions — Pomodoro
   startPomodoro: () => void;
@@ -186,6 +187,7 @@ export const useStore = create<BlockOutState>((set, get) => ({
     draggedTaskId: null,
     dragOverBlockId: null,
     dragOverPool: false,
+    isDragging: false,
   },
 
   pomodoro: {
@@ -472,6 +474,9 @@ export const useStore = create<BlockOutState>((set, get) => ({
   })),
   setDragOverPool: (over) => set((state) => ({
     drag: { ...state.drag, dragOverPool: over, dragOverBlockId: null },
+  })),
+  setIsDragging: (isDragging: boolean) => set((state) => ({
+    drag: { ...state.drag, isDragging },
   })),
 
   // Pomodoro

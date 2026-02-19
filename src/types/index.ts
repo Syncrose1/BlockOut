@@ -67,6 +67,7 @@ export interface DragState {
   draggedTaskId: string | null;
   dragOverBlockId: string | null;
   dragOverPool: boolean;
+  isDragging: boolean; // True when any drag operation is active
 }
 
 export type ViewMode = 'treemap' | 'kanban' | 'timeline';
