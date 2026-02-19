@@ -143,38 +143,40 @@ export function Sidebar() {
         </div>
         {/* Streak display */}
         {streak.currentStreak > 0 && (
-          <button
-            onClick={() => setShowAnalyticsModal(true)}
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: 8,
-              marginTop: 8,
-              padding: '6px 10px',
-              background: 'transparent',
-              border: '1px solid hsl(210, 80%, 55%)',
-              borderRadius: 'var(--radius-sm)',
-              cursor: 'pointer',
-              transition: 'all 0.2s ease',
-            }}
-            onMouseEnter={(e) => {
-              e.currentTarget.style.background = 'hsla(210, 80%, 55%, 0.1)';
-            }}
-            onMouseLeave={(e) => {
-              e.currentTarget.style.background = 'transparent';
-            }}
-          >
-            <span style={{
-              fontSize: 11,
-              fontWeight: 700,
-              color: 'hsl(210, 80%, 60%)',
-              letterSpacing: '0.25em',
-              fontFamily: 'var(--font-mono)',
-              textTransform: 'uppercase',
-            }}>
-              {streak.currentStreak}D streak
-            </span>
-          </button>
+          <div style={{ display: 'flex', justifyContent: 'center', marginTop: 8 }}>
+            <button
+              onClick={() => setShowAnalyticsModal(true)}
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: 8,
+                padding: '6px 10px',
+                background: 'transparent',
+                border: '1px solid hsl(210, 80%, 55%)',
+                borderRadius: 'var(--radius-sm)',
+                cursor: 'pointer',
+                transition: 'all 0.2s ease',
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.background = 'hsla(210, 80%, 55%, 0.1)';
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.background = 'transparent';
+              }}
+            >
+              <span style={{
+                fontSize: 11,
+                fontWeight: 700,
+                color: 'hsl(210, 80%, 60%)',
+                letterSpacing: '0.25em',
+                fontFamily: 'var(--font-mono)',
+                textTransform: 'uppercase',
+              }}>
+                {streak.currentStreak}d streak
+              </span>
+            </button>
+          </div>
         )}
       </div>
 
