@@ -57,10 +57,13 @@ export function Sidebar() {
 
   const totalTasks = Object.keys(tasks).length;
   const unassignedTasks = useMemo(() => {
-    const assignedIds = new Set(
-      Object.values(timeBlocks).flatMap((b) => b.taskIds)
+    const now = Date.now();
+    const activeAssignedIds = new Set(
+      Object.values(timeBlocks)
+        .filter((b) => b.endDate > now)
+        .flatMap((b) => b.taskIds)
     );
-    return Object.values(tasks).filter((t) => !assignedIds.has(t.id)).length;
+    return Object.values(tasks).filter((t) => !activeAssignedIds.has(t.id)).length;
   }, [tasks, timeBlocks]);
 
   // Drag handlers for blocks

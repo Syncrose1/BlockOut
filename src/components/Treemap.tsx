@@ -773,14 +773,7 @@ export function Treemap() {
     
     // Check if right-clicking on a task
     if (node && tasksRef.current[node.id]) {
-      // If task is archived, show warning
-      if (isTaskArchived(node.id)) {
-        setArchivedWarningTaskId(node.id);
-        setPendingAction('edit');
-        return;
-      }
-      
-      // Show context menu at click position
+      // Show context menu at click position (even for archived tasks)
       setContextMenu({
         x: e.clientX,
         y: e.clientY,
@@ -791,7 +784,7 @@ export function Treemap() {
       clearTaskSelection();
       setContextMenu(null);
     }
-  }, [findNodeAt, isTaskArchived, clearTaskSelection]);
+  }, [findNodeAt, clearTaskSelection]);
 
   // Find category container at mouse position (for category header drag)
   const findCategoryAt = useCallback((mx: number, my: number): TreemapNode | null => {

@@ -2465,6 +2465,12 @@ export function UnifiedTaskContextMenu({
   const selectedCount = selectedTasks.length;
   const isMultiSelect = selectedTaskIds.length > 1;
 
+  // Check if task is in an archived block
+  const archivedBlock = Object.values(timeBlocks).find(b => 
+    b.endDate <= Date.now() && b.taskIds.includes(taskId)
+  );
+  const isArchived = !!archivedBlock;
+
   if (!open || !task) return null;
 
   const handleEdit = () => {
@@ -2775,6 +2781,24 @@ export function UnifiedTaskContextMenu({
             overflow: 'auto'
           }}
         >
+          {isArchived && (
+            <div style={{
+              padding: 12,
+              background: 'hsla(30, 70%, 50%, 0.1)',
+              border: '1px solid hsla(30, 70%, 50%, 0.3)',
+              borderRadius: 'var(--radius-sm)',
+              marginBottom: 16,
+              fontSize: 13,
+              color: 'hsl(30, 70%, 50%)'
+            }}>
+              <strong>Archived Task</strong>
+              <br />
+              This task is in "{archivedBlock?.name}" which ended on {new Date(archivedBlock!.endDate).toLocaleDateString()}.
+              <br />
+              You can still move it to a new block, but editing details requires restoring the time block.
+            </div>
+          )}
+
           <div style={{ display: 'flex', gap: 24 }}>
             {/* Left Panel - Individual Task Actions */}
             <div style={{ flex: 1, minWidth: 240 }}>
