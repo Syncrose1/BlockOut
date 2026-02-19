@@ -875,7 +875,7 @@ export function Treemap() {
     
     if (tasksRef.current[node.id]) {
       // Clicking on a task - use shift for multiselect toggle
-      toggleTaskSelection(node.id, false, isShiftClick);
+      toggleTaskSelection(node.id, isShiftClick, false);
     }
   }, [findNodeAt, findCategoryAt, toggleTaskSelection, selectAllTasksInCategory, clearTaskSelection]);
 
