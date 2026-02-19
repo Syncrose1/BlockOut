@@ -71,12 +71,19 @@ export function squarify(
   areas: number[],
   rect: Rect
 ): Rect[] {
+  console.log('Squarify called:', { areas, rect });
+  
   if (areas.length === 0) return [];
-  if (areas.length === 1) return [rect];
+  if (areas.length === 1) {
+    console.log('Single area, returning rect:', rect);
+    return [rect];
+  }
 
   const totalArea = areas.reduce((a, b) => a + b, 0);
   const scale = (rect.w * rect.h) / totalArea;
   const scaledAreas = areas.map((a) => a * scale);
+  
+  console.log('Scaled areas:', scaledAreas);
 
   const results: Rect[] = new Array(areas.length);
 
@@ -119,6 +126,7 @@ export function squarify(
     }
   }
 
+  console.log('Squarify results:', results);
   return results;
 }
 
