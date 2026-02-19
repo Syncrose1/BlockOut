@@ -92,7 +92,19 @@ export function Treemap() {
   const selectAllTasksInCategory = useStore((s) => s.selectAllTasksInCategory);
   const clearTaskSelection = useStore((s) => s.clearTaskSelection);
 
-  // Sync selected task IDs to ref for canvas rendering
+  // Refs for canvas rendering
+  const poolViewModeRef = useRef(poolViewMode);
+  const timeBlocksRef = useRef(timeBlocks);
+
+  // Sync refs
+  useEffect(() => {
+    poolViewModeRef.current = poolViewMode;
+  }, [poolViewMode]);
+
+  useEffect(() => {
+    timeBlocksRef.current = timeBlocks;
+  }, [timeBlocks]);
+
   useEffect(() => {
     selectedTaskIdsRef.current = selectedTaskIds;
   }, [selectedTaskIds]);
@@ -548,6 +560,46 @@ export function Treemap() {
           ctx.beginPath();
           ctx.arc(sx, sy, 1.5, 0, Math.PI * 2);
           ctx.fill();
+        }
+      }
+
+      // ── Status tag for Unassigned view ──────────────────────────────────────
+      if (poolViewModeRef.current === 'unassigned' && tw > 60 && th > 30) {
+        const task = currTasks[taskNode.id];
+        if (task) {
+          const now = Date.now();
+          const blocks = timeBlocksRef.current;
+          
+          // Check if task is in any active block
+          const activeBlock = Object.values(blocks).find(b => 
+            b.endDate > now && b.taskIds.includes(taskNode.id)
+          );
+          
+          // Check if task is in any archived block
+          const archivedBlock = Object.values(blocks).find(b => 
+            b.endDate <= now && b.taskIds.includes(taskNode.id)
+          );
+          
+          let statusText = '';
+          let statusColor = '';
+          
+          if (!activeBlock && !archivedBlock) {
+            // Truly unassigned
+            statusText = 'UNASSIGNED';
+            statusColor = 'hsl(140, 60%, 50%)'; // Green
+          } else if (archivedBlock && !activeBlock) {
+            // Only in archived block
+            statusText = 'ARCHIVED';
+            statusColor = 'hsl(30, 70%, 50%)'; // Orange
+          }
+          
+          if (statusText) {
+            ctx.fillStyle = statusColor;
+            ctx.font = 'bold 9px Inter, sans-serif';
+            ctx.textAlign = 'left';
+            ctx.textBaseline = 'bottom';
+            ctx.fillText(statusText, tx + 4, ty + th - 4);
+          }
         }
       }
       
