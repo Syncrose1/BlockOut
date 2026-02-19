@@ -529,17 +529,17 @@ export const useStore = create<BlockOutState>((set, get) => ({
       if (isSelected) {
         // Remove from selection
         newSelection = currentSelection.filter(id => id !== taskId);
+        
+        // Collapse selection if removing would leave only 1 task
+        if (newSelection.length === 1) {
+          return {
+            selectedTaskIds: [],
+            lastSelectedTaskId: null,
+          };
+        }
       } else {
         // Add to selection
         newSelection = [...currentSelection, taskId];
-      }
-      
-      // Collapse selection if only 1 task remains
-      if (newSelection.length === 1) {
-        return {
-          selectedTaskIds: [],
-          lastSelectedTaskId: null,
-        };
       }
       
       return {
