@@ -65,9 +65,15 @@ export interface StreakData {
 
 export interface DragState {
   draggedTaskId: string | null;
+  draggedTaskIds: string[]; // For multiselect drag operations
   dragOverBlockId: string | null;
   dragOverPool: boolean;
   isDragging: boolean; // True when any drag operation is active
+}
+
+export interface SelectionState {
+  selectedTaskIds: string[];
+  lastSelectedTaskId: string | null; // For SHIFT+click range selection
 }
 
 export type ViewMode = 'treemap' | 'timeline';

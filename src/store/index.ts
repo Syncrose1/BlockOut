@@ -68,6 +68,10 @@ interface BlockOutState {
   // Drag and drop
   drag: DragState;
 
+  // Selection
+  selectedTaskIds: string[];
+  lastSelectedTaskId: string | null;
+
   // Pomodoro
   pomodoro: PomodoroState;
 
@@ -127,9 +131,21 @@ interface BlockOutState {
 
   // Actions — Drag and drop
   setDraggedTask: (taskId: string | null) => void;
+  setDraggedTasks: (taskIds: string[]) => void;
   setDragOverBlock: (blockId: string | null) => void;
   setDragOverPool: (over: boolean) => void;
   setIsDragging: (isDragging: boolean) => void;
+
+  // Actions — Selection
+  toggleTaskSelection: (taskId: string, isShiftClick?: boolean, isCtrlClick?: boolean) => void;
+  selectAllTasksInCategory: (categoryId: string) => void;
+  clearTaskSelection: () => void;
+  setLastSelectedTask: (taskId: string | null) => void;
+
+  // Actions — Bulk Operations
+  bulkMoveTasksToCategory: (taskIds: string[], categoryId: string, subcategoryId?: string) => void;
+  bulkDeleteTasks: (taskIds: string[]) => void;
+  bulkAssignTasksToBlock: (taskIds: string[], blockId: string) => void;
 
   // Actions — Pomodoro
   startPomodoro: () => void;
@@ -186,10 +202,14 @@ export const useStore = create<BlockOutState>((set, get) => ({
 
   drag: {
     draggedTaskId: null,
+    draggedTaskIds: [],
     dragOverBlockId: null,
     dragOverPool: false,
     isDragging: false,
   },
+
+  selectedTaskIds: [],
+  lastSelectedTaskId: null,
 
   pomodoro: {
     isRunning: false,
@@ -492,6 +512,118 @@ export const useStore = create<BlockOutState>((set, get) => ({
   setIsDragging: (isDragging: boolean) => set((state) => ({
     drag: { ...state.drag, isDragging },
   })),
+  setDraggedTasks: (taskIds) => set((state) => ({
+    drag: { ...state.drag, draggedTaskIds: taskIds },
+  })),
+
+  // Selection
+  toggleTaskSelection: (taskId, isShiftClick, isCtrlClick) => set((state) => {
+    const currentSelection = state.selectedTaskIds;
+    let newSelection: string[];
+    
+    if (isShiftClick && state.lastSelectedTaskId) {
+      // Range selection: select all tasks between last selected and current
+      const taskIds = Object.keys(state.tasks);
+      const lastIdx = taskIds.indexOf(state.lastSelectedTaskId);
+      const currentIdx = taskIds.indexOf(taskId);
+      
+      if (lastIdx !== -1 && currentIdx !== -1) {
+        const startIdx = Math.min(lastIdx, currentIdx);
+        const endIdx = Math.max(lastIdx, currentIdx);
+        const rangeIds = taskIds.slice(startIdx, endIdx + 1);
+        
+        // Combine with existing selection (toggle behavior)
+        const selectionSet = new Set(currentSelection);
+        rangeIds.forEach(id => {
+          if (selectionSet.has(id)) {
+            selectionSet.delete(id);
+          } else {
+            selectionSet.add(id);
+          }
+        });
+        newSelection = Array.from(selectionSet);
+      } else {
+        newSelection = currentSelection.includes(taskId)
+          ? currentSelection.filter(id => id !== taskId)
+          : [...currentSelection, taskId];
+      }
+    } else if (isCtrlClick || isShiftClick) {
+      // Toggle selection
+      newSelection = currentSelection.includes(taskId)
+        ? currentSelection.filter(id => id !== taskId)
+        : [...currentSelection, taskId];
+    } else {
+      // Single selection: clear others and select only this
+      newSelection = [taskId];
+    }
+    
+    return {
+      selectedTaskIds: newSelection,
+      lastSelectedTaskId: taskId,
+    };
+  }),
+  
+  selectAllTasksInCategory: (categoryId) => set((state) => {
+    const categoryTaskIds = Object.entries(state.tasks)
+      .filter(([_, task]) => task.categoryId === categoryId)
+      .map(([id]) => id);
+    
+    // Add to existing selection (don't clear)
+    const newSelection = [...new Set([...state.selectedTaskIds, ...categoryTaskIds])];
+    return {
+      selectedTaskIds: newSelection,
+    };
+  }),
+  
+  clearTaskSelection: () => set({ selectedTaskIds: [], lastSelectedTaskId: null }),
+  
+  setLastSelectedTask: (taskId) => set({ lastSelectedTaskId: taskId }),
+
+  // Bulk Operations
+  bulkMoveTasksToCategory: (taskIds, categoryId, subcategoryId) => set((state) => {
+    const newTasks = { ...state.tasks };
+    taskIds.forEach(id => {
+      if (newTasks[id]) {
+        newTasks[id] = { ...newTasks[id], categoryId, subcategoryId };
+      }
+    });
+    return { tasks: newTasks };
+  }),
+  
+  bulkDeleteTasks: (taskIds) => set((state) => {
+    const newTasks = { ...state.tasks };
+    const newBlocks = { ...state.timeBlocks };
+    
+    // Remove tasks from all blocks
+    Object.keys(newBlocks).forEach(blockId => {
+      newBlocks[blockId] = {
+        ...newBlocks[blockId],
+        taskIds: newBlocks[blockId].taskIds.filter(id => !taskIds.includes(id))
+      };
+    });
+    
+    // Delete tasks
+    taskIds.forEach(id => delete newTasks[id]);
+    
+    return { 
+      tasks: newTasks, 
+      timeBlocks: newBlocks,
+      selectedTaskIds: state.selectedTaskIds.filter(id => !taskIds.includes(id))
+    };
+  }),
+  
+  bulkAssignTasksToBlock: (taskIds, blockId) => set((state) => {
+    const block = state.timeBlocks[blockId];
+    if (!block) return state;
+    
+    const newBlocks = { ...state.timeBlocks };
+    newBlocks[blockId] = {
+      ...block,
+      taskIds: [...new Set([...block.taskIds, ...taskIds])]
+    };
+    
+    return { timeBlocks: newBlocks };
+  }),
 
   // Pomodoro
   startPomodoro: () => set((state) => ({

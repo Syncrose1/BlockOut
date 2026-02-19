@@ -71,6 +71,7 @@ export function Treemap() {
   const sparkleCounterRef = useRef(0);
   const lastSparkleRef = useRef(0);
   const rafRef = useRef(0);
+  const selectedTaskIdsRef = useRef<string[]>([]);
 
   // Store selectors
   const tasks = useStore((s) => s.tasks);
@@ -82,8 +83,18 @@ export function Treemap() {
   const focusMode = useStore((s) => s.focusMode);
   const focusedCategoryId = useStore((s) => s.pomodoro.focusedCategoryId);
   const setDraggedTask = useStore((s) => s.setDraggedTask);
+  const setDraggedTasks = useStore((s) => s.setDraggedTasks);
   const setEditingTaskId = useStore((s) => s.setEditingTaskId);
   const setIsDragging = useStore((s) => s.setIsDragging);
+  const selectedTaskIds = useStore((s) => s.selectedTaskIds);
+  const toggleTaskSelection = useStore((s) => s.toggleTaskSelection);
+  const selectAllTasksInCategory = useStore((s) => s.selectAllTasksInCategory);
+  const clearTaskSelection = useStore((s) => s.clearTaskSelection);
+
+  // Sync selected task IDs to ref for canvas rendering
+  useEffect(() => {
+    selectedTaskIdsRef.current = selectedTaskIds;
+  }, [selectedTaskIds]);
 
   // Archived task warning state
   const [archivedWarningTaskId, setArchivedWarningTaskId] = useState<string | null>(null);
@@ -305,17 +316,42 @@ export function Treemap() {
       ctx.fill();
 
       // ── Border ──────────────────────────────────────────────────────────────
-      if (isLocked) {
+      // Check if this task is selected
+      const isSelected = selectedTaskIdsRef.current.includes(taskNode.id);
+      
+      if (isSelected) {
+        // Selected task - draw bright blue border
+        ctx.strokeStyle = 'hsl(210, 100%, 65%)';
+        ctx.lineWidth = 3;
+        ctx.beginPath();
+        roundRect(ctx, tx, ty, tw, th, 4);
+        ctx.stroke();
+        // Add glow effect
+        ctx.shadowColor = 'hsl(210, 100%, 65%)';
+        ctx.shadowBlur = 8;
+        ctx.beginPath();
+        roundRect(ctx, tx, ty, tw, th, 4);
+        ctx.stroke();
+        ctx.shadowBlur = 0;
+      } else if (isLocked) {
         ctx.strokeStyle = 'hsl(30, 40%, 28%)';
+        ctx.lineWidth = 1.5;
+        ctx.beginPath();
+        roundRect(ctx, tx, ty, tw, th, 4);
+        ctx.stroke();
       } else if (taskNode.completed || dissolve) {
         ctx.strokeStyle = taskNode.color.replace('62%)', '45%)');
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        roundRect(ctx, tx, ty, tw, th, 4);
+        ctx.stroke();
       } else {
         ctx.strokeStyle = isHovered ? 'hsl(220, 10%, 35%)' : 'hsl(220, 10%, 28%)';
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        roundRect(ctx, tx, ty, tw, th, 4);
+        ctx.stroke();
       }
-      ctx.lineWidth = isLocked ? 1.5 : 1;
-      ctx.beginPath();
-      roundRect(ctx, tx, ty, tw, th, 4);
-      ctx.stroke();
 
       // ── Locked crosshatch ───────────────────────────────────────────────────
       if (isLocked && tw > 8 && th > 8) {
@@ -726,29 +762,109 @@ export function Treemap() {
     const rect = canvasRef.current?.getBoundingClientRect();
     if (!rect) return;
     const node = findNodeAt(e.clientX - rect.left, e.clientY - rect.top);
-    if (node && tasksRef.current[node.id]) {
-      (containerRef.current as any).__pendingDragId = node.id;
+    
+    if (node) {
+      // Check if clicking on a category header (node with children that is not a task)
+      const isCategoryHeader = node.children && node.children.length > 0 && !tasksRef.current[node.id];
+      
+      if (isCategoryHeader) {
+        // Dragging a category - get all task IDs in this category
+        const categoryTaskIds = getAllTaskIdsInNode(node);
+        (containerRef.current as any).__pendingDragTaskIds = categoryTaskIds;
+        (containerRef.current as any).__pendingDragId = null;
+      } else if (tasksRef.current[node.id]) {
+        // Dragging a single task
+        (containerRef.current as any).__pendingDragId = node.id;
+        (containerRef.current as any).__pendingDragTaskIds = null;
+      }
     }
   }, [findNodeAt]);
 
+  // Helper to get all task IDs in a node (recursively)
+  const getAllTaskIdsInNode = (node: TreemapNode): string[] => {
+    const taskIds: string[] = [];
+    if (tasksRef.current[node.id]) {
+      taskIds.push(node.id);
+    }
+    if (node.children) {
+      node.children.forEach(child => {
+        taskIds.push(...getAllTaskIdsInNode(child));
+      });
+    }
+    return taskIds;
+  };
+
+  const handleClick = useCallback((e: React.MouseEvent) => {
+    const rect = canvasRef.current?.getBoundingClientRect();
+    if (!rect) return;
+    const node = findNodeAt(e.clientX - rect.left, e.clientY - rect.top);
+    if (!node) {
+      // Clicked on empty space - clear selection
+      clearTaskSelection();
+      return;
+    }
+
+    const isShiftClick = e.shiftKey;
+    const isCtrlClick = e.ctrlKey || e.metaKey;
+    const isCategoryHeader = node.children && node.children.length > 0 && !tasksRef.current[node.id];
+
+    if (isCategoryHeader) {
+      // Clicking on category header
+      if (isShiftClick || isCtrlClick) {
+        // Add all tasks in category to selection
+        selectAllTasksInCategory(node.id);
+      } else {
+        // Single click - select all tasks in category (replace current selection)
+        clearTaskSelection();
+        selectAllTasksInCategory(node.id);
+      }
+    } else if (tasksRef.current[node.id]) {
+      // Clicking on a task
+      toggleTaskSelection(node.id, isShiftClick, isCtrlClick);
+    }
+  }, [findNodeAt, toggleTaskSelection, selectAllTasksInCategory, clearTaskSelection]);
+
   const handleDragStart = useCallback((e: React.DragEvent) => {
-    const taskId = (containerRef.current as any)?.__pendingDragId;
-    if (taskId) {
-      setDraggedTask(taskId);
-      setIsDragging(true); // Set global dragging state
+    const container = containerRef.current as any;
+    const taskIds = container?.__pendingDragTaskIds;
+    const singleTaskId = container?.__pendingDragId;
+    
+    if (taskIds && taskIds.length > 0) {
+      // Dragging multiple tasks (from category)
+      setDraggedTasks(taskIds);
+      setIsDragging(true);
       e.dataTransfer.effectAllowed = 'move';
-      e.dataTransfer.setData('text/plain', taskId);
-      // Hide default drag preview by setting empty image
+      e.dataTransfer.setData('text/plain', JSON.stringify(taskIds));
+      
+      // Hide default drag preview
+      const img = new Image();
+      img.src = 'data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7';
+      e.dataTransfer.setDragImage(img, 0, 0);
+    } else if (singleTaskId) {
+      // Dragging single task
+      setDraggedTask(singleTaskId);
+      setIsDragging(true);
+      e.dataTransfer.effectAllowed = 'move';
+      e.dataTransfer.setData('text/plain', singleTaskId);
+      
+      // Hide default drag preview
       const img = new Image();
       img.src = 'data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7';
       e.dataTransfer.setDragImage(img, 0, 0);
     }
-  }, [setDraggedTask, setIsDragging]);
+  }, [setDraggedTask, setDraggedTasks, setIsDragging]);
 
   const handleDragEnd = useCallback(() => {
     setDraggedTask(null);
-    setIsDragging(false); // Clear global dragging state
-  }, [setDraggedTask, setIsDragging]);
+    setDraggedTasks([]);
+    setIsDragging(false);
+    // Clear pending drag state
+    const container = containerRef.current as any;
+    if (container) {
+      container.__pendingDragId = null;
+      container.__pendingDragTaskIds = null;
+    }
+  }, [setDraggedTask, setDraggedTasks, setIsDragging]);
   const handleMouseLeave = useCallback(() => { hoveredIdRef.current = null; }, []);
 
   return (
@@ -757,6 +873,7 @@ export function Treemap() {
       className="treemap-container"
       onMouseMove={handleMouseMove}
       onMouseDown={handleMouseDown}
+      onClick={handleClick}
       onDoubleClick={handleDoubleClick}
       onContextMenu={handleContextMenu}
       onMouseLeave={handleMouseLeave}

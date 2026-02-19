@@ -40,6 +40,8 @@ export function Sidebar() {
   const setDraggedTask = useStore((s) => s.setDraggedTask);
   const assignTaskToBlock = useStore((s) => s.assignTaskToBlock);
   const removeTaskFromBlock = useStore((s) => s.removeTaskFromBlock);
+  const bulkAssignTasksToBlock = useStore((s) => s.bulkAssignTasksToBlock);
+  const draggedTaskIds = useStore((s) => s.drag.draggedTaskIds);
   const enterFocusMode = useStore((s) => s.enterFocusMode);
   const focusMode = useStore((s) => s.focusMode);
   const pomodoro = useStore((s) => s.pomodoro);
@@ -74,9 +76,15 @@ export function Sidebar() {
 
   const handleDrop = (e: React.DragEvent, blockId: string) => {
     e.preventDefault();
-    const taskId = drag.draggedTaskId;
-    if (taskId) {
-      assignTaskToBlock(taskId, blockId);
+    // Check for multiple dragged tasks first
+    const taskIds = draggedTaskIds.length > 0 ? draggedTaskIds : (drag.draggedTaskId ? [drag.draggedTaskId] : []);
+    
+    if (taskIds.length > 0) {
+      if (taskIds.length === 1) {
+        assignTaskToBlock(taskIds[0], blockId);
+      } else {
+        bulkAssignTasksToBlock(taskIds, blockId);
+      }
       debouncedSave();
     }
     setDraggedTask(null);
@@ -85,13 +93,17 @@ export function Sidebar() {
 
   const handleDropPool = (e: React.DragEvent) => {
     e.preventDefault();
-    const taskId = drag.draggedTaskId;
-    if (taskId) {
-      // Remove from all blocks (send back to pool)
-      Object.values(timeBlocks).forEach((block) => {
-        if (block.taskIds.includes(taskId)) {
-          removeTaskFromBlock(taskId, block.id);
-        }
+    // Check for multiple dragged tasks first
+    const taskIds = draggedTaskIds.length > 0 ? draggedTaskIds : (drag.draggedTaskId ? [drag.draggedTaskId] : []);
+    
+    if (taskIds.length > 0) {
+      // Remove all dragged tasks from all blocks (send back to pool)
+      taskIds.forEach((taskId) => {
+        Object.values(timeBlocks).forEach((block) => {
+          if (block.taskIds.includes(taskId)) {
+            removeTaskFromBlock(taskId, block.id);
+          }
+        });
       });
       debouncedSave();
     }
@@ -104,19 +116,20 @@ export function Sidebar() {
     setDragOverPool(false);
   };
 
-  // Streak flame levels based on current streak
-  // Helper to check if a block is a valid drop target for the dragged task
+  // Helper to check if a block is a valid drop target for the dragged task(s)
   const isValidDropTarget = (blockId: string | 'pool'): boolean => {
-    const draggedTaskId = drag.draggedTaskId;
-    if (!draggedTaskId) return false;
+    // Check for multiple dragged tasks first
+    const taskIds = draggedTaskIds.length > 0 ? draggedTaskIds : (drag.draggedTaskId ? [drag.draggedTaskId] : []);
+    if (taskIds.length === 0) return false;
     
     if (blockId === 'pool') {
-      // Pool is valid if task is currently in a block (moving to pool)
-      return Object.values(timeBlocks).some(b => b.taskIds.includes(draggedTaskId));
+      // Pool is valid if ANY dragged task is currently in a block
+      return Object.values(timeBlocks).some(b => taskIds.some(taskId => b.taskIds.includes(taskId)));
     } else {
-      // Block is valid if it doesn't already contain the task
+      // Block is valid if it doesn't already contain ALL the dragged tasks
       const block = timeBlocks[blockId];
-      return block ? !block.taskIds.includes(draggedTaskId) : false;
+      if (!block) return false;
+      return taskIds.some(taskId => !block.taskIds.includes(taskId));
     }
   };
 
