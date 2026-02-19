@@ -112,15 +112,31 @@ export function Sidebar() {
   const flameColors = ['var(--text-tertiary)', 'hsl(30, 80%, 55%)', 'hsl(20, 90%, 55%)', 'hsl(10, 95%, 55%)', 'hsl(0, 100%, 55%)'];
   const flameScales = [1, 1, 1.1, 1.2, 1.4];
 
+  // Helper to check if a block is a valid drop target for the dragged task
+  const isValidDropTarget = (blockId: string | 'pool'): boolean => {
+    const draggedTaskId = drag.draggedTaskId;
+    if (!draggedTaskId) return false;
+    
+    if (blockId === 'pool') {
+      // Pool is valid if task is currently in a block (moving to pool)
+      return Object.values(timeBlocks).some(b => b.taskIds.includes(draggedTaskId));
+    } else {
+      // Block is valid if it doesn't already contain the task
+      const block = timeBlocks[blockId];
+      return block ? !block.taskIds.includes(draggedTaskId) : false;
+    }
+  };
+
   // Helper to get block item class with drag states
   const getBlockItemClass = (blockId: string, isActive: boolean) => {
     const isDragOver = drag.dragOverBlockId === blockId;
     const isDraggingGlobal = drag.isDragging;
+    const isValidTarget = isValidDropTarget(blockId);
     
     let className = 'sidebar-item';
     if (isActive) className += ' active';
     if (isDragOver) className += ' drag-over';
-    if (isDraggingGlobal && !isDragOver) className += ' drag-preview';
+    if (isDraggingGlobal && isValidTarget && !isDragOver) className += ' drag-preview';
     
     return className;
   };
@@ -203,20 +219,20 @@ export function Sidebar() {
             const total = block.taskIds.length;
             const isActive = activeBlockId === block.id && !showTimelessPool;
             return (
-              <div key={block.id} style={{ display: 'flex', alignItems: 'center' }}>
+              <div key={block.id} style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
                 <button
                   className={getBlockItemClass(block.id, isActive)}
                   onClick={() => setActiveBlock(block.id)}
                   onDragOver={(e) => handleDragOver(e, block.id)}
                   onDrop={(e) => handleDrop(e, block.id)}
                   onDragLeave={handleDragLeave}
-                  style={{ flex: 1 }}
+                  style={{ flex: 1, minWidth: 0 }}
                 >
-                  <span className="dot" style={{ background: 'var(--accent)' }} />
-                  <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                  <span className="dot" style={{ background: 'var(--accent)', flexShrink: 0 }} />
+                  <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', minWidth: 0 }}>
                     {block.name}
                   </span>
-                  <span className="block-countdown">
+                  <span className="block-countdown" style={{ flexShrink: 0 }}>
                     {total > 0 ? `${completedCount}/${total}` : ''} {formatCountdown(block.endDate)}
                   </span>
                 </button>
@@ -225,9 +241,15 @@ export function Sidebar() {
                   title="Block settings"
                   style={{
                     background: 'none', border: 'none', cursor: 'pointer',
-                    color: 'var(--text-tertiary)', padding: '4px 6px',
-                    fontSize: 13, lineHeight: 1, flexShrink: 0,
+                    color: 'var(--text-tertiary)', padding: '4px',
+                    fontSize: 13, lineHeight: 1,
                     opacity: 0.6,
+                    width: 24,
+                    height: 24,
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    flexShrink: 0,
                   }}
                   onMouseEnter={(e) => (e.currentTarget.style.opacity = '1')}
                   onMouseLeave={(e) => (e.currentTarget.style.opacity = '0.6')}
@@ -253,14 +275,14 @@ export function Sidebar() {
             {archivedBlocks.map((block) => {
               const isActive = activeBlockId === block.id && !showTimelessPool;
               return (
-                <div key={block.id} style={{ display: 'flex', alignItems: 'center' }}>
+                <div key={block.id} style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
                   <button
                     className={getBlockItemClass(block.id, isActive)}
                     onClick={() => setActiveBlock(block.id)}
-                    style={{ flex: 1, opacity: 0.6 }}
+                    style={{ flex: 1, opacity: 0.6, minWidth: 0 }}
                   >
-                    <span className="dot" style={{ background: 'var(--text-tertiary)' }} />
-                    <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                    <span className="dot" style={{ background: 'var(--text-tertiary)', flexShrink: 0 }} />
+                    <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', minWidth: 0 }}>
                       {block.name}
                     </span>
                   </button>
@@ -269,9 +291,15 @@ export function Sidebar() {
                     title="Block settings"
                     style={{
                       background: 'none', border: 'none', cursor: 'pointer',
-                      color: 'var(--text-tertiary)', padding: '4px 6px',
-                      fontSize: 13, lineHeight: 1, flexShrink: 0,
+                      color: 'var(--text-tertiary)', padding: '4px',
+                      fontSize: 13, lineHeight: 1,
                       opacity: 0.6,
+                      width: 24,
+                      height: 24,
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      flexShrink: 0,
                     }}
                     onMouseEnter={(e) => (e.currentTarget.style.opacity = '1')}
                     onMouseLeave={(e) => (e.currentTarget.style.opacity = '0.6')}
