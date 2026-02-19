@@ -519,48 +519,32 @@ export const useStore = create<BlockOutState>((set, get) => ({
   // Selection
   toggleTaskSelection: (taskId, isShiftClick, isCtrlClick) => set((state) => {
     const currentSelection = state.selectedTaskIds;
-    let newSelection: string[];
+    const isMultiSelect = isShiftClick || isCtrlClick;
     
-    if (isShiftClick && state.lastSelectedTaskId) {
-      // Range selection: select all tasks between last selected and current
-      const taskIds = Object.keys(state.tasks);
-      const lastIdx = taskIds.indexOf(state.lastSelectedTaskId);
-      const currentIdx = taskIds.indexOf(taskId);
+    if (isMultiSelect) {
+      // Multi-select mode: toggle this task in/out of selection
+      const isSelected = currentSelection.includes(taskId);
+      let newSelection: string[];
       
-      if (lastIdx !== -1 && currentIdx !== -1) {
-        const startIdx = Math.min(lastIdx, currentIdx);
-        const endIdx = Math.max(lastIdx, currentIdx);
-        const rangeIds = taskIds.slice(startIdx, endIdx + 1);
-        
-        // Combine with existing selection (toggle behavior)
-        const selectionSet = new Set(currentSelection);
-        rangeIds.forEach(id => {
-          if (selectionSet.has(id)) {
-            selectionSet.delete(id);
-          } else {
-            selectionSet.add(id);
-          }
-        });
-        newSelection = Array.from(selectionSet);
+      if (isSelected) {
+        // Remove from selection
+        newSelection = currentSelection.filter(id => id !== taskId);
       } else {
-        newSelection = currentSelection.includes(taskId)
-          ? currentSelection.filter(id => id !== taskId)
-          : [...currentSelection, taskId];
+        // Add to selection
+        newSelection = [...currentSelection, taskId];
       }
-    } else if (isCtrlClick || isShiftClick) {
-      // Toggle selection
-      newSelection = currentSelection.includes(taskId)
-        ? currentSelection.filter(id => id !== taskId)
-        : [...currentSelection, taskId];
+      
+      return {
+        selectedTaskIds: newSelection,
+        lastSelectedTaskId: taskId,
+      };
     } else {
-      // Single selection: clear others and select only this
-      newSelection = [taskId];
+      // Single select mode: only select this task, clear others
+      return {
+        selectedTaskIds: [taskId],
+        lastSelectedTaskId: taskId,
+      };
     }
-    
-    return {
-      selectedTaskIds: newSelection,
-      lastSelectedTaskId: taskId,
-    };
   }),
   
   selectAllTasksInCategory: (categoryId) => set((state) => {

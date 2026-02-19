@@ -323,8 +323,8 @@ export function Treemap() {
       ctx.fill();
 
       // ── Border ──────────────────────────────────────────────────────────────
-      // Check if this task is selected
-      const isSelected = selectedTaskIdsRef.current.includes(taskNode.id);
+      // Check if this task is selected (only show highlight when multiple tasks selected)
+      const isSelected = selectedTaskIdsRef.current.includes(taskNode.id) && selectedTaskIdsRef.current.length > 1;
       
       if (isSelected) {
         // Selected task - draw bright blue border

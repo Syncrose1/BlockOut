@@ -1964,9 +1964,9 @@ export function ExportImportModal({ open, onClose }: { open: boolean; onClose: (
                 </button>
 
                 {importError && (
-              <div style={{ 
-                padding: 12, 
-                background: 'hsla(0, 72%, 62%, 0.1)', 
+              <div style={{
+                padding: 12,
+                background: 'hsla(0, 72%, 62%, 0.1)',
                 border: '1px solid hsla(0, 72%, 62%, 0.3)',
                 borderRadius: 'var(--radius-sm)',
                 marginBottom: 20,
