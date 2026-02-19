@@ -18,12 +18,22 @@ import {
   PomodoroSettingsModal,
   SyncSettingsModal,
   ConflictResolutionModal,
+  BulkOperationsModal,
 } from './components/Modals';
 
 export function App() {
   const viewMode = useStore((s) => s.viewMode);
+  const selectedTaskIds = useStore((s) => s.selectedTaskIds);
   const [oauthError, setOauthError] = useState<string | null>(null);
+  const [showBulkModal, setShowBulkModal] = useState(false);
   const oauthProcessed = useRef(false);
+
+  // Show bulk operations modal when tasks are selected
+  useEffect(() => {
+    if (selectedTaskIds.length > 0) {
+      setShowBulkModal(true);
+    }
+  }, [selectedTaskIds]);
 
   // Handle Dropbox OAuth callback on mount
   useEffect(() => {
@@ -111,6 +121,10 @@ export function App() {
       <PomodoroSettingsModal />
       <SyncSettingsModal />
       <ConflictResolutionModal />
+      <BulkOperationsModal 
+        open={showBulkModal && selectedTaskIds.length > 0} 
+        onClose={() => setShowBulkModal(false)} 
+      />
       <OnboardingTour />
     </div>
   );

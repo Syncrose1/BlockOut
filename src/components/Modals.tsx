@@ -2140,3 +2140,286 @@ export function BlockSettingsModal({ blockId, onClose }: { blockId: string; onCl
     </AnimatePresence>
   );
 }
+
+// ─── Bulk Operations Modal ───────────────────────────────────────────────────
+// Shows when multiple tasks are selected in the treemap
+
+export function BulkOperationsModal({ 
+  open, 
+  onClose 
+}: { 
+  open: boolean; 
+  onClose: () => void;
+}) {
+  const tasks = useStore((s) => s.tasks);
+  const categories = useStore((s) => s.categories);
+  const selectedTaskIds = useStore((s) => s.selectedTaskIds);
+  const clearTaskSelection = useStore((s) => s.clearTaskSelection);
+  const bulkMoveTasksToCategory = useStore((s) => s.bulkMoveTasksToCategory);
+  const bulkDeleteTasks = useStore((s) => s.bulkDeleteTasks);
+  const activeBlockId = useStore((s) => s.activeBlockId);
+  const timeBlocks = useStore((s) => s.timeBlocks);
+  const bulkAssignTasksToBlock = useStore((s) => s.bulkAssignTasksToBlock);
+  const removeTaskFromBlock = useStore((s) => s.removeTaskFromBlock);
+
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [deleteMode, setDeleteMode] = useState<'fromBlock' | 'entirely'>('entirely');
+
+  const selectedTasks = selectedTaskIds.map(id => tasks[id]).filter(Boolean);
+  const selectedCount = selectedTasks.length;
+
+  if (!open || selectedCount === 0) return null;
+
+  const handleMoveToCategory = (categoryId: string, subcategoryId?: string) => {
+    bulkMoveTasksToCategory(selectedTaskIds, categoryId, subcategoryId);
+    debouncedSave();
+    clearTaskSelection();
+    onClose();
+  };
+
+  const handleDelete = () => {
+    if (deleteMode === 'fromBlock' && activeBlockId) {
+      // Remove from current block only
+      selectedTaskIds.forEach(taskId => {
+        removeTaskFromBlock(taskId, activeBlockId);
+      });
+    } else {
+      // Delete entirely
+      bulkDeleteTasks(selectedTaskIds);
+    }
+    debouncedSave();
+    clearTaskSelection();
+    setShowDeleteConfirm(false);
+    onClose();
+  };
+
+  const handleAssignToBlock = (blockId: string) => {
+    bulkAssignTasksToBlock(selectedTaskIds, blockId);
+    debouncedSave();
+    clearTaskSelection();
+    onClose();
+  };
+
+  return (
+    <AnimatePresence>
+      <motion.div
+        className="modal-overlay"
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        exit={{ opacity: 0 }}
+        onClick={onClose}
+      >
+        <motion.div
+          className="modal"
+          initial={{ scale: 0.92, opacity: 0, y: 20 }}
+          animate={{ scale: 1, opacity: 1, y: 0 }}
+          exit={{ scale: 0.92, opacity: 0, y: 20 }}
+          transition={{ type: 'spring', damping: 28, stiffness: 380 }}
+          onClick={(e) => e.stopPropagation()}
+          style={{ maxWidth: 500 }}
+        >
+          {!showDeleteConfirm ? (
+            <>
+              <h2>{selectedCount} Task{selectedCount !== 1 ? 's' : ''} Selected</h2>
+              
+              <div style={{ marginBottom: 20 }}>
+                <div style={{ fontSize: 12, color: 'var(--text-secondary)', marginBottom: 12 }}>
+                  <strong>Selected tasks:</strong>
+                </div>
+                <div style={{ 
+                  maxHeight: 120, 
+                  overflow: 'auto',
+                  padding: 8,
+                  background: 'var(--bg-tertiary)',
+                  borderRadius: 'var(--radius-sm)',
+                  fontSize: 13
+                }}>
+                  {selectedTasks.map(task => (
+                    <div key={task.id} style={{ padding: '2px 0' }}>
+                      {task.title}
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* Move to Category Section */}
+              <div style={{ marginBottom: 20 }}>
+                <div style={{ fontSize: 12, color: 'var(--text-secondary)', marginBottom: 8 }}>
+                  <strong>Move to Category:</strong>
+                </div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                  {Object.values(categories).map(cat => (
+                    <div key={cat.id}>
+                      <button
+                        className="btn btn-ghost btn-sm"
+                        onClick={() => handleMoveToCategory(cat.id)}
+                        style={{ 
+                          width: '100%', 
+                          justifyContent: 'flex-start',
+                          borderLeft: `3px solid ${cat.color}`
+                        }}
+                      >
+                        {cat.name}
+                      </button>
+                      {cat.subcategories.length > 0 && (
+                        <div style={{ paddingLeft: 20, marginTop: 4 }}>
+                          {cat.subcategories.map(sub => (
+                            <button
+                              key={sub.id}
+                              className="btn btn-ghost btn-sm"
+                              onClick={() => handleMoveToCategory(cat.id, sub.id)}
+                              style={{ 
+                                width: '100%', 
+                                justifyContent: 'flex-start',
+                                fontSize: 12
+                              }}
+                            >
+                              └ {sub.name}
+                            </button>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* Assign to Block Section */}
+              {Object.values(timeBlocks).length > 0 && (
+                <div style={{ marginBottom: 20 }}>
+                  <div style={{ fontSize: 12, color: 'var(--text-secondary)', marginBottom: 8 }}>
+                    <strong>Assign to Time Block:</strong>
+                  </div>
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4 }}>
+                    {Object.values(timeBlocks)
+                      .filter(b => b.endDate > Date.now())
+                      .map(block => (
+                        <button
+                          key={block.id}
+                          className="btn btn-ghost btn-sm"
+                          onClick={() => handleAssignToBlock(block.id)}
+                        >
+                          {block.name}
+                        </button>
+                      ))}
+                  </div>
+                </div>
+              )}
+
+              <div className="modal-actions">
+                <button 
+                  className="btn btn-danger" 
+                  onClick={() => setShowDeleteConfirm(true)}
+                >
+                  Delete…
+                </button>
+                <div style={{ display: 'flex', gap: 8 }}>
+                  <button 
+                    className="btn btn-ghost" 
+                    onClick={() => {
+                      clearTaskSelection();
+                      onClose();
+                    }}
+                  >
+                    Clear Selection
+                  </button>
+                  <button className="btn btn-primary" onClick={onClose}>
+                    Done
+                  </button>
+                </div>
+              </div>
+            </>
+          ) : (
+            <>
+              <h2 style={{ color: 'hsl(0, 72%, 62%)' }}>Delete Tasks?</h2>
+              
+              <p style={{ fontSize: 14, lineHeight: 1.6, marginBottom: 20 }}>
+                How would you like to delete these {selectedCount} selected task{selectedCount !== 1 ? 's' : ''}?
+              </p>
+
+              {activeBlockId && (
+                <div style={{ marginBottom: 16 }}>
+                  <label style={{ 
+                    display: 'flex', 
+                    alignItems: 'center', 
+                    gap: 8,
+                    padding: 12,
+                    background: 'var(--bg-tertiary)',
+                    borderRadius: 'var(--radius-sm)',
+                    cursor: 'pointer',
+                    marginBottom: 8
+                  }}>
+                    <input
+                      type="radio"
+                      name="deleteMode"
+                      checked={deleteMode === 'fromBlock'}
+                      onChange={() => setDeleteMode('fromBlock')}
+                    />
+                    <div>
+                      <div style={{ fontWeight: 600 }}>Remove from this block only</div>
+                      <div style={{ fontSize: 12, color: 'var(--text-secondary)' }}>
+                        Tasks will remain in your pool and other blocks
+                      </div>
+                    </div>
+                  </label>
+                </div>
+              )}
+
+              <div style={{ marginBottom: 20 }}>
+                <label style={{ 
+                  display: 'flex', 
+                  alignItems: 'center', 
+                  gap: 8,
+                  padding: 12,
+                  background: 'var(--bg-tertiary)',
+                  borderRadius: 'var(--radius-sm)',
+                  cursor: 'pointer'
+                }}>
+                  <input
+                    type="radio"
+                    name="deleteMode"
+                    checked={deleteMode === 'entirely'}
+                    onChange={() => setDeleteMode('entirely')}
+                  />
+                  <div>
+                    <div style={{ fontWeight: 600 }}>Delete entirely</div>
+                    <div style={{ fontSize: 12, color: 'var(--text-secondary)' }}>
+                      Tasks will be permanently deleted from all blocks
+                    </div>
+                  </div>
+                </label>
+              </div>
+
+              <div style={{ 
+                padding: 12, 
+                background: 'hsla(0, 72%, 62%, 0.1)', 
+                border: '1px solid hsla(0, 72%, 62%, 0.3)',
+                borderRadius: 'var(--radius-sm)',
+                marginBottom: 20,
+                fontSize: 13,
+                color: 'hsl(0, 72%, 62%)'
+              }}>
+                ⚠️ This action cannot be undone.
+              </div>
+
+              <div className="modal-actions">
+                <button 
+                  className="btn btn-ghost" 
+                  onClick={() => setShowDeleteConfirm(false)}
+                >
+                  Cancel
+                </button>
+                <button 
+                  className="btn btn-danger" 
+                  onClick={handleDelete}
+                >
+                  Delete {selectedCount} Task{selectedCount !== 1 ? 's' : ''}
+                </button>
+              </div>
+            </>
+          )}
+        </motion.div>
+      </motion.div>
+    </AnimatePresence>
+  );
+}

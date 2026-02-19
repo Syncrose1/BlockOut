@@ -757,31 +757,31 @@ export function Treemap() {
     }
   }, [findNodeAt, isTaskArchived]);
 
-  const handleMouseDown = useCallback((e: React.MouseEvent) => {
-    if (e.button !== 0) return;
-    const rect = canvasRef.current?.getBoundingClientRect();
-    if (!rect) return;
-    const node = findNodeAt(e.clientX - rect.left, e.clientY - rect.top);
+  // Find category container at mouse position (for category header drag)
+  const findCategoryAt = useCallback((mx: number, my: number): TreemapNode | null => {
+    const zoom = getZoomFactor();
+    const adjustedMx = mx / zoom;
+    const adjustedMy = my / zoom;
+    const layout = layoutRef.current;
     
-    if (node) {
-      // Check if clicking on a category header (node with children that is not a task)
-      const isCategoryHeader = node.children && node.children.length > 0 && !tasksRef.current[node.id];
+    for (const catNode of layout) {
+      const x = catNode.x!;
+      const y = catNode.y!;
+      const w = catNode.w!;
+      const h = catNode.h!;
+      const headerH = Math.min(22, h * 0.25);
       
-      if (isCategoryHeader) {
-        // Dragging a category - get all task IDs in this category
-        const categoryTaskIds = getAllTaskIdsInNode(node);
-        (containerRef.current as any).__pendingDragTaskIds = categoryTaskIds;
-        (containerRef.current as any).__pendingDragId = null;
-      } else if (tasksRef.current[node.id]) {
-        // Dragging a single task
-        (containerRef.current as any).__pendingDragId = node.id;
-        (containerRef.current as any).__pendingDragTaskIds = null;
+      // Check if clicking in the header area of the category
+      if (adjustedMx >= x && adjustedMx <= x + w && 
+          adjustedMy >= y && adjustedMy <= y + headerH) {
+        return catNode;
       }
     }
-  }, [findNodeAt]);
+    return null;
+  }, [getZoomFactor]);
 
   // Helper to get all task IDs in a node (recursively)
-  const getAllTaskIdsInNode = (node: TreemapNode): string[] => {
+  const getAllTaskIdsInNode = useCallback((node: TreemapNode): string[] => {
     const taskIds: string[] = [];
     if (tasksRef.current[node.id]) {
       taskIds.push(node.id);
@@ -792,44 +792,92 @@ export function Treemap() {
       });
     }
     return taskIds;
-  };
+  }, []);
+
+  const handleMouseDown = useCallback((e: React.MouseEvent) => {
+    if (e.button !== 0) return;
+    const rect = canvasRef.current?.getBoundingClientRect();
+    if (!rect) return;
+    const mx = e.clientX - rect.left;
+    const my = e.clientY - rect.top;
+    
+    // First check if clicking on a category header
+    const categoryNode = findCategoryAt(mx, my);
+    if (categoryNode) {
+      // Dragging a category - get all task IDs in this category
+      const categoryTaskIds = getAllTaskIdsInNode(categoryNode);
+      (containerRef.current as any).__pendingDragTaskIds = categoryTaskIds;
+      (containerRef.current as any).__pendingDragId = null;
+      return;
+    }
+    
+    // Otherwise check if clicking on a task
+    const node = findNodeAt(mx, my);
+    if (node && tasksRef.current[node.id]) {
+      // Dragging a single task
+      (containerRef.current as any).__pendingDragId = node.id;
+      (containerRef.current as any).__pendingDragTaskIds = null;
+    }
+  }, [findNodeAt, findCategoryAt, getAllTaskIdsInNode]);
 
   const handleClick = useCallback((e: React.MouseEvent) => {
     const rect = canvasRef.current?.getBoundingClientRect();
     if (!rect) return;
-    const node = findNodeAt(e.clientX - rect.left, e.clientY - rect.top);
+    const mx = e.clientX - rect.left;
+    const my = e.clientY - rect.top;
+    
+    const isCtrlClick = e.ctrlKey || e.metaKey;
+    
+    // First check if clicking on a category header
+    const categoryNode = findCategoryAt(mx, my);
+    if (categoryNode) {
+      // Clicking on category header
+      if (isCtrlClick) {
+        // Add all tasks in category to selection
+        selectAllTasksInCategory(categoryNode.id);
+      } else {
+        // Single click - select all tasks in category (replace current selection)
+        clearTaskSelection();
+        selectAllTasksInCategory(categoryNode.id);
+      }
+      return;
+    }
+    
+    // Otherwise check if clicking on a task
+    const node = findNodeAt(mx, my);
     if (!node) {
       // Clicked on empty space - clear selection
       clearTaskSelection();
       return;
     }
-
-    const isShiftClick = e.shiftKey;
-    const isCtrlClick = e.ctrlKey || e.metaKey;
-    const isCategoryHeader = node.children && node.children.length > 0 && !tasksRef.current[node.id];
-
-    if (isCategoryHeader) {
-      // Clicking on category header
-      if (isShiftClick || isCtrlClick) {
-        // Add all tasks in category to selection
-        selectAllTasksInCategory(node.id);
-      } else {
-        // Single click - select all tasks in category (replace current selection)
-        clearTaskSelection();
-        selectAllTasksInCategory(node.id);
-      }
-    } else if (tasksRef.current[node.id]) {
+    
+    if (tasksRef.current[node.id]) {
       // Clicking on a task
-      toggleTaskSelection(node.id, isShiftClick, isCtrlClick);
+      toggleTaskSelection(node.id, false, isCtrlClick);
     }
-  }, [findNodeAt, toggleTaskSelection, selectAllTasksInCategory, clearTaskSelection]);
+  }, [findNodeAt, findCategoryAt, toggleTaskSelection, selectAllTasksInCategory, clearTaskSelection]);
 
   const handleDragStart = useCallback((e: React.DragEvent) => {
     const container = containerRef.current as any;
     const taskIds = container?.__pendingDragTaskIds;
     const singleTaskId = container?.__pendingDragId;
     
-    if (taskIds && taskIds.length > 0) {
+    // Check if we have selected tasks - if so, drag all selected tasks
+    const currentSelectedIds = selectedTaskIdsRef.current;
+    const hasSelectedTasks = currentSelectedIds.length > 0;
+    
+    if (hasSelectedTasks) {
+      // Drag all selected tasks
+      setDraggedTasks(currentSelectedIds);
+      setIsDragging(true);
+      e.dataTransfer.effectAllowed = 'move';
+      e.dataTransfer.setData('text/plain', JSON.stringify(currentSelectedIds));
+      
+      // Hide default drag preview
+      const img = new Image();
+      img.src = 'data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7';
+      e.dataTransfer.setDragImage(img, 0, 0);
+    } else if (taskIds && taskIds.length > 0) {
       // Dragging multiple tasks (from category)
       setDraggedTasks(taskIds);
       setIsDragging(true);
