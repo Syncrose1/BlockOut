@@ -197,7 +197,22 @@ export function Treemap() {
 
   const layout = useMemo(() => {
     if (size.w === 0 || size.h === 0 || treemapData.length === 0) return [];
-    return layoutTreemap(treemapData, size.w, size.h, 6);
+    const result = layoutTreemap(treemapData, size.w, size.h, 6);
+    
+    // Debug logging
+    result.forEach((cat, catIdx) => {
+      console.log(`Category ${catIdx} (${cat.name}):`, { x: cat.x, y: cat.y, w: cat.w, h: cat.h });
+      cat.children?.forEach((child, childIdx) => {
+        console.log(`  Child ${childIdx} (${child.name}):`, { x: child.x, y: child.y, w: child.w, h: child.h });
+        if (child.children) {
+          child.children.forEach((task, taskIdx) => {
+            console.log(`    Task ${taskIdx} (${task.name}):`, { x: task.x, y: task.y, w: task.w, h: task.h });
+          });
+        }
+      });
+    });
+    
+    return result;
   }, [treemapData, size]);
 
   const leafNodes = useMemo(() => {
