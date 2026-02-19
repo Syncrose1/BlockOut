@@ -1,6 +1,6 @@
 {
   "name": "blockout",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "description": "Visual task management with treemap visualization, time blocks, and Pomodoro timer",
   "main": "server/index.js",
   "scripts": {
