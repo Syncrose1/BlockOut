@@ -1,4 +1,5 @@
 import { useStore } from '../store';
+import { syncToDropbox, syncFromDropbox, isDropboxConfigured } from './dropbox';
 
 // ─── IndexedDB ───────────────────────────────────────────────────────────────
 
@@ -219,6 +220,14 @@ export async function saveLocal(): Promise<void> {
 }
 
 export async function saveToCloud(): Promise<void> {
+  // Check if Dropbox is configured
+  if (isDropboxConfigured()) {
+    const data = useStore.getState().getSerializableState();
+    await syncToDropbox(data);
+    useStore.getState().setSyncStatus('synced');
+    return;
+  }
+
   const { url, token } = getCloudConfig();
   if (!url) return;
 
@@ -267,7 +276,18 @@ export async function loadData(): Promise<void> {
   }
 
   const { url, token } = getCloudConfig();
-  if (url) {
+  
+  // Try Dropbox first if configured
+  if (isDropboxConfigured()) {
+    try {
+      remote = await syncFromDropbox();
+      if (remote) {
+        useStore.getState().setSyncStatus('synced');
+      }
+    } catch (e) {
+      console.warn('[BlockOut] Dropbox load failed, using local', e);
+    }
+  } else if (url) {
     try {
       const headers: Record<string, string> = {};
       if (token) headers['Authorization'] = `Bearer ${token}`;

@@ -10,6 +10,14 @@ import {
   resolveConflict,
 } from '../utils/persistence';
 import { exportToFile, importFromFile } from '../utils/analytics';
+import {
+  getDropboxConfig,
+  setDropboxConfig,
+  syncToDropbox,
+  syncFromDropbox,
+  isDropboxConfigured,
+  clearDropboxConfig,
+} from '../utils/dropbox';
 
 // ─── Calendar Date Picker ────────────────────────────────────────────────────
 
@@ -1525,8 +1533,19 @@ export function SyncSettingsModal() {
   const syncStatus = useStore((s) => s.syncStatus);
   const setSyncStatus = useStore((s) => s.setSyncStatus);
 
+  const [syncProvider, setSyncProvider] = useState<'self-hosted' | 'dropbox'>(() => {
+    if (isDropboxConfigured()) return 'dropbox';
+    const cfg = getCloudConfig();
+    return cfg.url ? 'self-hosted' : 'self-hosted';
+  });
+
+  // Self-hosted state
   const [url, setUrl] = useState(() => getCloudConfig().url);
   const [token, setToken] = useState(() => getCloudConfig().token);
+  
+  // Dropbox state
+  const [dropboxToken, setDropboxToken] = useState(() => getDropboxConfig().accessToken);
+  
   const [testing, setTesting] = useState(false);
   const [testResult, setTestResult] = useState<'ok' | 'fail' | null>(null);
   const [lastSynced, setLastSynced] = useState<number | null>(getLastSyncedTime);
@@ -1537,6 +1556,7 @@ export function SyncSettingsModal() {
       const cfg = getCloudConfig();
       setUrl(cfg.url);
       setToken(cfg.token);
+      setDropboxToken(getDropboxConfig().accessToken);
       setLastSynced(getLastSyncedTime());
       setTestResult(null);
     }
@@ -1545,21 +1565,36 @@ export function SyncSettingsModal() {
   if (!open) return null;
 
   const handleSave = () => {
-    setCloudConfig(url, token);
+    if (syncProvider === 'self-hosted') {
+      setCloudConfig(url, token);
+      clearDropboxConfig();
+    } else {
+      setCloudConfig('', '');
+      setDropboxConfig(dropboxToken);
+    }
     setSyncSettingsOpen(false);
   };
 
   const handleTestAndSync = async () => {
     setTesting(true);
     setTestResult(null);
-    // Save config first so saveToCloud picks it up
-    setCloudConfig(url, token);
+    
     try {
       setSyncStatus('syncing');
-      await saveToCloud();
+      
+      if (syncProvider === 'self-hosted') {
+        setCloudConfig(url, token);
+        await saveToCloud();
+      } else {
+        setDropboxConfig(dropboxToken);
+        const data = useStore.getState().getSerializableState();
+        await syncToDropbox(data);
+      }
+      
       setTestResult('ok');
-      setLastSynced(getLastSyncedTime());
-    } catch {
+      setLastSynced(Date.now());
+    } catch (err) {
+      console.error('Sync error:', err);
       setTestResult('fail');
       setSyncStatus('error');
     } finally {
@@ -1567,7 +1602,20 @@ export function SyncSettingsModal() {
     }
   };
 
-  const hasUrl = url.trim().length > 0;
+  const handleDisconnect = () => {
+    if (syncProvider === 'self-hosted') {
+      setCloudConfig('', '');
+      setUrl('');
+      setToken('');
+    } else {
+      clearDropboxConfig();
+      setDropboxToken('');
+    }
+  };
+
+  const isConfigured = syncProvider === 'self-hosted' 
+    ? url.trim().length > 0 
+    : dropboxToken.trim().length > 0;
 
   const statusDot: Record<string, string> = {
     idle: 'var(--text-tertiary)',
@@ -1615,31 +1663,89 @@ export function SyncSettingsModal() {
             </span>
           </div>
 
-          <div className="modal-field">
-            <label>Remote server URL</label>
-            <input
-              value={url}
-              onChange={(e) => setUrl(e.target.value)}
-              placeholder="https://blockout.yourdomain.com"
-              autoFocus
-            />
-            <div style={{ fontSize: 11, color: 'var(--text-tertiary)', marginTop: 4 }}>
-              Your self-hosted BlockOut server. Leave blank to disable cloud sync.
-            </div>
+          {/* Provider Selection */}
+          <div style={{ display: 'flex', gap: 8, marginBottom: 20 }}>
+            <button
+              className={`btn ${syncProvider === 'self-hosted' ? 'btn-primary' : 'btn-ghost'}`}
+              onClick={() => setSyncProvider('self-hosted')}
+            >
+              Self-Hosted
+            </button>
+            <button
+              className={`btn ${syncProvider === 'dropbox' ? 'btn-primary' : 'btn-ghost'}`}
+              onClick={() => setSyncProvider('dropbox')}
+            >
+              Dropbox
+            </button>
           </div>
 
-          <div className="modal-field">
-            <label>Token (optional)</label>
-            <input
-              value={token}
-              onChange={(e) => setToken(e.target.value)}
-              type="password"
-              placeholder="Set via BLOCKOUT_TOKEN on the server"
-            />
-            <div style={{ fontSize: 11, color: 'var(--text-tertiary)', marginTop: 4 }}>
-              Must match the <code>BLOCKOUT_TOKEN</code> env variable on your server.
-            </div>
-          </div>
+          {syncProvider === 'self-hosted' ? (
+            <>
+              <div className="modal-field">
+                <label>Remote server URL</label>
+                <input
+                  value={url}
+                  onChange={(e) => setUrl(e.target.value)}
+                  placeholder="https://blockout.yourdomain.com"
+                  autoFocus
+                />
+                <div style={{ fontSize: 11, color: 'var(--text-tertiary)', marginTop: 4 }}>
+                  Your self-hosted BlockOut server. Leave blank to disable cloud sync.
+                </div>
+              </div>
+
+              <div className="modal-field">
+                <label>Token (optional)</label>
+                <input
+                  value={token}
+                  onChange={(e) => setToken(e.target.value)}
+                  type="password"
+                  placeholder="Set via BLOCKOUT_TOKEN on the server"
+                />
+                <div style={{ fontSize: 11, color: 'var(--text-tertiary)', marginTop: 4 }}>
+                  Must match the <code>BLOCKOUT_TOKEN</code> env variable on your server.
+                </div>
+              </div>
+            </>
+          ) : (
+            <>
+              <div className="modal-field">
+                <label>Dropbox Access Token</label>
+                <input
+                  value={dropboxToken}
+                  onChange={(e) => setDropboxToken(e.target.value)}
+                  type="password"
+                  placeholder="Paste your Dropbox access token here"
+                  autoFocus
+                />
+                <div style={{ fontSize: 11, color: 'var(--text-tertiary)', marginTop: 4 }}>
+                  Create a Dropbox app at{' '}
+                  <a 
+                    href="https://www.dropbox.com/developers/apps" 
+                    target="_blank" 
+                    rel="noopener noreferrer"
+                    style={{ color: 'var(--accent)' }}
+                  >
+                    dropbox.com/developers/apps
+                  </a>{' '}
+                  and generate an access token.
+                </div>
+              </div>
+
+              <div className="modal-field">
+                <div style={{ fontSize: 12, color: 'var(--text-secondary)', marginTop: 8 }}>
+                  <strong>How to setup Dropbox sync:</strong>
+                  <ol style={{ margin: '8px 0', paddingLeft: 20 }}>
+                    <li>Go to Dropbox App Console</li>
+                    <li>Create a new app with "Scoped access"</li>
+                    <li>Choose "App folder" access</li>
+                    <li>Under Permissions, enable files.content.write and files.content.read</li>
+                    <li>Generate an access token and paste it above</li>
+                  </ol>
+                </div>
+              </div>
+            </>
+          )}
 
           {testResult === 'ok' && (
             <div style={{ fontSize: 13, color: 'hsl(140, 60%, 50%)', marginBottom: 12 }}>
@@ -1659,14 +1765,22 @@ export function SyncSettingsModal() {
 
           <div className="modal-actions">
             <button className="btn btn-ghost" onClick={() => setSyncSettingsOpen(false)}>Cancel</button>
-            {hasUrl && (
-              <button
-                className="btn btn-ghost"
-                onClick={handleTestAndSync}
-                disabled={testing}
-              >
-                {testing ? 'Testing…' : 'Test & sync now'}
-              </button>
+            {isConfigured && (
+              <>
+                <button
+                  className="btn btn-ghost"
+                  onClick={handleTestAndSync}
+                  disabled={testing}
+                >
+                  {testing ? 'Testing…' : 'Test & sync now'}
+                </button>
+                <button 
+                  className="btn btn-danger" 
+                  onClick={handleDisconnect}
+                >
+                  Disconnect
+                </button>
+              </>
             )}
             <button className="btn btn-primary" onClick={handleSave}>Save</button>
           </div>
