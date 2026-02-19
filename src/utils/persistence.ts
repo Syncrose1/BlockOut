@@ -1,5 +1,5 @@
 import { useStore } from '../store';
-import { syncToDropbox, syncFromDropbox, isDropboxConfigured } from './dropbox';
+import { syncToDropbox, syncFromDropbox, isDropboxConfigured, syncToDropboxWithResolution, type SyncResult, type AnyRecord } from './dropbox';
 
 // ─── IndexedDB ───────────────────────────────────────────────────────────────
 
@@ -87,8 +87,7 @@ export function getLastSyncedTime(): number | null {
 //   - Pomodoro sessions: append local sessions not already on remote
 //   - Streak dates: union of both date sets
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-type AnyRecord = Record<string, any>;
+// AnyRecord type is imported from dropbox.ts
 
 interface MergeInfo {
   localTasksAdded: number;
@@ -280,9 +279,66 @@ export async function loadData(): Promise<void> {
   // Try Dropbox first if configured
   if (isDropboxConfigured()) {
     try {
-      remote = await syncFromDropbox();
-      if (remote) {
-        useStore.getState().setSyncStatus('synced');
+      if (local) {
+        // Use smart sync with conflict resolution
+        const result = await syncToDropboxWithResolution(local);
+        
+        if (result.success) {
+          switch (result.action) {
+            case 'uploaded':
+              // Local was newer, uploaded successfully
+              useStore.getState().setSyncStatus('synced');
+              applyData(local);
+              break;
+              
+            case 'downloaded':
+              // Remote was newer, need to download and apply
+              remote = await syncFromDropbox();
+              if (remote) {
+                applyData(remote);
+                useStore.getState().setSyncStatus('synced');
+              } else {
+                applyData(local);
+              }
+              break;
+              
+            case 'merged':
+              // Conflict resolved by merging
+              remote = await syncFromDropbox();
+              if (result.mergeInfo && remote) {
+                useStore.getState().setConflictState({ 
+                  local, 
+                  remote, 
+                  merged: remote, // Merged state is now on Dropbox
+                  mergeInfo: result.mergeInfo 
+                });
+              }
+              // Re-download the merged state from Dropbox
+              if (remote) {
+                applyData(remote);
+                await idbWrite({ ...remote, lastModified: Date.now() });
+              }
+              useStore.getState().setSyncStatus('synced');
+              break;
+              
+            case 'unchanged':
+              applyData(local);
+              useStore.getState().setSyncStatus('synced');
+              break;
+          }
+          return;
+        } else {
+          console.warn('[BlockOut] Dropbox sync failed:', result.error);
+          // Fall through to use local data
+        }
+      } else {
+        // No local data, just download
+        remote = await syncFromDropbox();
+        if (remote) {
+          applyData(remote);
+          useStore.getState().setSyncStatus('synced');
+        }
+        return;
       }
     } catch (e) {
       console.warn('[BlockOut] Dropbox load failed, using local', e);
