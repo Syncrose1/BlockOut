@@ -105,6 +105,7 @@ interface BlockOutState {
   // Actions — Time Blocks
   addTimeBlock: (block: Omit<TimeBlock, 'id' | 'createdAt' | 'taskIds'>) => string;
   deleteTimeBlock: (id: string) => void;
+  renameTimeBlock: (id: string, name: string) => void;
   assignTaskToBlock: (taskId: string, blockId: string) => void;
   removeTaskFromBlock: (taskId: string, blockId: string) => void;
   setActiveBlock: (id: string | null) => void;
@@ -409,6 +410,19 @@ export const useStore = create<BlockOutState>((set, get) => ({
       return {
         timeBlocks: rest,
         activeBlockId: state.activeBlockId === id ? null : state.activeBlockId,
+      };
+    });
+  },
+
+  renameTimeBlock: (id, name) => {
+    set((state) => {
+      const block = state.timeBlocks[id];
+      if (!block) return state;
+      return {
+        timeBlocks: {
+          ...state.timeBlocks,
+          [id]: { ...block, name },
+        },
       };
     });
   },

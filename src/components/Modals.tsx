@@ -11,12 +11,11 @@ import {
 } from '../utils/persistence';
 import { exportToFile, importFromFile } from '../utils/analytics';
 import {
-  getDropboxConfig,
-  setDropboxConfig,
   syncToDropbox,
   syncFromDropbox,
   isDropboxConfigured,
   clearDropboxConfig,
+  startDropboxAuth,
 } from '../utils/dropbox';
 
 // ─── Calendar Date Picker ────────────────────────────────────────────────────
@@ -1534,17 +1533,15 @@ export function SyncSettingsModal() {
   const setSyncStatus = useStore((s) => s.setSyncStatus);
 
   const [syncProvider, setSyncProvider] = useState<'self-hosted' | 'dropbox'>(() => {
-    if (isDropboxConfigured()) return 'dropbox';
+    // Default to Dropbox unless self-hosted is already configured
     const cfg = getCloudConfig();
-    return cfg.url ? 'self-hosted' : 'self-hosted';
+    if (cfg.url) return 'self-hosted';
+    return 'dropbox';
   });
 
   // Self-hosted state
   const [url, setUrl] = useState(() => getCloudConfig().url);
   const [token, setToken] = useState(() => getCloudConfig().token);
-  
-  // Dropbox state
-  const [dropboxToken, setDropboxToken] = useState(() => getDropboxConfig().accessToken);
   
   const [testing, setTesting] = useState(false);
   const [testResult, setTestResult] = useState<'ok' | 'fail' | null>(null);
@@ -1556,7 +1553,6 @@ export function SyncSettingsModal() {
       const cfg = getCloudConfig();
       setUrl(cfg.url);
       setToken(cfg.token);
-      setDropboxToken(getDropboxConfig().accessToken);
       setLastSynced(getLastSyncedTime());
       setTestResult(null);
     }
@@ -1569,8 +1565,8 @@ export function SyncSettingsModal() {
       setCloudConfig(url, token);
       clearDropboxConfig();
     } else {
+      // Dropbox is configured via OAuth, not manual token
       setCloudConfig('', '');
-      setDropboxConfig(dropboxToken);
     }
     setSyncSettingsOpen(false);
   };
@@ -1586,7 +1582,6 @@ export function SyncSettingsModal() {
         setCloudConfig(url, token);
         await saveToCloud();
       } else {
-        setDropboxConfig(dropboxToken);
         const data = useStore.getState().getSerializableState();
         await syncToDropbox(data);
       }
@@ -1609,13 +1604,13 @@ export function SyncSettingsModal() {
       setToken('');
     } else {
       clearDropboxConfig();
-      setDropboxToken('');
     }
+    setSyncSettingsOpen(false);
   };
 
   const isConfigured = syncProvider === 'self-hosted' 
     ? url.trim().length > 0 
-    : dropboxToken.trim().length > 0;
+    : isDropboxConfigured();
 
   const statusDot: Record<string, string> = {
     idle: 'var(--text-tertiary)',
@@ -1666,16 +1661,16 @@ export function SyncSettingsModal() {
           {/* Provider Selection */}
           <div style={{ display: 'flex', gap: 8, marginBottom: 20 }}>
             <button
-              className={`btn ${syncProvider === 'self-hosted' ? 'btn-primary' : 'btn-ghost'}`}
-              onClick={() => setSyncProvider('self-hosted')}
-            >
-              Self-Hosted
-            </button>
-            <button
               className={`btn ${syncProvider === 'dropbox' ? 'btn-primary' : 'btn-ghost'}`}
               onClick={() => setSyncProvider('dropbox')}
             >
               Dropbox
+            </button>
+            <button
+              className={`btn ${syncProvider === 'self-hosted' ? 'btn-primary' : 'btn-ghost'}`}
+              onClick={() => setSyncProvider('self-hosted')}
+            >
+              Self-Hosted
             </button>
           </div>
 
@@ -1709,41 +1704,53 @@ export function SyncSettingsModal() {
             </>
           ) : (
             <>
-              <div className="modal-field">
-                <label>Dropbox Access Token</label>
-                <input
-                  value={dropboxToken}
-                  onChange={(e) => setDropboxToken(e.target.value)}
-                  type="password"
-                  placeholder="Paste your Dropbox access token here"
-                  autoFocus
-                />
-                <div style={{ fontSize: 11, color: 'var(--text-tertiary)', marginTop: 4 }}>
-                  Create a Dropbox app at{' '}
-                  <a 
-                    href="https://www.dropbox.com/developers/apps" 
-                    target="_blank" 
-                    rel="noopener noreferrer"
-                    style={{ color: 'var(--accent)' }}
-                  >
-                    dropbox.com/developers/apps
-                  </a>{' '}
-                  and generate an access token.
+              {isDropboxConfigured() ? (
+                <div style={{ 
+                  padding: 16, 
+                  background: 'var(--bg-tertiary)', 
+                  borderRadius: 'var(--radius-sm)',
+                  textAlign: 'center' 
+                }}>
+                  <div style={{ fontSize: 14, marginBottom: 8 }}>
+                     Connected to Dropbox
+                  </div>
+                  <div style={{ fontSize: 12, color: 'var(--text-secondary)' }}>
+                    Your data will sync automatically to your Dropbox account
+                  </div>
                 </div>
-              </div>
+              ) : (
+                <>
+                  <div className="modal-field">
+                    <div style={{ fontSize: 12, color: 'var(--text-secondary)', marginBottom: 16 }}>
+                      <strong>Connect with Dropbox:</strong>
+                      <ol style={{ margin: '8px 0', paddingLeft: 20 }}>
+                        <li>You'll be redirected to Dropbox to authorize this app</li>
+                        <li>We only access a single folder (/Apps/BlockOut)</li>
+                        <li>No data is stored on our servers - everything stays in your Dropbox</li>
+                      </ol>
+                    </div>
+                    <button
+                      className="btn btn-primary"
+                      onClick={startDropboxAuth}
+                      style={{ width: '100%' }}
+                    >
+                      Connect to Dropbox
+                    </button>
+                  </div>
 
-              <div className="modal-field">
-                <div style={{ fontSize: 12, color: 'var(--text-secondary)', marginTop: 8 }}>
-                  <strong>How to setup Dropbox sync:</strong>
-                  <ol style={{ margin: '8px 0', paddingLeft: 20 }}>
-                    <li>Go to Dropbox App Console</li>
-                    <li>Create a new app with "Scoped access"</li>
-                    <li>Choose "App folder" access</li>
-                    <li>Under Permissions, enable files.content.write and files.content.read</li>
-                    <li>Generate an access token and paste it above</li>
-                  </ol>
-                </div>
-              </div>
+                  <div style={{ fontSize: 11, color: 'var(--text-tertiary)', marginTop: 16 }}>
+                    Don't have a Dropbox account?{' '}
+                    <a 
+                      href="https://www.dropbox.com/register" 
+                      target="_blank" 
+                      rel="noopener noreferrer"
+                      style={{ color: 'var(--accent)' }}
+                    >
+                      Sign up here
+                    </a>
+                  </div>
+                </>
+              )}
             </>
           )}
 

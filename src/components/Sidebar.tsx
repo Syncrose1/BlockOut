@@ -136,8 +136,8 @@ export function Sidebar() {
 
   return (
     <div className="sidebar">
-      <div className="sidebar-header">
-        <div className="sidebar-logo">
+      <div className="sidebar-header" style={{ textAlign: 'center' }}>
+        <div className="sidebar-logo" style={{ justifyContent: 'center' }}>
           <img src="/bo-logo-v3.png" alt="" height="24" style={{ imageRendering: 'pixelated' }} />
           BlockOut
         </div>
@@ -173,7 +173,7 @@ export function Sidebar() {
                 fontFamily: 'var(--font-mono)',
                 textTransform: 'uppercase',
               }}>
-                {streak.currentStreak}d streak
+                {streak.currentStreak}<span style={{ textTransform: 'lowercase' }}>d</span> streak
               </span>
             </button>
           </div>

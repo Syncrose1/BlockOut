@@ -48,19 +48,30 @@ export function AnalyticsModal({ open, onClose }: { open: boolean; onClose: () =
       }
     });
     
-    // Generate last 365 days
+    // Generate last 365 days - only include days with activity
     for (let i = 364; i >= 0; i--) {
       const date = new Date(today);
       date.setDate(date.getDate() - i);
-      const dateStr = date.toISOString().split('T')[0].replace(/-/g, '/');
-      const stats = dailyStats[date.toISOString().split('T')[0]];
+      const dateKey = date.toISOString().split('T')[0];
+      const dateStr = dateKey.replace(/-/g, '/');
+      const stats = dailyStats[dateKey];
       
-      data.push({
-        date: dateStr,
-        count: stats ? stats.tasks + Math.floor(stats.pomodoroMinutes / 30) : 0,
-        tasksCompleted: stats?.tasks || 0,
-        pomodoroMinutes: stats?.pomodoroMinutes || 0,
-      });
+      // Only add days that have activity
+      if (stats && (stats.tasks > 0 || stats.pomodoroMinutes > 0)) {
+        // Calculate intensity based on combined activity (tasks + pomodoro hours)
+        const activityScore = stats.tasks + Math.floor(stats.pomodoroMinutes / 60);
+        let count = 1;
+        if (activityScore >= 2) count = 2;
+        if (activityScore >= 5) count = 3;
+        if (activityScore >= 10) count = 4;
+        
+        data.push({
+          date: dateStr,
+          count,
+          tasksCompleted: stats.tasks,
+          pomodoroMinutes: stats.pomodoroMinutes,
+        });
+      }
     }
     
     return data;
@@ -68,11 +79,11 @@ export function AnalyticsModal({ open, onClose }: { open: boolean; onClose: () =
 
   // Calculate summary stats
   const summaryStats = useMemo(() => {
-    const activeDays = heatmapData.filter((d) => d.count > 0).length;
+    const activeDays = heatmapData.length;
     const totalTasks = heatmapData.reduce((sum, d) => sum + d.tasksCompleted, 0);
     const totalMinutes = heatmapData.reduce((sum, d) => sum + d.pomodoroMinutes, 0);
-    const maxTasksInDay = Math.max(...heatmapData.map((d) => d.tasksCompleted));
-    const maxMinutesInDay = Math.max(...heatmapData.map((d) => d.pomodoroMinutes));
+    const maxTasksInDay = heatmapData.length > 0 ? Math.max(...heatmapData.map((d) => d.tasksCompleted)) : 0;
+    const maxMinutesInDay = heatmapData.length > 0 ? Math.max(...heatmapData.map((d) => d.pomodoroMinutes)) : 0;
     
     return {
       activeDays,
@@ -236,16 +247,30 @@ export function AnalyticsModal({ open, onClose }: { open: boolean; onClose: () =
                     'hsl(210, 100%, 65%)',
                   ]}
                   rectRender={(props, data) => {
-                    const dateStr = data.date.replace(/\//g, '-');
                     const dayData = heatmapData.find(
-                      (d) => d.date.replace(/\//g, '-') === dateStr
+                      (d) => d.date === data.date
                     );
+                    const hasActivity = dayData && (dayData.tasksCompleted > 0 || dayData.pomodoroMinutes > 0);
+                    if (!hasActivity) {
+                      return (
+                        <g>
+                          <rect 
+                            {...props} 
+                            rx={2} 
+                            fill="var(--bg-tertiary)"
+                            opacity={0.3}
+                          />
+                        </g>
+                      );
+                    }
                     return (
                       <g>
-                        <rect {...props} rx={2} />
-                        <title>{`${data.date}: ${dayData?.tasksCompleted || 0} tasks, ${
-                          dayData?.pomodoroMinutes || 0
-                        }m focused`}</title>
+                        <rect 
+                          {...props} 
+                          rx={2} 
+                          fill={props.fill}
+                        />
+                        <title>{`${data.date}: ${dayData.tasksCompleted} tasks, ${Math.round(dayData.pomodoroMinutes / 60 * 10) / 10}h focused`}</title>
                       </g>
                     );
                   }}

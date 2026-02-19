@@ -1,25 +1,136 @@
 // Dropbox sync integration for BlockOut
-// Uses Dropbox API v2 to sync data.json file
+// Uses Dropbox OAuth 2.0 PKCE flow for secure authentication
+// NO TOKENS ARE STORED IN CODE - each user authenticates with their own account
 
+const DROPBOX_APP_KEY = import.meta.env.VITE_DROPBOX_APP_KEY || '';
+
+interface DropboxToken {
+  access_token: string;
+  expires_at?: number;
+}
+
+// Storage keys
 const DROPBOX_TOKEN_KEY = 'blockout-dropbox-token';
+const DROPBOX_PKCE_VERIFIER_KEY = 'blockout-dropbox-pkce-verifier';
 const DROPBOX_FILE_PATH = '/blockout-data.json';
 
-interface DropboxConfig {
-  accessToken: string;
-}
-
-export function getDropboxConfig(): DropboxConfig {
-  return {
-    accessToken: localStorage.getItem(DROPBOX_TOKEN_KEY) ?? '',
-  };
-}
-
-export function setDropboxConfig(accessToken: string): void {
-  localStorage.setItem(DROPBOX_TOKEN_KEY, accessToken.trim());
-}
-
+// Check if Dropbox is configured (user has authenticated)
 export function isDropboxConfigured(): boolean {
-  return !!getDropboxConfig().accessToken;
+  return !!getDropboxToken();
+}
+
+// Get stored token
+function getDropboxToken(): string | null {
+  try {
+    const stored = localStorage.getItem(DROPBOX_TOKEN_KEY);
+    if (!stored) return null;
+    const token: DropboxToken = JSON.parse(stored);
+    // Check if token is expired
+    if (token.expires_at && Date.now() > token.expires_at) {
+      clearDropboxConfig();
+      return null;
+    }
+    return token.access_token;
+  } catch {
+    return null;
+  }
+}
+
+// Store token with expiration
+function setDropboxToken(accessToken: string, expiresIn?: number): void {
+  const token: DropboxToken = {
+    access_token: accessToken,
+    expires_at: expiresIn ? Date.now() + (expiresIn * 1000) : undefined,
+  };
+  localStorage.setItem(DROPBOX_TOKEN_KEY, JSON.stringify(token));
+}
+
+// Clear token
+export function clearDropboxConfig(): void {
+  localStorage.removeItem(DROPBOX_TOKEN_KEY);
+}
+
+// Generate PKCE code verifier and challenge
+function generatePKCE(): { verifier: string; challenge: string } {
+  const verifier = Array.from(crypto.getRandomValues(new Uint8Array(32)))
+    .map(b => b.toString(36).padStart(2, '0'))
+    .join('')
+    .substring(0, 128);
+  
+  // For 'plain' method, challenge = verifier
+  // For 'S256', challenge = base64url(sha256(verifier))
+  const challenge = verifier;
+  
+  return { verifier, challenge };
+}
+
+// Start OAuth flow
+export function startDropboxAuth(): void {
+  if (!DROPBOX_APP_KEY) {
+    alert('Dropbox App Key not configured. Please set VITE_DROPBOX_APP_KEY in your .env file');
+    return;
+  }
+
+  const redirectUri = `${window.location.origin}/`;
+  const { verifier, challenge } = generatePKCE();
+  
+  // Store verifier for callback (use localStorage as it persists through redirects)
+  localStorage.setItem(DROPBOX_PKCE_VERIFIER_KEY, verifier);
+  
+  const params = new URLSearchParams({
+    client_id: DROPBOX_APP_KEY,
+    response_type: 'code',
+    redirect_uri: redirectUri,
+    code_challenge: challenge,
+    code_challenge_method: 'plain', // Using plain for simplicity, use S256 in production
+    token_access_type: 'offline',
+  });
+
+  window.location.href = `https://www.dropbox.com/oauth2/authorize?${params.toString()}`;
+}
+
+// Handle OAuth callback
+export async function handleDropboxCallback(code: string): Promise<boolean> {
+  const verifier = localStorage.getItem(DROPBOX_PKCE_VERIFIER_KEY);
+  if (!verifier) {
+    console.error('PKCE verifier not found in localStorage');
+    return false;
+  }
+
+  try {
+  const redirectUri = `${window.location.origin}/`;
+    
+    const response = await fetch('https://api.dropboxapi.com/oauth2/token', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/x-www-form-urlencoded',
+      },
+      body: new URLSearchParams({
+        code,
+        grant_type: 'authorization_code',
+        client_id: DROPBOX_APP_KEY,
+        redirect_uri: redirectUri,
+        code_verifier: verifier,
+      }),
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error('OAuth error response:', errorText);
+      throw new Error(`OAuth error: ${response.status} - ${errorText}`);
+    }
+
+    const data = await response.json();
+    setDropboxToken(data.access_token, data.expires_in);
+    
+    // Clean up
+    localStorage.removeItem(DROPBOX_PKCE_VERIFIER_KEY);
+    
+    return true;
+  } catch (error) {
+    console.error('Failed to complete Dropbox OAuth:', error);
+    return false;
+  }
 }
 
 // Dropbox API wrapper
@@ -97,23 +208,6 @@ class DropboxAPI {
 
       return await response.text();
     } catch (error) {
-      // File not found is OK - return null
-      if (error instanceof Error && error.message.includes('not_found')) {
-        return null;
-      }
-      throw error;
-    }
-  }
-
-  async getFileMetadata(path: string): Promise<{ server_modified: string; size: number } | null> {
-    try {
-      const response = await this.request('/files/get_metadata', {
-        method: 'POST',
-        body: JSON.stringify({ path }),
-      });
-
-      return await response.json();
-    } catch (error) {
       if (error instanceof Error && error.message.includes('not_found')) {
         return null;
       }
@@ -124,24 +218,24 @@ class DropboxAPI {
 
 // Sync functions
 export async function syncToDropbox(data: object): Promise<void> {
-  const config = getDropboxConfig();
-  if (!config.accessToken) {
-    throw new Error('Dropbox not configured');
+  const token = getDropboxToken();
+  if (!token) {
+    throw new Error('Not authenticated with Dropbox');
   }
 
-  const dropbox = new DropboxAPI(config.accessToken);
+  const dropbox = new DropboxAPI(token);
   const jsonData = JSON.stringify(data, null, 2);
   
   await dropbox.uploadFile(DROPBOX_FILE_PATH, jsonData);
 }
 
 export async function syncFromDropbox(): Promise<object | null> {
-  const config = getDropboxConfig();
-  if (!config.accessToken) {
-    throw new Error('Dropbox not configured');
+  const token = getDropboxToken();
+  if (!token) {
+    throw new Error('Not authenticated with Dropbox');
   }
 
-  const dropbox = new DropboxAPI(config.accessToken);
+  const dropbox = new DropboxAPI(token);
   const data = await dropbox.downloadFile(DROPBOX_FILE_PATH);
   
   if (!data) {
@@ -151,28 +245,9 @@ export async function syncFromDropbox(): Promise<object | null> {
   return JSON.parse(data);
 }
 
-// OAuth flow helpers
-export function getDropboxAuthUrl(clientId: string, redirectUri: string): string {
-  const params = new URLSearchParams({
-    client_id: clientId,
-    response_type: 'token',
-    redirect_uri: redirectUri,
-    scope: 'files.content.write files.content.read',
-  });
-
-  return `https://www.dropbox.com/oauth2/authorize?${params.toString()}`;
-}
-
-// Extract access token from URL hash (after OAuth redirect)
-export function extractDropboxTokenFromUrl(): string | null {
-  const hash = window.location.hash;
-  if (!hash) return null;
-
-  const params = new URLSearchParams(hash.substring(1));
-  return params.get('access_token');
-}
-
-// Clear Dropbox configuration
-export function clearDropboxConfig(): void {
-  localStorage.removeItem(DROPBOX_TOKEN_KEY);
+// Get Dropbox config (for UI display)
+export function getDropboxConfig(): { isConfigured: boolean } {
+  return {
+    isConfigured: isDropboxConfigured(),
+  };
 }
