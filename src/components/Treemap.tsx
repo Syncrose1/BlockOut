@@ -122,6 +122,21 @@ export function Treemap() {
       catMap.get(cat.id)!.tasks.push(task);
     });
 
+    // Debug: Log treemap data structure
+    console.log('Building treemap data:', {
+      totalVisibleTasks: visibleTasks.length,
+      categories: Array.from(catMap.entries()).map(([catId, data]) => ({
+        catId,
+        catName: data.category.name,
+        taskCount: data.tasks.length,
+        subcategories: data.category.subcategories.map(s => s.name),
+        tasksWithSubcats: data.tasks.filter(t => t.subcategoryId).map(t => ({
+          taskName: t.title,
+          subcatId: t.subcategoryId
+        }))
+      }))
+    });
+
     const nodes: TreemapNode[] = [];
     catMap.forEach(({ category, tasks: catTasks }) => {
       const subMap = new Map<string, Task[]>();
