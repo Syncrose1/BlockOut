@@ -152,16 +152,36 @@ export function layoutTreemap(
     if (node.children && node.children.length > 0) {
       const innerPad = 2;
       const headerHeight = Math.min(24, result.h! * 0.25);
-      result.children = layoutTreemap(
+      const availableWidth = result.w! - innerPad * 2;
+      const availableHeight = result.h! - headerHeight - innerPad * 2;
+      
+      // Layout children in the available space
+      const childrenWithCoords = layoutTreemap(
         node.children,
-        result.w! - innerPad * 2,
-        result.h! - headerHeight - innerPad * 2,
+        availableWidth,
+        availableHeight,
         3
-      ).map((child) => ({
-        ...child,
-        x: Math.round(child.x! + result.x! + innerPad),
-        y: Math.round(child.y! + result.y! + headerHeight + innerPad),
-      }));
+      );
+      
+      // Convert children's coordinates to be absolute (relative to the canvas)
+      result.children = childrenWithCoords.map((child) => {
+        const childWithAbsoluteCoords = {
+          ...child,
+          x: Math.round(child.x! + result.x! + innerPad),
+          y: Math.round(child.y! + result.y! + headerHeight + innerPad),
+        };
+        
+        // Also convert grandchildren (tasks within subcategories) to absolute coords
+        if (child.children && child.children.length > 0) {
+          childWithAbsoluteCoords.children = child.children.map((grandchild) => ({
+            ...grandchild,
+            x: Math.round(grandchild.x! + childWithAbsoluteCoords.x!), 
+            y: Math.round(grandchild.y! + childWithAbsoluteCoords.y!),
+          }));
+        }
+        
+        return childWithAbsoluteCoords;
+      });
     }
 
     return result;
