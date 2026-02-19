@@ -547,10 +547,10 @@ export const useStore = create<BlockOutState>((set, get) => ({
         lastSelectedTaskId: taskId,
       };
     } else {
-      // Single select mode: only select this task, clear others
+      // Single click without modifiers: clear selection (don't select anything)
       return {
-        selectedTaskIds: [taskId],
-        lastSelectedTaskId: taskId,
+        selectedTaskIds: [],
+        lastSelectedTaskId: null,
       };
     }
   }),
