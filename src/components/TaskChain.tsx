@@ -677,52 +677,32 @@ export function TaskChain() {
           </motion.div>
         )}
 
-        {/* Chain Links */}
-        {currentChain && currentChain.links.map((link, index) => {
-          const isSubtask = link.type === 'subtask';
+        {/* Chain Links - V0 Style */}
+        {currentChain && chainItems.map(({ link, index, nodeNumber, subtasks }) => {
           const isCT = link.type === 'ct';
-          const ct = (isCT || (isSubtask && link.subType === 'ct')) ? chainTasks[link.taskId] : null;
-          const mainTask = !isCT && link.taskId ? tasks[link.taskId] : null;
-          const isPlaceholder = !isCT && !isSubtask && !link.taskId;
+          const ct = isCT ? chainTasks[link.taskId] : null;
+          const mainTask = link.type === 'realtask' && link.taskId ? tasks[link.taskId] : null;
+          const isPlaceholder = link.type === 'realtask' && !link.taskId;
           
           const task = ct || mainTask;
           const isCompleted = task?.completed || false;
           const isSelected = mainTask && selectedTaskIds.includes(mainTask.id);
           
-          // Calculate indentation level for subtasks
-          let indentLevel = 0;
-          if (link.parentId) {
-            let currentParentId: string | undefined = link.parentId;
-            while (currentParentId) {
-              indentLevel++;
-              const parentLink = currentChain.links.find(l => l.id === currentParentId);
-              currentParentId = parentLink?.parentId;
-            }
-          }
+          // Determine node state
+          const isActiveNode = nodeNumber === chainStats.completed + 1;
+          const nodeCompleted = isCompleted;
           
-          // Determine colors based on completion and type
-          let bgColor = 'var(--bg-secondary)';
-          let borderColor = 'var(--border)';
+          // Determine colors
           let accentColor = 'var(--accent)';
-          
-          if (isSubtask) {
-            bgColor = 'var(--bg-tertiary)';
-          }
-          
           if (isSelected) {
-            bgColor = 'hsla(210, 100%, 65%, 0.1)';
-            borderColor = 'hsl(210, 100%, 65%)';
             accentColor = 'hsl(210, 100%, 65%)';
           } else if (isCompleted) {
-            bgColor = 'hsla(140, 60%, 40%, 0.1)';
-            borderColor = 'hsla(140, 60%, 40%, 0.3)';
             accentColor = 'hsl(140, 60%, 40%)';
           } else if (isCT) {
             accentColor = 'hsl(200, 70%, 50%)';
           } else if (mainTask) {
             accentColor = 'hsl(270, 60%, 50%)';
           } else {
-            // Placeholder
             accentColor = 'var(--text-tertiary)';
           }
           
