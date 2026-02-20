@@ -183,6 +183,13 @@ export function TaskChain() {
       handleCompleteCT(link.taskId);
     } else if (link.type === 'realtask' && link.taskId) {
       handleCompleteMainTask(link.taskId);
+    } else if (link.type === 'subtask') {
+      // Handle subtask completion based on subType
+      if (link.subType === 'ct') {
+        handleCompleteCT(link.taskId);
+      } else if (link.subType === 'realtask' && link.taskId) {
+        handleCompleteMainTask(link.taskId);
+      }
     }
   };
 
@@ -710,8 +717,14 @@ export function TaskChain() {
             <div key={link.id} style={{ display: 'flex' }}>
               {/* Left connector column */}
               <div style={{ width: 56, display: 'flex', flexDirection: 'column', alignItems: 'center', flexShrink: 0 }}>
-                {/* Line from above */}
-                <div style={{ width: 2, height: 18, background: nodeNumber > 1 ? 'var(--border)' : 'transparent', flexShrink: 0 }} />
+                {/* Chain link from above */}
+                {nodeNumber > 1 && (
+                  <svg width="24" height="20" viewBox="0 0 24 20" fill="none" style={{ flexShrink: 0 }}>
+                    <path d="M12 2C12 2 12 0 12 0C12 0 12 2 12 2C12 2 10 4 8 4C6 4 4 6 4 8C4 10 6 12 8 12C10 12 12 10 12 10" stroke="var(--border)" strokeWidth="2" strokeLinecap="round"/>
+                    <path d="M12 2C12 2 12 0 12 0C12 0 12 2 12 2C12 2 14 4 16 4C18 4 20 6 20 8C20 10 18 12 16 12C14 12 12 10 12 10" stroke="var(--border)" strokeWidth="2" strokeLinecap="round"/>
+                  </svg>
+                )}
+                {nodeNumber === 1 && <div style={{ height: 18, flexShrink: 0 }} />}
 
                 {/* Node circle */}
                 <div style={{
@@ -729,27 +742,43 @@ export function TaskChain() {
                   ) : nodeNumber}
                 </div>
 
-                {/* Line down + insert button */}
+                {/* Chain link down + insert button */}
                 {!isLastItem && (
                   <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', flex: 1, minHeight: 40 }}>
-                    <div style={{ width: 2, flex: 1, minHeight: 8, background: 'var(--border)' }} />
+                    <svg width="24" height="12" viewBox="0 0 24 12" fill="none" style={{ flexShrink: 0 }}>
+                      <path d="M12 0C12 0 12 2 12 2C12 2 10 4 8 4C6 4 4 6 4 8C4 10 6 12 8 12C10 12 12 10 12 10" stroke="var(--border)" strokeWidth="2" strokeLinecap="round"/>
+                      <path d="M12 0C12 0 12 2 12 2C12 2 14 4 16 4C18 4 20 6 20 8C20 10 18 12 16 12C14 12 12 10 12 10" stroke="var(--border)" strokeWidth="2" strokeLinecap="round"/>
+                    </svg>
                     {!insertAfterIndex && !replacingPlaceholderIndex && (
                       <button
                         onClick={() => setInsertAfterIndex(index)}
                         title="Insert task here"
                         style={{
                           width: 22, height: 22, borderRadius: '50%',
-                          border: '1px solid var(--border)', background: 'var(--bg-secondary)',
-                          color: 'var(--text-secondary)', cursor: 'pointer',
+                          border: '1px solid hsl(210, 100%, 70%)',
+                          background: 'hsla(210, 100%, 70%, 0.15)',
+                          color: 'hsl(210, 100%, 85%)',
+                          cursor: 'pointer',
                           display: 'flex', alignItems: 'center', justifyContent: 'center',
-                          fontSize: 14, lineHeight: 1, opacity: 0.4, transition: 'opacity 0.2s',
+                          fontSize: 14, lineHeight: 1,
+                          boxShadow: '0 0 8px hsla(210, 100%, 70%, 0.4), inset 0 0 4px hsla(210, 100%, 70%, 0.2)',
                           flexShrink: 0, padding: 0,
+                          transition: 'all 0.2s ease',
                         }}
-                        onMouseEnter={(e) => (e.currentTarget.style.opacity = '1')}
-                        onMouseLeave={(e) => (e.currentTarget.style.opacity = '0.4')}
+                        onMouseEnter={(e) => {
+                          e.currentTarget.style.background = 'hsla(210, 100%, 70%, 0.25)';
+                          e.currentTarget.style.boxShadow = '0 0 12px hsla(210, 100%, 70%, 0.6), inset 0 0 6px hsla(210, 100%, 70%, 0.3)';
+                        }}
+                        onMouseLeave={(e) => {
+                          e.currentTarget.style.background = 'hsla(210, 100%, 70%, 0.15)';
+                          e.currentTarget.style.boxShadow = '0 0 8px hsla(210, 100%, 70%, 0.4), inset 0 0 4px hsla(210, 100%, 70%, 0.2)';
+                        }}
                       >+</button>
                     )}
-                    <div style={{ width: 2, flex: 1, minHeight: 8, background: 'var(--border)' }} />
+                    <svg width="24" height="12" viewBox="0 0 24 12" fill="none" style={{ flexShrink: 0, flex: 1 }}>
+                      <path d="M12 0C12 0 12 2 12 2C12 2 10 4 8 4C6 4 4 6 4 8C4 10 6 12 8 12C10 12 12 10 12 10" stroke="var(--border)" strokeWidth="2" strokeLinecap="round"/>
+                      <path d="M12 0C12 0 12 2 12 2C12 2 14 4 16 4C18 4 20 6 20 8C20 10 18 12 16 12C14 12 12 10 12 10" stroke="var(--border)" strokeWidth="2" strokeLinecap="round"/>
+                    </svg>
                   </div>
                 )}
                 {isLastItem && <div style={{ width: 2, height: 20 }} />}
