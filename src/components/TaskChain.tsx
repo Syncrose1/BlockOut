@@ -331,6 +331,51 @@ export function TaskChain() {
       .filter(Boolean);
   }, [currentChain, selectedTaskIds, chainTasks]);
 
+  // Calculate chain stats for progress bar
+  const chainStats = useMemo(() => {
+    if (!currentChain) return { total: 0, completed: 0, active: 0, pending: 0 };
+    
+    const total = currentChain.links.filter(l => l.type !== 'subtask').length;
+    let completed = 0;
+    let active = 0;
+    
+    currentChain.links.forEach((link, index) => {
+      if (link.type === 'subtask') return;
+      
+      const task = link.type === 'ct' ? chainTasks[link.taskId] : tasks[link.taskId];
+      if (task?.completed) {
+        completed++;
+      } else if (!task?.completed && index === completed) {
+        active++;
+      }
+    });
+    
+    return {
+      total,
+      completed,
+      active: Math.min(active, 1),
+      pending: total - completed - Math.min(active, 1)
+    };
+  }, [currentChain, tasks, chainTasks]);
+
+  // Get subtasks for a parent link
+  const getSubtasksForParent = (parentId: string) => {
+    if (!currentChain) return [];
+    const parentIndex = currentChain.links.findIndex(l => l.id === parentId);
+    if (parentIndex === -1) return [];
+    
+    const subtasks = [];
+    for (let i = parentIndex + 1; i < currentChain.links.length; i++) {
+      const link = currentChain.links[i];
+      if (link.type === 'subtask' && link.parentId === parentId) {
+        subtasks.push({ link, index: i });
+      } else if (!link.parentId) {
+        break;
+      }
+    }
+    return subtasks;
+  };
+
   return (
     <div 
       ref={containerRef}
@@ -380,7 +425,12 @@ export function TaskChain() {
             onClick={() => setShowCalendar(!showCalendar)}
             style={{ display: 'flex', alignItems: 'center', gap: 8 }}
           >
-            <span>📅</span>
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <rect x="3" y="4" width="18" height="18" rx="2" ry="2"/>
+              <line x1="16" y1="2" x2="16" y2="6"/>
+              <line x1="8" y1="2" x2="8" y2="6"/>
+              <line x1="3" y1="10" x2="21" y2="10"/>
+            </svg>
             {showCalendar ? 'Hide Calendar' : 'Select Date'}
           </button>
           
@@ -504,14 +554,73 @@ export function TaskChain() {
         )}
       </div>
 
+      {/* Workflow Chain Summary */}
+      {currentChain && currentChain.links.length > 0 && (
+        <div style={{
+          background: 'var(--bg-secondary)',
+          borderRadius: 'var(--radius-lg)',
+          padding: '16px 20px',
+          marginBottom: 24,
+          border: '1px solid var(--border)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+        }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+            <span style={{ fontSize: 20 }}>⛓️</span>
+            <span style={{ fontWeight: 600, fontSize: 15 }}>Workflow Chain</span>
+            <div style={{ display: 'flex', gap: 4 }}>
+              {Array.from({ length: chainStats.total }).map((_, i) => (
+                <div
+                  key={i}
+                  style={{
+                    width: 8,
+                    height: 8,
+                    borderRadius: '50%',
+                    background: i < chainStats.completed 
+                      ? 'hsl(140, 60%, 40%)' 
+                      : i === chainStats.completed 
+                        ? 'var(--accent)' 
+                        : 'var(--border)',
+                  }}
+                />
+              ))}
+            </div>
+          </div>
+          
+          <div style={{ 
+            display: 'flex', 
+            alignItems: 'center', 
+            gap: 16,
+            fontSize: 13,
+            color: 'var(--text-secondary)',
+          }}>
+            <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+              <span style={{ width: 8, height: 8, borderRadius: '50%', background: 'hsl(140, 60%, 40%)' }} />
+              {chainStats.completed} Done
+            </span>
+            <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+              <span style={{ width: 8, height: 8, borderRadius: '50%', background: 'var(--accent)' }} />
+              {chainStats.active} Active
+            </span>
+            <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+              <span style={{ width: 8, height: 8, borderRadius: '50%', background: 'var(--border)' }} />
+              {chainStats.pending} Pending
+            </span>
+            <span style={{ fontWeight: 600, color: 'var(--text-primary)' }}>
+              {chainStats.completed}/{chainStats.total}
+            </span>
+          </div>
+        </div>
+      )}
+
       {/* Main Chain Area */}
       <div style={{ 
         flex: 1,
         display: 'flex',
         flexDirection: 'column',
-        gap: 12,
         overflow: 'auto',
-        paddingRight: 8,
+        padding: '0 20px 20px 0',
       }}>
         {/* Add First Task Button (when empty) */}
         {(!currentChain || currentChain.links.length === 0) && !insertAfterIndex && (
