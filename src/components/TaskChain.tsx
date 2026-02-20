@@ -376,6 +376,30 @@ export function TaskChain() {
     return subtasks;
   };
 
+  // Build chain items for V0-style rendering (only parent tasks, with their subtasks)
+  const chainItems = useMemo(() => {
+    if (!currentChain) return [];
+    
+    const items: Array<{ link: typeof currentChain.links[0]; index: number; nodeNumber: number; subtasks: ReturnType<typeof getSubtasksForParent> }> = [];
+    let nodeNumber = 1;
+    
+    currentChain.links.forEach((link, index) => {
+      // Skip subtasks - they'll be included inside their parents
+      if (link.type === 'subtask') return;
+      
+      const subtasks = getSubtasksForParent(link.id);
+      
+      items.push({
+        link,
+        index,
+        nodeNumber: nodeNumber++,
+        subtasks,
+      });
+    });
+    
+    return items;
+  }, [currentChain]);
+
   return (
     <div 
       ref={containerRef}
