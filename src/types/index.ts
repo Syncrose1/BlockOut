@@ -88,6 +88,7 @@ export interface ChainTask {
   completed: boolean;
   completedAt?: number;
   actualDuration?: number; // minutes
+  notes?: string; // Optional description/notes
 }
 
 export interface ChainLink {

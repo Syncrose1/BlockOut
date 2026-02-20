@@ -187,6 +187,8 @@ interface BlockOutState {
   updateTemplate: (templateId: string, updates: Partial<ChainTemplate>) => void;
   deleteTemplate: (templateId: string) => void;
   setChainTaskDuration: (ctId: string, minutes: number) => void;
+  updateChainTaskTitle: (ctId: string, title: string) => void;
+  updateChainTaskNotes: (ctId: string, notes: string) => void;
 
   // Persistence
   loadData: (data: {
@@ -974,6 +976,30 @@ export const useStore = create<BlockOutState>((set, get) => ({
       chainTasks: {
         ...state.chainTasks,
         [ctId]: { ...ct, actualDuration: minutes },
+      },
+    };
+  }),
+
+  updateChainTaskTitle: (ctId, title) => set((state) => {
+    const ct = state.chainTasks[ctId];
+    if (!ct) return state;
+    
+    return {
+      chainTasks: {
+        ...state.chainTasks,
+        [ctId]: { ...ct, title },
+      },
+    };
+  }),
+
+  updateChainTaskNotes: (ctId, notes) => set((state) => {
+    const ct = state.chainTasks[ctId];
+    if (!ct) return state;
+    
+    return {
+      chainTasks: {
+        ...state.chainTasks,
+        [ctId]: { ...ct, notes },
       },
     };
   }),

@@ -35,6 +35,8 @@ export function TaskChain() {
   const toggleTaskSelection = useStore((s) => s.toggleTaskSelection);
   const clearTaskSelection = useStore((s) => s.clearTaskSelection);
   const bulkDeleteTasks = useStore((s) => s.bulkDeleteTasks);
+  const updateChainTaskTitle = useStore((s) => s.updateChainTaskTitle);
+  const updateChainTaskNotes = useStore((s) => s.updateChainTaskNotes);
 
   const [showTemplates, setShowTemplates] = useState(false);
   const [newTaskTitle, setNewTaskTitle] = useState('');
@@ -47,7 +49,12 @@ export function TaskChain() {
   const [customMinutes, setCustomMinutes] = useState('');
   const [showCustomTime, setShowCustomTime] = useState(false);
   const [showBulkOperations, setShowBulkOperations] = useState(false);
-  const [contextMenu, setContextMenu] = useState<{ x: number; y: number; taskId: string; linkIndex: number } | null>(null);
+  const [contextMenu, setContextMenu] = useState<{ x: number; y: number; taskId: string; linkIndex: number; linkType?: 'ct' | 'realtask' } | null>(null);
+  const [editingCTId, setEditingCTId] = useState<string | null>(null);
+  const [editingCTTitle, setEditingCTTitle] = useState('');
+  const [editingCTNotes, setEditingCTNotes] = useState('');
+  const [editingCTLinkIndex, setEditingCTLinkIndex] = useState<number | null>(null);
+  const [showCTContextMenu, setShowCTContextMenu] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
   const shiftPressed = useRef(false);
 
@@ -201,8 +208,15 @@ export function TaskChain() {
         setContextMenu({ x: e.clientX, y: e.clientY, taskId: link.taskId, linkIndex: index });
       }
     } else if (link.type === 'ct') {
-      // For CTs, show a simple context menu
-      setContextMenu({ x: e.clientX, y: e.clientY, taskId: link.taskId, linkIndex: index });
+      // For CTs, open the context menu modal
+      const ct = chainTasks[link.taskId];
+      if (ct) {
+        setEditingCTId(link.taskId);
+        setEditingCTTitle(ct.title);
+        setEditingCTNotes(ct.notes || '');
+        setEditingCTLinkIndex(index);
+        setShowCTContextMenu(true);
+      }
     }
   };
 
@@ -558,6 +572,8 @@ export function TaskChain() {
                   overflow: 'hidden',
                   transition: 'all 0.2s ease',
                   cursor: mainTask ? 'pointer' : 'default',
+                  userSelect: 'none',
+                  WebkitUserSelect: 'none',
                 }}
               >
                 {/* Completion Status Bar */}
@@ -648,6 +664,16 @@ export function TaskChain() {
                             ⏱️ {ct.actualDuration} minutes
                           </div>
                         )}
+                        {isCT && ct?.notes && (
+                          <div style={{ 
+                            fontSize: 12, 
+                            color: 'var(--text-tertiary)',
+                            marginTop: 2,
+                            fontStyle: 'italic',
+                          }}>
+                            📝 {ct.notes.length > 50 ? ct.notes.slice(0, 50) + '...' : ct.notes}
+                          </div>
+                        )}
                       </>
                     )}
                   </div>
@@ -702,49 +728,268 @@ export function TaskChain() {
                 </div>
               </motion.div>
               
-              {/* Insert Button Between Tasks */}
-              {!insertAfterIndex && !replacingPlaceholderIndex && (
-                <div style={{
-                  display: 'flex',
-                  justifyContent: 'center',
-                  padding: '8px 0',
-                }}>
-                  <button
-                    className="btn btn-ghost btn-xs"
-                    onClick={() => setInsertAfterIndex(index)}
-                    style={{
-                      opacity: 0.5,
-                      transition: 'opacity 0.2s',
-                    }}
-                    onMouseEnter={(e) => e.currentTarget.style.opacity = '1'}
-                    onMouseLeave={(e) => e.currentTarget.style.opacity = '0.5'}
-                  >
-                    + Insert Task Here
-                  </button>
-                </div>
+              {/* Insert Button Between Tasks - replaced by inline modal when active */}
+              {insertAfterIndex === index && !replacingPlaceholderIndex ? (
+                <motion.div
+                  initial={{ opacity: 0, height: 0 }}
+                  animate={{ opacity: 1, height: 'auto' }}
+                  style={{
+                    background: 'var(--bg-secondary)',
+                    padding: 16,
+                    borderRadius: 'var(--radius-lg)',
+                    border: '2px solid var(--accent)',
+                    marginTop: 8,
+                    marginBottom: 8,
+                  }}
+                >
+                  <div style={{ 
+                    display: 'flex', 
+                    justifyContent: 'space-between',
+                    alignItems: 'center',
+                    marginBottom: 12,
+                  }}>
+                    <h3 style={{ fontSize: 15, margin: 0 }}>
+                      Insert After Task {index + 1}
+                    </h3>
+                    <button 
+                      className="btn btn-ghost btn-sm"
+                      onClick={() => {
+                        setInsertAfterIndex(null);
+                        setNewTaskTitle('');
+                        setSelectedMainTaskId('');
+                      }}
+                    >
+                      ×
+                    </button>
+                  </div>
+                  
+                  {/* Add CT */}
+                  <div style={{ display: 'flex', gap: 8, marginBottom: 12 }}>
+                    <input
+                      type="text"
+                      value={newTaskTitle}
+                      onChange={(e) => setNewTaskTitle(e.target.value)}
+                      placeholder="New chain task"
+                      style={{
+                        flex: 1,
+                        padding: '8px 12px',
+                        background: 'var(--bg-tertiary)',
+                        border: '1px solid var(--border)',
+                        borderRadius: 'var(--radius-sm)',
+                        color: 'var(--text-primary)',
+                        fontSize: 14,
+                      }}
+                      autoFocus
+                      onKeyDown={(e) => e.key === 'Enter' && handleAddCT()}
+                    />
+                    <button 
+                      className="btn btn-primary btn-sm" 
+                      onClick={handleAddCT}
+                      disabled={!newTaskTitle.trim()}
+                    >
+                      Add CT
+                    </button>
+                  </div>
+
+                  {/* Or divider */}
+                  <div style={{ 
+                    display: 'flex', 
+                    alignItems: 'center', 
+                    gap: 8, 
+                    marginBottom: 12,
+                    color: 'var(--text-secondary)',
+                    fontSize: 12,
+                  }}>
+                    <div style={{ flex: 1, height: 1, background: 'var(--border)' }} />
+                    OR
+                    <div style={{ flex: 1, height: 1, background: 'var(--border)' }} />
+                  </div>
+
+                  {/* Add Main Task */}
+                  <div style={{ display: 'flex', gap: 8 }}>
+                    <select
+                      value={selectedMainTaskId}
+                      onChange={(e) => setSelectedMainTaskId(e.target.value)}
+                      style={{
+                        flex: 1,
+                        padding: '8px 12px',
+                        background: 'var(--bg-tertiary)',
+                        border: '1px solid var(--border)',
+                        borderRadius: 'var(--radius-sm)',
+                        color: 'var(--text-primary)',
+                        fontSize: 14,
+                      }}
+                    >
+                      <option value="">Select from task pool...</option>
+                      {uncompletedTasks.map((t) => (
+                        <option key={t.id} value={t.id}>
+                          {t.title}
+                        </option>
+                      ))}
+                    </select>
+                    <button 
+                      className="btn btn-ghost btn-sm" 
+                      onClick={handleAddMainTask}
+                      disabled={!selectedMainTaskId}
+                    >
+                      Link Task
+                    </button>
+                  </div>
+                </motion.div>
+              ) : (
+                !insertAfterIndex && !replacingPlaceholderIndex && (
+                  <div style={{
+                    display: 'flex',
+                    justifyContent: 'center',
+                    padding: '8px 0',
+                  }}>
+                    <button
+                      className="btn btn-ghost btn-xs"
+                      onClick={() => setInsertAfterIndex(index)}
+                      style={{
+                        opacity: 0.5,
+                        transition: 'opacity 0.2s',
+                      }}
+                      onMouseEnter={(e) => e.currentTarget.style.opacity = '1'}
+                      onMouseLeave={(e) => e.currentTarget.style.opacity = '0.5'}
+                    >
+                      + Insert Task Here
+                    </button>
+                  </div>
+                )
               )}
             </div>
           );
         })}
         
-        {/* Add at End Button */}
-        {currentChain && currentChain.links.length > 0 && !insertAfterIndex && !replacingPlaceholderIndex && (
-          <button
-            className="btn btn-ghost"
-            onClick={() => setInsertAfterIndex(currentChain.links.length - 1)}
-            style={{
-              padding: '12px',
-              border: '2px dashed var(--border)',
-              borderRadius: 'var(--radius-lg)',
-              marginTop: 8,
-            }}
-          >
-            + Add Task to End
-          </button>
+        {/* Add at End Button / Inline Modal */}
+        {currentChain && currentChain.links.length > 0 && (
+          insertAfterIndex === currentChain.links.length - 1 && !replacingPlaceholderIndex ? (
+            <motion.div
+              initial={{ opacity: 0, height: 0 }}
+              animate={{ opacity: 1, height: 'auto' }}
+              style={{
+                background: 'var(--bg-secondary)',
+                padding: 16,
+                borderRadius: 'var(--radius-lg)',
+                border: '2px solid var(--accent)',
+                marginTop: 8,
+              }}
+            >
+              <div style={{ 
+                display: 'flex', 
+                justifyContent: 'space-between',
+                alignItems: 'center',
+                marginBottom: 12,
+              }}>
+                <h3 style={{ fontSize: 15, margin: 0 }}>
+                  Add Task to End
+                </h3>
+                <button 
+                  className="btn btn-ghost btn-sm"
+                  onClick={() => {
+                    setInsertAfterIndex(null);
+                    setNewTaskTitle('');
+                    setSelectedMainTaskId('');
+                  }}
+                >
+                  ×
+                </button>
+              </div>
+              
+              {/* Add CT */}
+              <div style={{ display: 'flex', gap: 8, marginBottom: 12 }}>
+                <input
+                  type="text"
+                  value={newTaskTitle}
+                  onChange={(e) => setNewTaskTitle(e.target.value)}
+                  placeholder="New chain task"
+                  style={{
+                    flex: 1,
+                    padding: '8px 12px',
+                    background: 'var(--bg-tertiary)',
+                    border: '1px solid var(--border)',
+                    borderRadius: 'var(--radius-sm)',
+                    color: 'var(--text-primary)',
+                    fontSize: 14,
+                  }}
+                  autoFocus
+                  onKeyDown={(e) => e.key === 'Enter' && handleAddCT()}
+                />
+                <button 
+                  className="btn btn-primary btn-sm" 
+                  onClick={handleAddCT}
+                  disabled={!newTaskTitle.trim()}
+                >
+                  Add CT
+                </button>
+              </div>
+
+              {/* Or divider */}
+              <div style={{ 
+                display: 'flex', 
+                alignItems: 'center', 
+                gap: 8, 
+                marginBottom: 12,
+                color: 'var(--text-secondary)',
+                fontSize: 12,
+              }}>
+                <div style={{ flex: 1, height: 1, background: 'var(--border)' }} />
+                OR
+                <div style={{ flex: 1, height: 1, background: 'var(--border)' }} />
+              </div>
+
+              {/* Add Main Task */}
+              <div style={{ display: 'flex', gap: 8 }}>
+                <select
+                  value={selectedMainTaskId}
+                  onChange={(e) => setSelectedMainTaskId(e.target.value)}
+                  style={{
+                    flex: 1,
+                    padding: '8px 12px',
+                    background: 'var(--bg-tertiary)',
+                    border: '1px solid var(--border)',
+                    borderRadius: 'var(--radius-sm)',
+                    color: 'var(--text-primary)',
+                    fontSize: 14,
+                  }}
+                >
+                  <option value="">Select from task pool...</option>
+                  {uncompletedTasks.map((t) => (
+                    <option key={t.id} value={t.id}>
+                      {t.title}
+                    </option>
+                  ))}
+                </select>
+                <button 
+                  className="btn btn-ghost btn-sm" 
+                  onClick={handleAddMainTask}
+                  disabled={!selectedMainTaskId}
+                >
+                  Link Task
+                </button>
+              </div>
+            </motion.div>
+          ) : (
+            !insertAfterIndex && !replacingPlaceholderIndex && (
+              <button
+                className="btn btn-ghost"
+                onClick={() => setInsertAfterIndex(currentChain.links.length - 1)}
+                style={{
+                  padding: '12px',
+                  border: '2px dashed var(--border)',
+                  borderRadius: 'var(--radius-lg)',
+                  marginTop: 8,
+                }}
+              >
+                + Add Task to End
+              </button>
+            )
+          )
         )}
 
-        {/* Add Task Interface */}
-        {(insertAfterIndex !== null || replacingPlaceholderIndex !== null) && (
+        {/* Add Task Interface - only for "Add First Task" and placeholder replacement */}
+        {((insertAfterIndex === -1 && !currentChain?.links.length) || replacingPlaceholderIndex !== null) && (
           <motion.div
             initial={{ opacity: 0, y: -10 }}
             animate={{ opacity: 1, y: 0 }}
@@ -1071,6 +1316,112 @@ export function TaskChain() {
                 </button>
                 <button className="btn btn-ghost" onClick={() => setShowBulkOperations(false)}>
                   Done
+                </button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* CT Context Menu Modal */}
+      <AnimatePresence>
+        {showCTContextMenu && editingCTId && (
+          <motion.div
+            className="modal-overlay"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            onClick={() => setShowCTContextMenu(false)}
+          >
+            <motion.div
+              className="modal"
+              initial={{ scale: 0.92, opacity: 0, y: 20 }}
+              animate={{ scale: 1, opacity: 1, y: 0 }}
+              exit={{ scale: 0.92, opacity: 0, y: 20 }}
+              onClick={(e) => e.stopPropagation()}
+              style={{ maxWidth: 500 }}
+            >
+              <h2>Edit Chain Task</h2>
+              
+              <div className="modal-field">
+                <label>Task Name</label>
+                <input
+                  type="text"
+                  value={editingCTTitle}
+                  onChange={(e) => setEditingCTTitle(e.target.value)}
+                  placeholder="Task name"
+                  autoFocus
+                />
+              </div>
+              
+              <div className="modal-field">
+                <label>Notes / Description</label>
+                <textarea
+                  value={editingCTNotes}
+                  onChange={(e) => setEditingCTNotes(e.target.value)}
+                  placeholder="Add notes or description (optional)"
+                  rows={4}
+                  style={{
+                    width: '100%',
+                    padding: '10px 12px',
+                    background: 'var(--bg-tertiary)',
+                    border: '1px solid var(--border)',
+                    borderRadius: 'var(--radius-sm)',
+                    color: 'var(--text-primary)',
+                    fontSize: 14,
+                    resize: 'vertical',
+                    minHeight: 80,
+                  }}
+                />
+              </div>
+
+              <div className="modal-actions">
+                <button 
+                  className="btn btn-danger"
+                  onClick={() => {
+                    if (editingCTLinkIndex !== null) {
+                      removeChainLink(selectedChainDate, editingCTLinkIndex);
+                    }
+                    setShowCTContextMenu(false);
+                    setEditingCTId(null);
+                    setEditingCTTitle('');
+                    setEditingCTNotes('');
+                    setEditingCTLinkIndex(null);
+                    debouncedSave();
+                  }}
+                >
+                  Delete
+                </button>
+                <div style={{ flex: 1 }} />
+                <button 
+                  className="btn btn-ghost" 
+                  onClick={() => {
+                    setShowCTContextMenu(false);
+                    setEditingCTId(null);
+                    setEditingCTTitle('');
+                    setEditingCTNotes('');
+                    setEditingCTLinkIndex(null);
+                  }}
+                >
+                  Cancel
+                </button>
+                <button 
+                  className="btn btn-primary" 
+                  onClick={() => {
+                    if (editingCTTitle.trim()) {
+                      updateChainTaskTitle(editingCTId, editingCTTitle.trim());
+                      updateChainTaskNotes(editingCTId, editingCTNotes.trim());
+                      setShowCTContextMenu(false);
+                      setEditingCTId(null);
+                      setEditingCTTitle('');
+                      setEditingCTNotes('');
+                      setEditingCTLinkIndex(null);
+                      debouncedSave();
+                    }
+                  }}
+                  disabled={!editingCTTitle.trim()}
+                >
+                  Save Changes
                 </button>
               </div>
             </motion.div>
