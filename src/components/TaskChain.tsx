@@ -717,23 +717,21 @@ export function TaskChain() {
             <div key={link.id} style={{ display: 'flex' }}>
               {/* Left connector column */}
               <div style={{ width: 56, display: 'flex', flexDirection: 'column', alignItems: 'center', flexShrink: 0 }}>
-                {/* Chain link from above */}
+                {/* Top connector line */}
                 {nodeNumber > 1 && (
-                  <svg width="24" height="20" viewBox="0 0 24 20" fill="none" style={{ flexShrink: 0 }}>
-                    <path d="M12 2C12 2 12 0 12 0C12 0 12 2 12 2C12 2 10 4 8 4C6 4 4 6 4 8C4 10 6 12 8 12C10 12 12 10 12 10" stroke="var(--border)" strokeWidth="2" strokeLinecap="round"/>
-                    <path d="M12 2C12 2 12 0 12 0C12 0 12 2 12 2C12 2 14 4 16 4C18 4 20 6 20 8C20 10 18 12 16 12C14 12 12 10 12 10" stroke="var(--border)" strokeWidth="2" strokeLinecap="round"/>
-                  </svg>
+                  <div style={{ height: 16, width: 2, borderRadius: '9999px', backgroundColor: isCompleted || isActive ? accentColor : 'var(--border)', opacity: isCompleted ? 0.6 : 1 }} />
                 )}
-                {nodeNumber === 1 && <div style={{ height: 18, flexShrink: 0 }} />}
+                {nodeNumber === 1 && <div style={{ height: 16 }} />}
 
                 {/* Node circle */}
                 <div style={{
-                  width: 34, height: 34, borderRadius: '50%',
-                  background: isCompleted ? 'hsl(140, 60%, 40%)' : isActive ? 'var(--accent)' : 'transparent',
-                  border: `2px solid ${nodeColor}`,
+                  width: 36, height: 36, borderRadius: '50%',
+                  background: isCompleted ? 'hsl(140, 60%, 40%)' : isActive ? `${accentColor}18` : 'var(--bg-secondary)',
+                  border: isActive ? `1.5px solid ${accentColor}50` : isCompleted ? 'none' : '1px solid var(--border)',
                   display: 'flex', alignItems: 'center', justifyContent: 'center',
                   color: isCompleted || isActive ? 'white' : 'var(--text-secondary)',
                   fontWeight: 700, fontSize: 13, flexShrink: 0, transition: 'all 0.3s ease',
+                  boxShadow: isActive ? `0 0 20px ${accentColor}20` : 'none',
                 }}>
                   {isCompleted ? (
                     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
@@ -742,46 +740,72 @@ export function TaskChain() {
                   ) : nodeNumber}
                 </div>
 
-                {/* Chain link down + insert button */}
+                {/* Bottom connector + chain links + insert button */}
                 {!isLastItem && (
-                  <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', flex: 1, minHeight: 40 }}>
-                    <svg width="24" height="12" viewBox="0 0 24 12" fill="none" style={{ flexShrink: 0 }}>
-                      <path d="M12 0C12 0 12 2 12 2C12 2 10 4 8 4C6 4 4 6 4 8C4 10 6 12 8 12C10 12 12 10 12 10" stroke="var(--border)" strokeWidth="2" strokeLinecap="round"/>
-                      <path d="M12 0C12 0 12 2 12 2C12 2 14 4 16 4C18 4 20 6 20 8C20 10 18 12 16 12C14 12 12 10 12 10" stroke="var(--border)" strokeWidth="2" strokeLinecap="round"/>
+                  <>
+                    <div style={{ height: 12, width: 2, borderRadius: '9999px', backgroundColor: 'var(--border)' }} />
+                    {/* Chain link SVG - V0 style */}
+                    <svg width="14" height="18" viewBox="0 0 14 18" fill="none" style={{ flexShrink: 0, margin: '2px 0' }}>
+                      <path
+                        d="M7 0 V4 C7 5.5 10 5.5 10 7 V11 C10 12.5 7 12.5 7 14 V18"
+                        stroke="var(--border)"
+                        strokeWidth="1.5"
+                        strokeLinecap="round"
+                      />
+                      <path
+                        d="M7 0 V4 C7 5.5 4 5.5 4 7 V11 C4 12.5 7 12.5 7 14 V18"
+                        stroke="var(--border)"
+                        strokeWidth="1.5"
+                        strokeLinecap="round"
+                      />
                     </svg>
+                    {/* Insert task button */}
                     {!insertAfterIndex && !replacingPlaceholderIndex && (
                       <button
                         onClick={() => setInsertAfterIndex(index)}
                         title="Insert task here"
                         style={{
-                          width: 22, height: 22, borderRadius: '50%',
-                          border: '1px solid hsl(210, 100%, 70%)',
-                          background: 'hsla(210, 100%, 70%, 0.15)',
-                          color: 'hsl(210, 100%, 85%)',
+                          width: 20, height: 20, borderRadius: '50%',
+                          border: '1px dashed var(--border)',
+                          background: 'transparent',
+                          color: 'var(--text-secondary)',
                           cursor: 'pointer',
                           display: 'flex', alignItems: 'center', justifyContent: 'center',
                           fontSize: 14, lineHeight: 1,
-                          boxShadow: '0 0 8px hsla(210, 100%, 70%, 0.4), inset 0 0 4px hsla(210, 100%, 70%, 0.2)',
                           flexShrink: 0, padding: 0,
                           transition: 'all 0.2s ease',
+                          margin: '2px 0',
                         }}
                         onMouseEnter={(e) => {
-                          e.currentTarget.style.background = 'hsla(210, 100%, 70%, 0.25)';
-                          e.currentTarget.style.boxShadow = '0 0 12px hsla(210, 100%, 70%, 0.6), inset 0 0 6px hsla(210, 100%, 70%, 0.3)';
+                          e.currentTarget.style.borderColor = 'var(--accent)';
+                          e.currentTarget.style.color = 'var(--accent)';
+                          e.currentTarget.style.background = 'hsla(210, 100%, 60%, 0.1)';
                         }}
                         onMouseLeave={(e) => {
-                          e.currentTarget.style.background = 'hsla(210, 100%, 70%, 0.15)';
-                          e.currentTarget.style.boxShadow = '0 0 8px hsla(210, 100%, 70%, 0.4), inset 0 0 4px hsla(210, 100%, 70%, 0.2)';
+                          e.currentTarget.style.borderColor = 'var(--border)';
+                          e.currentTarget.style.color = 'var(--text-secondary)';
+                          e.currentTarget.style.background = 'transparent';
                         }}
                       >+</button>
                     )}
-                    <svg width="24" height="12" viewBox="0 0 24 12" fill="none" style={{ flexShrink: 0, flex: 1 }}>
-                      <path d="M12 0C12 0 12 2 12 2C12 2 10 4 8 4C6 4 4 6 4 8C4 10 6 12 8 12C10 12 12 10 12 10" stroke="var(--border)" strokeWidth="2" strokeLinecap="round"/>
-                      <path d="M12 0C12 0 12 2 12 2C12 2 14 4 16 4C18 4 20 6 20 8C20 10 18 12 16 12C14 12 12 10 12 10" stroke="var(--border)" strokeWidth="2" strokeLinecap="round"/>
+                    <svg width="14" height="18" viewBox="0 0 14 18" fill="none" style={{ flexShrink: 0, margin: '2px 0' }}>
+                      <path
+                        d="M7 0 V4 C7 5.5 10 5.5 10 7 V11 C10 12.5 7 12.5 7 14 V18"
+                        stroke="var(--border)"
+                        strokeWidth="1.5"
+                        strokeLinecap="round"
+                      />
+                      <path
+                        d="M7 0 V4 C7 5.5 4 5.5 4 7 V11 C4 12.5 7 12.5 7 14 V18"
+                        stroke="var(--border)"
+                        strokeWidth="1.5"
+                        strokeLinecap="round"
+                      />
                     </svg>
-                  </div>
+                    <div style={{ height: 12, width: 2, borderRadius: '9999px', backgroundColor: 'var(--border)' }} />
+                  </>
                 )}
-                {isLastItem && <div style={{ width: 2, height: 20 }} />}
+                {isLastItem && <div style={{ height: 20 }} />}
               </div>
 
               {/* Task card column */}
