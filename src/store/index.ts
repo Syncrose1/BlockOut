@@ -189,6 +189,11 @@ interface BlockOutState {
   setChainTaskDuration: (ctId: string, minutes: number) => void;
   updateChainTaskTitle: (ctId: string, title: string) => void;
   updateChainTaskNotes: (ctId: string, notes: string) => void;
+  
+  // Subtask actions
+  addSubtaskToChain: (chainDate: string, parentLinkId: string, title: string, subType: 'ct' | 'realtask', taskId?: string) => void;
+  removeSubtaskFromChain: (chainDate: string, linkIndex: number) => void;
+  toggleSubtaskExpansion: (chainDate: string, linkId: string) => void;
 
   // Persistence
   loadData: (data: {
@@ -1000,6 +1005,122 @@ export const useStore = create<BlockOutState>((set, get) => ({
       chainTasks: {
         ...state.chainTasks,
         [ctId]: { ...ct, notes },
+      },
+    };
+  }),
+
+  // Subtask actions
+  addSubtaskToChain: (chainDate, parentLinkId, title, subType, taskId) => set((state) => {
+    const chain = state.taskChains[chainDate];
+    if (!chain) return state;
+    
+    const parentIndex = chain.links.findIndex(l => l.id === parentLinkId);
+    if (parentIndex === -1) return state;
+    
+    let newLink: { id: string; type: 'subtask'; taskId: string; parentId: string; subType: 'ct' | 'realtask' };
+    let subtaskId = '';
+    
+    if (subType === 'ct') {
+      subtaskId = uuid();
+      newLink = {
+        id: uuid(),
+        type: 'subtask' as const,
+        taskId: subtaskId,
+        parentId: parentLinkId,
+        subType,
+      };
+    } else {
+      newLink = {
+        id: uuid(),
+        type: 'subtask' as const,
+        taskId: taskId!,
+        parentId: parentLinkId,
+        subType,
+      };
+    }
+    
+    const newLinks = [...chain.links];
+    newLinks.splice(parentIndex + 1, 0, newLink);
+    
+    const updates: Partial<BlockOutState> = {
+      taskChains: {
+        ...state.taskChains,
+        [chainDate]: { ...chain, links: newLinks },
+      },
+    };
+    
+    if (subType === 'ct' && subtaskId) {
+      updates.chainTasks = {
+        ...state.chainTasks,
+        [subtaskId]: {
+          id: subtaskId,
+          title,
+          type: 'ct',
+          completed: false,
+        },
+      };
+    }
+    
+    return { ...state, ...updates };
+  }),
+
+  removeSubtaskFromChain: (chainDate, linkIndex) => set((state) => {
+    const chain = state.taskChains[chainDate];
+    if (!chain || !chain.links[linkIndex]) return state;
+    
+    const link = chain.links[linkIndex];
+    
+    // Collect all indices to remove (this subtask and any nested subtasks)
+    const indicesToRemove: number[] = [linkIndex];
+    const parentIds = new Set([link.id]);
+    
+    for (let i = linkIndex + 1; i < chain.links.length; i++) {
+      if (parentIds.has(chain.links[i].parentId || '')) {
+        indicesToRemove.push(i);
+        parentIds.add(chain.links[i].id);
+      } else {
+        break;
+      }
+    }
+    
+    // Build new links array
+    const newLinks = chain.links.filter((_, i) => !indicesToRemove.includes(i));
+    
+    // Collect chain task IDs to delete
+    const chainTaskIdsToDelete = indicesToRemove
+      .filter(i => chain.links[i].type === 'ct' || chain.links[i].type === 'subtask')
+      .map(i => chain.links[i].taskId);
+    
+    const { ...remainingChainTasks } = state.chainTasks;
+    chainTaskIdsToDelete.forEach(id => delete remainingChainTasks[id]);
+    
+    return {
+      taskChains: {
+        ...state.taskChains,
+        [chainDate]: { ...chain, links: newLinks },
+      },
+      chainTasks: remainingChainTasks,
+    };
+  }),
+
+  toggleSubtaskExpansion: (chainDate, linkId) => set((state) => {
+    const chain = state.taskChains[chainDate];
+    if (!chain) return state;
+    
+    const linkIndex = chain.links.findIndex(l => l.id === linkId);
+    if (linkIndex === -1) return state;
+    
+    const newLinks = [...chain.links];
+    const link = newLinks[linkIndex];
+    
+    // Toggle expansion by showing/hiding child subtasks
+    const isExpanded = !link.expanded;
+    newLinks[linkIndex] = { ...link, expanded: isExpanded };
+    
+    return {
+      taskChains: {
+        ...state.taskChains,
+        [chainDate]: { ...chain, links: newLinks },
       },
     };
   }),

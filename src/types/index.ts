@@ -98,6 +98,7 @@ export interface ChainLink {
   placeholder?: string; // For realtask placeholders: example task name
   parentId?: string; // For subtasks: ID of the parent link
   subType?: 'ct' | 'realtask'; // For subtasks: the actual type
+  expanded?: boolean; // For parent tasks: whether subtasks are expanded
 }
 
 export interface TaskChain {
