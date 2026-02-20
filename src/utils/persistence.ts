@@ -472,19 +472,25 @@ export function debouncedSave(): void {
 
 const CLOUD_PUSH_INTERVAL_MS = 5 * 60 * 1000;
 
+let _syncInProgress = false;
+
 export function startPeriodicCloudSync(): () => void {
   const id = setInterval(async () => {
     // Check if any cloud sync is configured (Dropbox or self-hosted)
     const { url } = getCloudConfig();
     const hasDropbox = isDropboxConfigured();
     if (!url && !hasDropbox) return;
-    
+    if (_syncInProgress) return; // prevent overlapping syncs
+
+    _syncInProgress = true;
     try {
       useStore.getState().setSyncStatus('syncing');
       await saveToCloud();
     } catch (e) {
       console.warn('[BlockOut] Periodic cloud sync failed', e);
       useStore.getState().setSyncStatus('error');
+    } finally {
+      _syncInProgress = false;
     }
   }, CLOUD_PUSH_INTERVAL_MS);
 

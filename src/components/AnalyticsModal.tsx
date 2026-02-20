@@ -376,7 +376,7 @@ export function AnalyticsModal({ open, onClose }: { open: boolean; onClose: () =
                     <div style={{ display: 'flex', justifyContent: 'space-between' }}>
                       <span>Avg Tasks/Day</span>
                       <span style={{ fontWeight: 600 }}>
-                        {(summaryStats.totalTasks / 365).toFixed(1)}
+                        {summaryStats.totalTasks > 0 ? (summaryStats.totalTasks / 365).toFixed(1) : '0.0'}
                       </span>
                     </div>
                     <div style={{ display: 'flex', justifyContent: 'space-between' }}>

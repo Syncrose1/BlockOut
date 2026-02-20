@@ -65,7 +65,6 @@ export function Treemap() {
   // Animation state in plain refs — zero React re-renders during animation
   const hoveredIdRef = useRef<string | null>(null);
   const hoverTransitionsRef = useRef<Map<string, { startTime: number; entering: boolean; progress: number }>>(new Map());
-  const everHoveredRef = useRef<Set<string>>(new Set()); // Track tiles that have been hovered
   const particlesRef = useRef<Particle[]>([]);
   const dissolvingRef = useRef<Map<string, Dissolve>>(new Map());
   const sparkleCounterRef = useRef(0);
@@ -81,6 +80,8 @@ export function Treemap() {
   const showTimelessPool = useStore((s) => s.showTimelessPool);
   const poolViewMode = useStore((s) => s.poolViewMode);
   const toggleTask = useStore((s) => s.toggleTask);
+  const setDependencyBlockedTaskId = useStore((s) => s.setDependencyBlockedTaskId);
+  const dependencyBlockedTaskId = useStore((s) => s.dependencyBlockedTaskId);
   const focusMode = useStore((s) => s.focusMode);
   const focusedCategoryId = useStore((s) => s.pomodoro.focusedCategoryId);
   const setDraggedTask = useStore((s) => s.setDraggedTask);
@@ -282,7 +283,13 @@ export function Treemap() {
 
   useLayoutEffect(() => { layoutRef.current = layout; }, [layout]);
   useLayoutEffect(() => { sizeRef.current = size; }, [size]);
-  useLayoutEffect(() => { tasksRef.current = tasks; }, [tasks]);
+  useLayoutEffect(() => {
+    tasksRef.current = tasks;
+    // Prune stale hover transition entries for deleted tasks
+    for (const id of hoverTransitionsRef.current.keys()) {
+      if (!tasks[id]) hoverTransitionsRef.current.delete(id);
+    }
+  }, [tasks]);
   useLayoutEffect(() => { focusModeRef.current = focusMode; }, [focusMode]);
   useLayoutEffect(() => { focusedCatRef.current = focusedCategoryId; }, [focusedCategoryId]);
   useLayoutEffect(() => { leafNodesRef.current = leafNodes; }, [leafNodes]);
@@ -465,13 +472,10 @@ export function Treemap() {
         const hasNotes = !!task?.notes && task.notes.trim() !== '';
         const canShowNotes = th > 54 && tw > 58 && hasNotes;
         
-        // Only animate if this tile has ever been hovered
-        const hasEverBeenHovered = everHoveredRef.current.has(taskNode.id);
-        
-        // Get or create hover transition state (only for hovered tiles)
+        // Get or create hover transition state; only create entry when tile is first hovered
         let hoverTrans = hoverTransitionsRef.current.get(taskNode.id);
-        if (!hoverTrans && hasEverBeenHovered) {
-          hoverTrans = { startTime: now, entering: false, progress: 0 };
+        if (!hoverTrans && isHovered) {
+          hoverTrans = { startTime: now, entering: true, progress: 0 };
           hoverTransitionsRef.current.set(taskNode.id, hoverTrans);
         }
         
@@ -761,9 +765,9 @@ export function Treemap() {
     const prevHoverId = hoveredIdRef.current;
     hoveredIdRef.current = node?.id ?? null;
     
-    // Track which tiles have ever been hovered
-    if (node?.id && node.id !== prevHoverId) {
-      everHoveredRef.current.add(node.id);
+    // Initialise hover transition entry on first hover of this tile
+    if (node?.id && node.id !== prevHoverId && !hoverTransitionsRef.current.has(node.id)) {
+      hoverTransitionsRef.current.set(node.id, { startTime: Date.now(), entering: true, progress: 0 });
     }
     
     if (containerRef.current) {
@@ -1063,6 +1067,33 @@ export function Treemap() {
             setPendingAction(null);
           }}
         />
+      )}
+
+      {/* Dependency blocked toast */}
+      {dependencyBlockedTaskId && (
+        <div
+          onClick={() => setDependencyBlockedTaskId(null)}
+          style={{
+            position: 'absolute',
+            bottom: 16,
+            left: '50%',
+            transform: 'translateX(-50%)',
+            background: 'var(--bg-secondary)',
+            border: '1px solid hsl(38,90%,50%)',
+            color: 'hsl(38,90%,60%)',
+            borderRadius: 8,
+            padding: '10px 16px',
+            fontSize: 13,
+            fontWeight: 500,
+            pointerEvents: 'all',
+            cursor: 'pointer',
+            zIndex: 200,
+            whiteSpace: 'nowrap',
+            boxShadow: 'var(--shadow-lg)',
+          }}
+        >
+          ⚠ Complete dependencies first — click to dismiss
+        </div>
       )}
 
       {/* Unified Context Menu - Shows on right-click */}

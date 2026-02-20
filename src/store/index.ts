@@ -65,6 +65,7 @@ interface BlockOutState {
   focusMode: boolean;
   completionSurveyTaskId: string | null; // task pending duration survey
   chainTaskCompletionSurveyId: string | null; // CT pending duration survey
+  dependencyBlockedTaskId: string | null; // task that was blocked due to unmet deps
   pomodoroSettingsOpen: boolean;
 
   // Drag and drop
@@ -134,6 +135,7 @@ interface BlockOutState {
   setEditingTaskId: (id: string | null) => void;
   setCompletionSurveyTask: (id: string | null) => void;
   setChainTaskCompletionSurveyId: (id: string | null) => void;
+  setDependencyBlockedTaskId: (id: string | null) => void;
   setPomodoroSettingsOpen: (open: boolean) => void;
 
   // Actions — Focus mode
@@ -232,6 +234,7 @@ export const useStore = create<BlockOutState>((set, get) => ({
   focusMode: false,
   completionSurveyTaskId: null,
   chainTaskCompletionSurveyId: null,
+  dependencyBlockedTaskId: null,
   pomodoroSettingsOpen: false,
   syncStatus: 'idle',
   syncSettingsOpen: false,
@@ -375,7 +378,7 @@ export const useStore = create<BlockOutState>((set, get) => ({
       // Check if dependencies are met before allowing completion
       if (nowCompleted && task.dependsOn && task.dependsOn.length > 0) {
         const allMet = task.dependsOn.every((depId) => state.tasks[depId]?.completed);
-        if (!allMet) return state; // block completion if deps unmet
+        if (!allMet) return { ...state, dependencyBlockedTaskId: id }; // surface block to UI
       }
 
       let streak = state.streak;
@@ -530,6 +533,7 @@ export const useStore = create<BlockOutState>((set, get) => ({
   setEditingTaskId: (id) => set({ editingTaskId: id }),
   setCompletionSurveyTask: (id) => set({ completionSurveyTaskId: id }),
   setChainTaskCompletionSurveyId: (id) => set({ chainTaskCompletionSurveyId: id }),
+  setDependencyBlockedTaskId: (id) => set({ dependencyBlockedTaskId: id }),
   setPomodoroSettingsOpen: (open) => set({ pomodoroSettingsOpen: open }),
   setSyncStatus: (status) => set({ syncStatus: status }),
   setSyncSettingsOpen: (open) => set({ syncSettingsOpen: open }),

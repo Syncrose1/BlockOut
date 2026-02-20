@@ -83,11 +83,15 @@ export function Pomodoro() {
       setIsResizing(false);
     };
 
+    const handleBlur = () => setIsResizing(false);
+
     window.addEventListener('mousemove', handleMouseMove);
     window.addEventListener('mouseup', handleMouseUp);
+    window.addEventListener('blur', handleBlur);
     return () => {
       window.removeEventListener('mousemove', handleMouseMove);
       window.removeEventListener('mouseup', handleMouseUp);
+      window.removeEventListener('blur', handleBlur);
     };
   }, [isResizing, scale]);
 
