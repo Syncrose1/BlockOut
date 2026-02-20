@@ -391,7 +391,11 @@ export function NewTaskModal() {
                 alignItems: 'center',
                 gap: 8,
               }}>
-                <span>⚠️</span>
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="hsl(0, 72%, 62%)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" />
+                  <line x1="12" y1="9" x2="12" y2="13" />
+                  <line x1="12" y1="17" x2="12.01" y2="17" />
+                </svg>
                 {error}
               </div>
             </div>
@@ -1475,7 +1479,11 @@ export function ArchivedTaskWarningModal({ taskId, onConfirm, onCancel }: { task
           style={{ maxWidth: 420 }}
         >
           <h2 style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-            <span>⚠️</span>
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="hsl(35, 92%, 50%)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" />
+              <line x1="12" y1="9" x2="12" y2="13" />
+              <line x1="12" y1="17" x2="12.01" y2="17" />
+            </svg>
             Archived Time Block
           </h2>
 
@@ -1971,8 +1979,16 @@ export function ExportImportModal({ open, onClose }: { open: boolean; onClose: (
                 borderRadius: 'var(--radius-sm)',
                 marginBottom: 20,
                 fontSize: 13,
-                color: 'hsl(0, 72%, 62%)'
+                color: 'hsl(0, 72%, 62%)',
+                display: 'flex',
+                alignItems: 'center',
+                gap: 6,
               }}>
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="hsl(0, 72%, 62%)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" />
+                  <line x1="12" y1="9" x2="12" y2="13" />
+                  <line x1="12" y1="17" x2="12.01" y2="17" />
+                </svg>
                 This action cannot be undone.
               </div>
                 )}
@@ -2397,9 +2413,17 @@ export function BulkOperationsModal({
                 borderRadius: 'var(--radius-sm)',
                 marginBottom: 20,
                 fontSize: 13,
-                color: 'hsl(0, 72%, 62%)'
+                color: 'hsl(0, 72%, 62%)',
+                display: 'flex',
+                alignItems: 'center',
+                gap: 6,
               }}>
-                ⚠️ This action cannot be undone.
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="hsl(0, 72%, 62%)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" />
+                  <line x1="12" y1="9" x2="12" y2="13" />
+                  <line x1="12" y1="17" x2="12.01" y2="17" />
+                </svg>
+                This action cannot be undone.
               </div>
 
               <div className="modal-actions">
@@ -2829,15 +2853,36 @@ export function UnifiedTaskContextMenu({
                 <button 
                   className="btn btn-primary btn-sm"
                   onClick={handleEdit}
+                  style={{ display: 'flex', alignItems: 'center', gap: 6, justifyContent: 'center' }}
                 >
-                  ✎ Edit Task
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/>
+                    <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>
+                  </svg>
+                  Edit Task
                 </button>
                 
                 <button 
                   className="btn btn-ghost btn-sm"
                   onClick={handleToggleComplete}
+                  style={{ display: 'flex', alignItems: 'center', gap: 6, justifyContent: 'center' }}
                 >
-                  {task.completed ? '↩ Mark Incomplete' : '✓ Mark Complete'}
+                  {task.completed ? (
+                    <>
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                        <path d="M3 7v6h6"/>
+                        <path d="M21 17a9 9 0 0 0-9-9 9 9 0 0 0-6 2.3L3 13"/>
+                      </svg>
+                      Mark Incomplete
+                    </>
+                  ) : (
+                    <>
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                        <polyline points="20 6 9 17 4 12"/>
+                      </svg>
+                      Mark Complete
+                    </>
+                  )}
                 </button>
                 
                 <button 
@@ -2847,8 +2892,13 @@ export function UnifiedTaskContextMenu({
                     setShowNewTaskModal(true);
                     onClose();
                   }}
+                  style={{ display: 'flex', alignItems: 'center', gap: 6, justifyContent: 'center' }}
                 >
-                  ⧉ Duplicate
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <rect x="9" y="9" width="13" height="13" rx="2" ry="2"/>
+                    <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>
+                  </svg>
+                  Duplicate
                 </button>
                 
                 <div style={{ borderTop: '1px solid var(--border)', margin: '8px 0' }} />
@@ -2856,8 +2906,13 @@ export function UnifiedTaskContextMenu({
                 <button 
                   className="btn btn-danger btn-sm"
                   onClick={() => setShowDeleteConfirm(true)}
+                  style={{ display: 'flex', alignItems: 'center', gap: 6, justifyContent: 'center' }}
                 >
-                  🗑 Delete Task…
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <polyline points="3 6 5 6 21 6"/>
+                    <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>
+                  </svg>
+                  Delete Task…
                 </button>
               </div>
             </div>
