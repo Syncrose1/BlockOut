@@ -742,72 +742,76 @@ export function TaskChain() {
 
                 {/* Bottom connector - grows with card height */}
                 {!isLastItem && (
-                  <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', flex: 1, minHeight: 60 }}>
-                    {/* Top line segment */}
+                  <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', flex: 1 }}>
+                    {/* Short line after node */}
                     <div style={{ height: 8, width: 2, borderRadius: '9999px', backgroundColor: 'var(--border)' }} />
                     
-                    {/* Chain link pattern - repeats to fill space */}
-                    <div style={{ 
-                      flex: 1, 
-                      width: 14, 
-                      display: 'flex', 
-                      flexDirection: 'column', 
-                      alignItems: 'center',
-                      backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='22' viewBox='0 0 14 22' fill='none'%3E%3Cpath d='M7 0 V6 C7 7.5 10 7.5 10 9 V13 C10 14.5 7 14.5 7 16 V22' stroke='%23334155' stroke-width='1.5' stroke-linecap='round'/%3E%3Cpath d='M7 0 V6 C7 7.5 4 7.5 4 9 V13 C4 14.5 7 14.5 7 16 V22' stroke='%23334155' stroke-width='1.5' stroke-linecap='round'/%3E%3C/svg%3E")`,
-                      backgroundRepeat: 'repeat-y',
-                      backgroundPosition: 'center top',
-                    }} />
+                    {/* First chain link SVG */}
+                    <svg width="14" height="20" viewBox="0 0 14 20" fill="none" style={{ flexShrink: 0 }}>
+                      <path
+                        d="M7 0 V4 C7 5.5 10 5.5 10 7 V13 C10 14.5 7 14.5 7 16 V20"
+                        stroke="#334155"
+                        strokeWidth="1.5"
+                        strokeLinecap="round"
+                      />
+                      <path
+                        d="M7 0 V4 C7 5.5 4 5.5 4 7 V13 C4 14.5 7 14.5 7 16 V20"
+                        stroke="#334155"
+                        strokeWidth="1.5"
+                        strokeLinecap="round"
+                      />
+                    </svg>
                     
-                    {/* Insert task button - positioned in the middle */}
+                    {/* Insert task button */}
                     {!insertAfterIndex && !replacingPlaceholderIndex && (
-                      <div style={{ margin: '8px 0', position: 'relative' }}>
-                        <button
-                          onClick={() => setInsertAfterIndex(index)}
-                          title="Insert task here"
-                          style={{
-                            width: 24, height: 24, borderRadius: '50%',
-                            border: '1px solid rgba(255,255,255,0.4)',
-                            background: 'rgba(255,255,255,0.08)',
-                            color: 'rgba(255,255,255,0.9)',
-                            cursor: 'pointer',
-                            display: 'flex', alignItems: 'center', justifyContent: 'center',
-                            fontSize: 16, lineHeight: 1, fontWeight: 300,
-                            flexShrink: 0, padding: 0,
-                            transition: 'all 0.2s ease',
-                            boxShadow: '0 0 10px rgba(255,255,255,0.2), inset 0 0 4px rgba(255,255,255,0.1)',
-                          }}
-                          onMouseEnter={(e) => {
-                            e.currentTarget.style.borderColor = 'rgba(255,255,255,0.8)';
-                            e.currentTarget.style.color = 'white';
-                            e.currentTarget.style.background = 'rgba(255,255,255,0.2)';
-                            e.currentTarget.style.boxShadow = '0 0 16px rgba(255,255,255,0.4), inset 0 0 8px rgba(255,255,255,0.2)';
-                          }}
-                          onMouseLeave={(e) => {
-                            e.currentTarget.style.borderColor = 'rgba(255,255,255,0.4)';
-                            e.currentTarget.style.color = 'rgba(255,255,255,0.9)';
-                            e.currentTarget.style.background = 'rgba(255,255,255,0.08)';
-                            e.currentTarget.style.boxShadow = '0 0 10px rgba(255,255,255,0.2), inset 0 0 4px rgba(255,255,255,0.1)';
-                          }}
-                        >+</button>
-                      </div>
+                      <button
+                        onClick={() => setInsertAfterIndex(index)}
+                        title="Insert task here"
+                        style={{
+                          width: 24, height: 24, borderRadius: '50%',
+                          border: '1px solid rgba(255,255,255,0.4)',
+                          background: 'rgba(255,255,255,0.08)',
+                          color: 'rgba(255,255,255,0.9)',
+                          cursor: 'pointer',
+                          display: 'flex', alignItems: 'center', justifyContent: 'center',
+                          fontSize: 16, lineHeight: 1, fontWeight: 300,
+                          flexShrink: 0, padding: 0, margin: '2px 0',
+                          transition: 'all 0.2s ease',
+                          boxShadow: '0 0 10px rgba(255,255,255,0.2), inset 0 0 4px rgba(255,255,255,0.1)',
+                        }}
+                        onMouseEnter={(e) => {
+                          e.currentTarget.style.borderColor = 'rgba(255,255,255,0.8)';
+                          e.currentTarget.style.color = 'white';
+                          e.currentTarget.style.background = 'rgba(255,255,255,0.2)';
+                          e.currentTarget.style.boxShadow = '0 0 16px rgba(255,255,255,0.4), inset 0 0 8px rgba(255,255,255,0.2)';
+                        }}
+                        onMouseLeave={(e) => {
+                          e.currentTarget.style.borderColor = 'rgba(255,255,255,0.4)';
+                          e.currentTarget.style.color = 'rgba(255,255,255,0.9)';
+                          e.currentTarget.style.background = 'rgba(255,255,255,0.08)';
+                          e.currentTarget.style.boxShadow = '0 0 10px rgba(255,255,255,0.2), inset 0 0 4px rgba(255,255,255,0.1)';
+                        }}
+                      >+</button>
                     )}
                     
-                    {/* More chain links if button is not present */}
-                    {!(!insertAfterIndex && !replacingPlaceholderIndex) && (
-                      <div style={{ 
-                        flex: 1, 
-                        width: 14, 
-                        display: 'flex', 
-                        flexDirection: 'column', 
-                        alignItems: 'center',
-                        backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='22' viewBox='0 0 14 22' fill='none'%3E%3Cpath d='M7 0 V6 C7 7.5 10 7.5 10 9 V13 C10 14.5 7 14.5 7 16 V22' stroke='%23334155' stroke-width='1.5' stroke-linecap='round'/%3E%3Cpath d='M7 0 V6 C7 7.5 4 7.5 4 9 V13 C4 14.5 7 14.5 7 16 V22' stroke='%23334155' stroke-width='1.5' stroke-linecap='round'/%3E%3C/svg%3E")`,
-                        backgroundRepeat: 'repeat-y',
-                        backgroundPosition: 'center top',
-                      }} />
-                    )}
+                    {/* Second chain link SVG */}
+                    <svg width="14" height="20" viewBox="0 0 14 20" fill="none" style={{ flexShrink: 0 }}>
+                      <path
+                        d="M7 0 V4 C7 5.5 10 5.5 10 7 V13 C10 14.5 7 14.5 7 16 V20"
+                        stroke="#334155"
+                        strokeWidth="1.5"
+                        strokeLinecap="round"
+                      />
+                      <path
+                        d="M7 0 V4 C7 5.5 4 5.5 4 7 V13 C4 14.5 7 14.5 7 16 V20"
+                        stroke="#334155"
+                        strokeWidth="1.5"
+                        strokeLinecap="round"
+                      />
+                    </svg>
                     
-                    {/* Bottom line segment */}
-                    <div style={{ height: 8, width: 2, borderRadius: '9999px', backgroundColor: 'var(--border)' }} />
+                    {/* Line that stretches to fill remaining space */}
+                    <div style={{ flex: 1, width: 2, minHeight: 20, borderRadius: '9999px', backgroundColor: '#334155' }} />
                   </div>
                 )}
                 {isLastItem && <div style={{ height: 20 }} />}
