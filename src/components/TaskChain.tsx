@@ -742,60 +742,76 @@ export function TaskChain() {
 
                 {/* Bottom connector - grows with card height */}
                 {!isLastItem && (
-                  <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', flex: 1, width: 2, backgroundColor: 'var(--border)', minHeight: 40 }}>
-                    {/* Chain link SVG - positioned absolutely to not affect height */}
-                    <div style={{ position: 'relative', width: 14, height: 0 }}>
-                      <svg width="14" height="18" viewBox="0 0 14 18" fill="none" style={{ position: 'absolute', top: 8, left: -6 }}>
-                        <path
-                          d="M7 0 V4 C7 5.5 10 5.5 10 7 V11 C10 12.5 7 12.5 7 14 V18"
-                          stroke="var(--border)"
-                          strokeWidth="1.5"
-                          strokeLinecap="round"
-                        />
-                        <path
-                          d="M7 0 V4 C7 5.5 4 5.5 4 7 V11 C4 12.5 7 12.5 7 14 V18"
-                          stroke="var(--border)"
-                          strokeWidth="1.5"
-                          strokeLinecap="round"
-                        />
-                      </svg>
-                    </div>
-                    {/* Insert task button - centered in the connector */}
+                  <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', flex: 1, minHeight: 60 }}>
+                    {/* Short line after node */}
+                    <div style={{ height: 12, width: 2, borderRadius: '9999px', backgroundColor: 'var(--border)' }} />
+                    
+                    {/* Chain link SVG - visible chain links */}
+                    <svg width="14" height="18" viewBox="0 0 14 18" fill="none" style={{ margin: '4px 0' }}>
+                      <path
+                        d="M7 0 V4 C7 5.5 10 5.5 10 7 V11 C10 12.5 7 12.5 7 14 V18"
+                        stroke="var(--border)"
+                        strokeWidth="1.5"
+                        strokeLinecap="round"
+                      />
+                      <path
+                        d="M7 0 V4 C7 5.5 4 5.5 4 7 V11 C4 12.5 7 12.5 7 14 V18"
+                        stroke="var(--border)"
+                        strokeWidth="1.5"
+                        strokeLinecap="round"
+                      />
+                    </svg>
+                    
+                    {/* Insert task button */}
                     {!insertAfterIndex && !replacingPlaceholderIndex && (
-                      <div style={{ position: 'relative', width: 14, height: 0, marginTop: 'auto', marginBottom: 'auto' }}>
-                        <button
-                          onClick={() => setInsertAfterIndex(index)}
-                          title="Insert task here"
-                          style={{
-                            position: 'absolute',
-                            top: -11,
-                            left: -4,
-                            width: 22, height: 22, borderRadius: '50%',
-                            border: '1px solid rgba(255,255,255,0.3)',
-                            background: 'rgba(255,255,255,0.05)',
-                            color: 'rgba(255,255,255,0.8)',
-                            cursor: 'pointer',
-                            display: 'flex', alignItems: 'center', justifyContent: 'center',
-                            fontSize: 16, lineHeight: 1,
-                            flexShrink: 0, padding: 0,
-                            transition: 'all 0.2s ease',
-                            boxShadow: '0 0 8px rgba(255,255,255,0.15)',
-                          }}
-                          onMouseEnter={(e) => {
-                            e.currentTarget.style.borderColor = 'rgba(255,255,255,0.6)';
-                            e.currentTarget.style.color = 'white';
-                            e.currentTarget.style.background = 'rgba(255,255,255,0.15)';
-                            e.currentTarget.style.boxShadow = '0 0 12px rgba(255,255,255,0.25)';
-                          }}
-                          onMouseLeave={(e) => {
-                            e.currentTarget.style.borderColor = 'rgba(255,255,255,0.3)';
-                            e.currentTarget.style.color = 'rgba(255,255,255,0.8)';
-                            e.currentTarget.style.background = 'rgba(255,255,255,0.05)';
-                            e.currentTarget.style.boxShadow = '0 0 8px rgba(255,255,255,0.15)';
-                          }}
-                        >+</button>
-                      </div>
+                      <button
+                        onClick={() => setInsertAfterIndex(index)}
+                        title="Insert task here"
+                        style={{
+                          width: 24, height: 24, borderRadius: '50%',
+                          border: '1px solid rgba(255,255,255,0.4)',
+                          background: 'rgba(255,255,255,0.08)',
+                          color: 'rgba(255,255,255,0.9)',
+                          cursor: 'pointer',
+                          display: 'flex', alignItems: 'center', justifyContent: 'center',
+                          fontSize: 16, lineHeight: 1, fontWeight: 300,
+                          flexShrink: 0, padding: 0, margin: '4px 0',
+                          transition: 'all 0.2s ease',
+                          boxShadow: '0 0 10px rgba(255,255,255,0.2), inset 0 0 4px rgba(255,255,255,0.1)',
+                        }}
+                        onMouseEnter={(e) => {
+                          e.currentTarget.style.borderColor = 'rgba(255,255,255,0.8)';
+                          e.currentTarget.style.color = 'white';
+                          e.currentTarget.style.background = 'rgba(255,255,255,0.2)';
+                          e.currentTarget.style.boxShadow = '0 0 16px rgba(255,255,255,0.4), inset 0 0 8px rgba(255,255,255,0.2)';
+                        }}
+                        onMouseLeave={(e) => {
+                          e.currentTarget.style.borderColor = 'rgba(255,255,255,0.4)';
+                          e.currentTarget.style.color = 'rgba(255,255,255,0.9)';
+                          e.currentTarget.style.background = 'rgba(255,255,255,0.08)';
+                          e.currentTarget.style.boxShadow = '0 0 10px rgba(255,255,255,0.2), inset 0 0 4px rgba(255,255,255,0.1)';
+                        }}
+                      >+</button>
                     )}
+                    
+                    {/* Second chain link SVG */}
+                    <svg width="14" height="18" viewBox="0 0 14 18" fill="none" style={{ margin: '4px 0' }}>
+                      <path
+                        d="M7 0 V4 C7 5.5 10 5.5 10 7 V11 C10 12.5 7 12.5 7 14 V18"
+                        stroke="var(--border)"
+                        strokeWidth="1.5"
+                        strokeLinecap="round"
+                      />
+                      <path
+                        d="M7 0 V4 C7 5.5 4 5.5 4 7 V11 C4 12.5 7 12.5 7 14 V18"
+                        stroke="var(--border)"
+                        strokeWidth="1.5"
+                        strokeLinecap="round"
+                      />
+                    </svg>
+                    
+                    {/* Line before next node */}
+                    <div style={{ height: 12, width: 2, borderRadius: '9999px', backgroundColor: 'var(--border)', flex: 1, minHeight: 8 }} />
                   </div>
                 )}
                 {isLastItem && <div style={{ height: 20 }} />}
