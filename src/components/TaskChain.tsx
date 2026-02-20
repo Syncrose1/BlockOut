@@ -671,7 +671,7 @@ export function TaskChain() {
                             marginTop: 2,
                             fontStyle: 'italic',
                           }}>
-                            📝 {ct.notes.length > 50 ? ct.notes.slice(0, 50) + '...' : ct.notes}
+                            {ct.notes.length > 50 ? ct.notes.slice(0, 50) + '...' : ct.notes}
                           </div>
                         )}
                       </>

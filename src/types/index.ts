@@ -93,9 +93,11 @@ export interface ChainTask {
 
 export interface ChainLink {
   id: string;
-  type: 'ct' | 'realtask';
+  type: 'ct' | 'realtask' | 'subtask';
   taskId: string; // For CT: chain task ID, for realtask: task ID
   placeholder?: string; // For realtask placeholders: example task name
+  parentId?: string; // For subtasks: ID of the parent link
+  subType?: 'ct' | 'realtask'; // For subtasks: the actual type
 }
 
 export interface TaskChain {
