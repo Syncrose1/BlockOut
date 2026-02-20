@@ -1022,7 +1022,9 @@ export function Treemap() {
             {showTimelessPool && poolViewMode === 'unassigned'
               ? 'All tasks are assigned to time blocks. Great job!'
               : showTimelessPool
-              ? 'Add categories and tasks to start building your task pool.'
+              ? Object.keys(categories).length === 0
+                ? 'Start by creating a category in the sidebar, then add tasks to it.'
+                : 'Add tasks to your categories to start building your task pool.'
               : activeBlockId
               ? 'Assign tasks from the pool to this block, or create new ones.'
               : 'Select a time block or view the task pool to get started.'}

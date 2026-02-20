@@ -3,6 +3,7 @@ import { useStore } from '../store';
 import { AssignTasksModal, ExportImportModal, AITaskGeneratorModal } from './Modals';
 import { exportTreemapAsImage } from './Treemap';
 import { exportToFile } from '../utils/analytics';
+import { saveToCloud } from '../utils/persistence';
 import type { ViewMode } from '../types';
 
 function formatCountdown(endDate: number): string {
@@ -92,6 +93,19 @@ export function Topbar() {
 
   const syncStatus = useStore((s) => s.syncStatus);
   const setSyncSettingsOpen = useStore((s) => s.setSyncSettingsOpen);
+
+  const [retrying, setRetrying] = useState(false);
+
+  const handleSyncRetry = useCallback(async () => {
+    setRetrying(true);
+    try {
+      await saveToCloud();
+    } catch {
+      // error state will be set by saveToCloud via setSyncStatus
+    } finally {
+      setRetrying(false);
+    }
+  }, []);
 
   const syncDotColor: Record<string, string> = {
     idle: 'var(--text-tertiary)',
@@ -296,23 +310,44 @@ export function Topbar() {
         )}
 
         {/* Sync status */}
-        <button
-          title={syncTitle[syncStatus]}
-          onClick={() => setSyncSettingsOpen(true)}
-          style={{
-            background: 'none', border: 'none', cursor: 'pointer',
-            display: 'flex', alignItems: 'center', gap: 5,
-            color: 'var(--text-tertiary)', fontSize: 12, padding: '4px 6px',
-          }}
-        >
-          <span style={{
-            width: 7, height: 7, borderRadius: '50%',
-            background: syncDotColor[syncStatus],
-            display: 'inline-block',
-            transition: 'background 0.3s',
-          }} />
-          Sync
-        </button>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+          <button
+            title={syncTitle[syncStatus]}
+            onClick={() => setSyncSettingsOpen(true)}
+            style={{
+              background: 'none', border: 'none', cursor: 'pointer',
+              display: 'flex', alignItems: 'center', gap: 5,
+              color: 'var(--text-tertiary)', fontSize: 12, padding: '4px 6px',
+            }}
+          >
+            <span style={{
+              width: 7, height: 7, borderRadius: '50%',
+              background: syncDotColor[syncStatus],
+              display: 'inline-block',
+              transition: 'background 0.3s',
+            }} />
+            Sync
+          </button>
+          {syncStatus === 'error' && (
+            <button
+              title="Retry sync"
+              onClick={handleSyncRetry}
+              disabled={retrying}
+              style={{
+                background: 'none',
+                border: '1px solid hsl(0, 72%, 62%)',
+                borderRadius: 4,
+                cursor: retrying ? 'default' : 'pointer',
+                color: 'hsl(0, 72%, 62%)',
+                fontSize: 11,
+                padding: '2px 6px',
+                opacity: retrying ? 0.6 : 1,
+              }}
+            >
+              {retrying ? '…' : 'Retry'}
+            </button>
+          )}
+        </div>
 
         <button
           className="btn btn-ghost btn-sm"

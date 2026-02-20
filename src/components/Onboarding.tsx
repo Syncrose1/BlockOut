@@ -60,6 +60,13 @@ const TOUR_STEPS: TourStep[] = [
     position: 'bottom',
   },
   {
+    id: 'taskchain',
+    target: '.view-switcher',
+    title: 'Task Chain',
+    content: 'Switch to Task Chain view to build ordered workflows. Chain tasks together in sequence — subtasks nest inside each step, and nodes show progress at a glance.',
+    position: 'bottom',
+  },
+  {
     id: 'pomodoro',
     target: '.pomodoro-widget',
     title: 'Pomodoro Timer',
