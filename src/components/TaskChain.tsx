@@ -677,541 +677,343 @@ export function TaskChain() {
           </motion.div>
         )}
 
-        {/* Chain Links */}
-        {currentChain && currentChain.links.map((link, index) => {
-          const isSubtask = link.type === 'subtask';
+        {/* Chain Links - V0 Style */}
+        {currentChain && chainItems.map(({ link, index, nodeNumber, subtasks }) => {
           const isCT = link.type === 'ct';
-          const ct = (isCT || (isSubtask && link.subType === 'ct')) ? chainTasks[link.taskId] : null;
-          const mainTask = !isCT && link.taskId ? tasks[link.taskId] : null;
-          const isPlaceholder = !isCT && !isSubtask && !link.taskId;
-          
+          const ct = isCT ? chainTasks[link.taskId] : null;
+          const mainTask = link.type === 'realtask' && link.taskId ? tasks[link.taskId] : null;
+          const isPlaceholder = link.type === 'realtask' && !link.taskId;
           const task = ct || mainTask;
           const isCompleted = task?.completed || false;
-          const isSelected = mainTask && selectedTaskIds.includes(mainTask.id);
-          
-          // Calculate indentation level for subtasks
-          let indentLevel = 0;
-          if (link.parentId) {
-            let currentParentId: string | undefined = link.parentId;
-            while (currentParentId) {
-              indentLevel++;
-              const parentLink = currentChain.links.find(l => l.id === currentParentId);
-              currentParentId = parentLink?.parentId;
-            }
-          }
-          
-          // Determine colors based on completion and type
-          let bgColor = 'var(--bg-secondary)';
-          let borderColor = 'var(--border)';
+          const isSelected = !!(mainTask && selectedTaskIds.includes(mainTask.id));
+          const isLastItem = nodeNumber === chainItems.length;
+          const completedCount = chainStats.completed;
+          const isActive = !isCompleted && nodeNumber === completedCount + 1;
+
+          const nodeColor = isCompleted
+            ? 'hsl(140, 60%, 40%)'
+            : isActive ? 'var(--accent)' : 'var(--border)';
+
           let accentColor = 'var(--accent)';
-          
-          if (isSubtask) {
-            bgColor = 'var(--bg-tertiary)';
-          }
-          
-          if (isSelected) {
-            bgColor = 'hsla(210, 100%, 65%, 0.1)';
-            borderColor = 'hsl(210, 100%, 65%)';
-            accentColor = 'hsl(210, 100%, 65%)';
-          } else if (isCompleted) {
-            bgColor = 'hsla(140, 60%, 40%, 0.1)';
-            borderColor = 'hsla(140, 60%, 40%, 0.3)';
-            accentColor = 'hsl(140, 60%, 40%)';
-          } else if (isCT) {
-            accentColor = 'hsl(200, 70%, 50%)';
-          } else if (mainTask) {
-            accentColor = 'hsl(270, 60%, 50%)';
-          } else {
-            // Placeholder
-            accentColor = 'var(--text-tertiary)';
-          }
-          
+          if (isSelected) accentColor = 'hsl(210, 100%, 65%)';
+          else if (isCompleted) accentColor = 'hsl(140, 60%, 40%)';
+          else if (isCT) accentColor = 'hsl(200, 70%, 50%)';
+          else if (mainTask) accentColor = 'hsl(270, 60%, 50%)';
+          else if (isPlaceholder) accentColor = 'var(--text-tertiary)';
+
+          let cardBg = 'var(--bg-secondary)';
+          let cardBorder = 'var(--border)';
+          if (isSelected) { cardBg = 'hsla(210, 100%, 65%, 0.08)'; cardBorder = 'hsl(210, 100%, 65%)'; }
+          else if (isCompleted) { cardBg = 'hsla(140, 60%, 40%, 0.06)'; cardBorder = 'hsla(140, 60%, 40%, 0.3)'; }
+
           return (
-            <div key={link.id} style={{ marginLeft: indentLevel * 24 }}>
-              {/* Chain Link Card */}
-              <motion.div
-                initial={{ opacity: 0, x: -20 }}
-                animate={{ opacity: 1, x: 0 }}
-                transition={{ delay: index * 0.05 }}
-                onDoubleClick={() => handleDoubleClick(link)}
-                onClick={(e) => handleTaskClick(link, index, e)}
-                onContextMenu={(e) => handleRightClick(link, index, e)}
-                style={{
-                  display: 'flex',
-                  alignItems: 'stretch',
-                  background: bgColor,
-                  border: `2px solid ${borderColor}`,
-                  borderRadius: 'var(--radius-lg)',
-                  overflow: 'hidden',
-                  transition: 'all 0.2s ease',
-                  cursor: mainTask ? 'pointer' : 'default',
-                  userSelect: 'none',
-                  WebkitUserSelect: 'none',
-                }}
-              >
-                {/* Completion Status Bar */}
+            <div key={link.id} style={{ display: 'flex' }}>
+              {/* Left connector column */}
+              <div style={{ width: 56, display: 'flex', flexDirection: 'column', alignItems: 'center', flexShrink: 0 }}>
+                {/* Line from above */}
+                <div style={{ width: 2, height: 18, background: nodeNumber > 1 ? 'var(--border)' : 'transparent', flexShrink: 0 }} />
+
+                {/* Node circle */}
                 <div style={{
-                  width: 6,
-                  background: isCompleted ? accentColor : 'transparent',
-                  transition: 'background 0.3s ease',
-                }} />
-                
-                {/* Main Content */}
-                <div style={{
-                  flex: 1,
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: 16,
-                  padding: '16px 20px',
+                  width: 34, height: 34, borderRadius: '50%',
+                  background: isCompleted ? 'hsl(140, 60%, 40%)' : isActive ? 'var(--accent)' : 'transparent',
+                  border: `2px solid ${nodeColor}`,
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  color: isCompleted || isActive ? 'white' : 'var(--text-secondary)',
+                  fontWeight: 700, fontSize: 13, flexShrink: 0, transition: 'all 0.3s ease',
                 }}>
-                  {/* Type Icon */}
-                  <div style={{
-                    width: 36,
-                    height: 36,
-                    borderRadius: '50%',
-                    background: isSelected
-                      ? 'hsla(210, 100%, 65%, 0.2)'
-                      : isCompleted 
-                        ? 'hsla(140, 60%, 40%, 0.2)' 
-                        : isCT 
-                          ? 'hsla(200, 70%, 50%, 0.2)' 
-                          : isPlaceholder 
-                            ? 'var(--bg-tertiary)' 
-                            : 'hsla(270, 60%, 50%, 0.2)',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    fontSize: 14,
-                    fontWeight: 600,
-                    flexShrink: 0,
-                    color: isSelected
-                      ? 'hsl(210, 100%, 65%)'
-                      : isCompleted
-                        ? 'hsl(140, 60%, 40%)'
-                        : isCT
-                          ? 'hsl(200, 70%, 50%)'
-                          : isPlaceholder
-                            ? 'var(--text-tertiary)'
-                            : 'hsl(270, 60%, 50%)',
-                  }                  }>
-                    {isCompleted ? (
-                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
-                        <polyline points="20 6 9 17 4 12"/>
-                      </svg>
-                    ) : isSubtask ? (
-                      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                        <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/>
-                        <polyline points="22 4 12 14.01 9 11.01"/>
-                      </svg>
-                    ) : isCT ? 'CT' : isPlaceholder ? '?' : 'M'}
-                  </div>
-                  
-                  {/* Task Info */}
-                  <div style={{ flex: 1, minWidth: 0 }}>
-                    {isPlaceholder ? (
-                      <>
-                        <div style={{ 
-                          color: 'var(--text-tertiary)', 
-                          fontStyle: 'italic',
-                          fontSize: 14,
-                        }}>
-                          Insert Main Task
-                        </div>
-                        {link.placeholder && (
-                          <div style={{ 
-                            color: 'var(--text-secondary)', 
-                            fontSize: 12,
-                            marginTop: 2,
-                          }}>
-                            e.g. {link.placeholder}
-                          </div>
-                        )}
-                      </>
-                    ) : (
-                      <>
-                        <div style={{ 
-                          fontSize: 15,
-                          fontWeight: 500,
-                          textDecoration: isCompleted ? 'line-through' : 'none',
-                          color: isCompleted ? 'var(--text-secondary)' : 'var(--text-primary)',
-                        }}>
-                          {task?.title || 'Unknown Task'}
-                        </div>
-                        {isCT && ct?.actualDuration && (
-                          <div style={{ 
-                            fontSize: 12, 
-                            color: 'var(--text-secondary)',
-                            marginTop: 2,
-                            display: 'flex',
-                            alignItems: 'center',
-                            gap: 4,
-                          }}>
-                            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                              <circle cx="12" cy="12" r="10"/>
-                              <polyline points="12 6 12 12 16 14"/>
-                            </svg>
-                            {ct.actualDuration} minutes
-                          </div>
-                        )}
-                        {isCT && ct?.notes && (
-                          <div style={{ 
-                            fontSize: 12, 
-                            color: 'var(--text-tertiary)',
-                            marginTop: 2,
-                            fontStyle: 'italic',
-                          }}>
-                            {ct.notes.length > 50 ? ct.notes.slice(0, 50) + '...' : ct.notes}
-                          </div>
-                        )}
-                      </>
-                    )}
-                  </div>
-                  
-                  {/* Actions */}
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
-                    {!isPlaceholder && (
-                      <button
-                        className="btn btn-sm"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          if (isCT) {
-                            handleCompleteCT(link.taskId);
-                          } else {
-                            handleCompleteMainTask(link.taskId);
-                          }
-                        }}
-                        style={{
-                          background: isCompleted ? 'transparent' : accentColor,
-                          color: isCompleted ? 'var(--text-secondary)' : 'white',
-                          border: isCompleted ? '1px solid var(--border)' : 'none',
-                        }}
-                      >
-                        {isCompleted ? 'Undo' : 'Complete'}
-                      </button>
-                    )}
-                    
-                    {isPlaceholder && (
-                      <button
-                        className="btn btn-sm btn-primary"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          setReplacingPlaceholderIndex(index);
-                        }}
-                      >
-                        Select
-                      </button>
-                    )}
-                    
-                    {/* Add Subtask Button - only for non-subtasks */}
-                    {link.type !== 'subtask' && (
-                      <button
-                        className="btn btn-ghost btn-xs"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          setAddingSubtaskForLinkId(link.id);
-                          setSubtaskTitle('');
-                          setSelectedSubtaskMainTaskId('');
-                          setSubtaskType('ct');
-                        }}
-                        style={{ color: 'var(--text-secondary)' }}
-                        title="Add subtask"
-                      >
-                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                          <line x1="12" y1="5" x2="12" y2="19"/>
-                          <line x1="5" y1="12" x2="19" y2="12"/>
-                        </svg>
-                      </button>
-                    )}
-
-                    <button
-                      className="btn btn-ghost btn-sm"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        removeChainLink(selectedChainDate, index);
-                        debouncedSave();
-                      }}
-                      style={{ color: 'var(--text-tertiary)' }}
-                    >
-                      ×
-                    </button>
-                  </div>
+                  {isCompleted ? (
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+                      <polyline points="20 6 9 17 4 12"/>
+                    </svg>
+                  ) : nodeNumber}
                 </div>
-              </motion.div>
 
-              {/* Subtask Creation Interface */}
-              {addingSubtaskForLinkId === link.id && (
+                {/* Line down + insert button */}
+                {!isLastItem && (
+                  <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', flex: 1, minHeight: 40 }}>
+                    <div style={{ width: 2, flex: 1, minHeight: 8, background: 'var(--border)' }} />
+                    {!insertAfterIndex && !replacingPlaceholderIndex && (
+                      <button
+                        onClick={() => setInsertAfterIndex(index)}
+                        title="Insert task here"
+                        style={{
+                          width: 22, height: 22, borderRadius: '50%',
+                          border: '1px solid var(--border)', background: 'var(--bg-secondary)',
+                          color: 'var(--text-secondary)', cursor: 'pointer',
+                          display: 'flex', alignItems: 'center', justifyContent: 'center',
+                          fontSize: 14, lineHeight: 1, opacity: 0.4, transition: 'opacity 0.2s',
+                          flexShrink: 0, padding: 0,
+                        }}
+                        onMouseEnter={(e) => (e.currentTarget.style.opacity = '1')}
+                        onMouseLeave={(e) => (e.currentTarget.style.opacity = '0.4')}
+                      >+</button>
+                    )}
+                    <div style={{ width: 2, flex: 1, minHeight: 8, background: 'var(--border)' }} />
+                  </div>
+                )}
+                {isLastItem && <div style={{ width: 2, height: 20 }} />}
+              </div>
+
+              {/* Task card column */}
+              <div style={{ flex: 1, marginLeft: 12, paddingBottom: isLastItem ? 0 : 8 }}>
                 <motion.div
-                  initial={{ opacity: 0, height: 0 }}
-                  animate={{ opacity: 1, height: 'auto' }}
+                  initial={{ opacity: 0, x: -16 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  transition={{ delay: (nodeNumber - 1) * 0.04 }}
+                  onDoubleClick={() => handleDoubleClick(link)}
+                  onClick={(e) => handleTaskClick(link, index, e)}
+                  onContextMenu={(e) => handleRightClick(link, index, e)}
                   style={{
-                    background: 'var(--bg-tertiary)',
-                    padding: 12,
-                    borderRadius: 'var(--radius-sm)',
-                    border: '1px solid var(--border)',
-                    marginTop: 8,
-                    marginLeft: link.parentId ? 48 : 0,
+                    background: cardBg, border: `1.5px solid ${cardBorder}`,
+                    borderRadius: 12, overflow: 'hidden',
+                    transition: 'border-color 0.2s ease, background 0.2s ease',
+                    cursor: mainTask ? 'pointer' : 'default',
+                    userSelect: 'none', WebkitUserSelect: 'none',
                   }}
                 >
-                  <div style={{ 
-                    display: 'flex', 
-                    justifyContent: 'space-between',
-                    alignItems: 'center',
-                    marginBottom: 8,
-                  }}>
-                    <span style={{ fontSize: 13, fontWeight: 500 }}>Add Subtask</span>
-                    <button 
-                      className="btn btn-ghost btn-xs"
-                      onClick={() => {
-                        setAddingSubtaskForLinkId(null);
-                        setSubtaskTitle('');
-                        setSelectedSubtaskMainTaskId('');
-                      }}
-                    >
-                      ×
-                    </button>
-                  </div>
-                  
-                  {/* Subtask Type Toggle */}
-                  <div style={{ 
-                    display: 'flex', 
-                    gap: 8, 
-                    marginBottom: 8,
-                    fontSize: 12,
-                  }}>
-                    <button
-                      className={`btn btn-xs ${subtaskType === 'ct' ? 'btn-primary' : 'btn-ghost'}`}
-                      onClick={() => setSubtaskType('ct')}
-                    >
-                      Chain Task
-                    </button>
-                    <button
-                      className={`btn btn-xs ${subtaskType === 'realtask' ? 'btn-primary' : 'btn-ghost'}`}
-                      onClick={() => setSubtaskType('realtask')}
-                    >
-                      Main Task
-                    </button>
-                  </div>
+                  {/* Top accent bar */}
+                  <div style={{ height: 3, background: isCompleted || isActive ? accentColor : 'transparent', transition: 'background 0.3s ease' }} />
 
-                  {subtaskType === 'ct' ? (
-                    <div style={{ display: 'flex', gap: 8 }}>
-                      <input
-                        type="text"
-                        value={subtaskTitle}
-                        onChange={(e) => setSubtaskTitle(e.target.value)}
-                        placeholder="New subtask..."
-                        style={{
-                          flex: 1,
-                          padding: '8px 12px',
-                          background: 'var(--bg-secondary)',
-                          border: '1px solid var(--border)',
-                          borderRadius: 'var(--radius-sm)',
-                          color: 'var(--text-primary)',
-                          fontSize: 13,
-                        }}
-                        autoFocus
-                        onKeyDown={(e) => {
-                          if (e.key === 'Enter' && subtaskTitle.trim()) {
-                            addSubtaskToChain(selectedChainDate, link.id, subtaskTitle.trim(), 'ct');
-                            setAddingSubtaskForLinkId(null);
-                            setSubtaskTitle('');
-                            debouncedSave();
-                          }
-                        }}
-                      />
-                      <button 
-                        className="btn btn-primary btn-sm"
-                        onClick={() => {
-                          if (subtaskTitle.trim()) {
-                            addSubtaskToChain(selectedChainDate, link.id, subtaskTitle.trim(), 'ct');
-                            setAddingSubtaskForLinkId(null);
-                            setSubtaskTitle('');
-                            debouncedSave();
-                          }
-                        }}
-                        disabled={!subtaskTitle.trim()}
+                  {/* Card body */}
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '14px 16px' }}>
+                    {/* Type badge */}
+                    <div style={{
+                      width: 32, height: 32, borderRadius: 8,
+                      background: isSelected ? 'hsla(210,100%,65%,0.18)'
+                        : isCompleted ? 'hsla(140,60%,40%,0.15)'
+                        : isCT ? 'hsla(200,70%,50%,0.15)'
+                        : isPlaceholder ? 'var(--bg-tertiary)'
+                        : 'hsla(270,60%,50%,0.15)',
+                      display: 'flex', alignItems: 'center', justifyContent: 'center',
+                      fontSize: 11, fontWeight: 700, flexShrink: 0, letterSpacing: 0.5,
+                      color: isSelected ? 'hsl(210,100%,65%)'
+                        : isCompleted ? 'hsl(140,60%,40%)'
+                        : isCT ? 'hsl(200,70%,50%)'
+                        : isPlaceholder ? 'var(--text-tertiary)'
+                        : 'hsl(270,60%,50%)',
+                    }}>
+                      {isCT ? 'CT' : isPlaceholder ? '?' : 'M'}
+                    </div>
+
+                    {/* Info */}
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      {isPlaceholder ? (
+                        <>
+                          <div style={{ color: 'var(--text-tertiary)', fontStyle: 'italic', fontSize: 14 }}>Insert Main Task</div>
+                          {link.placeholder && <div style={{ color: 'var(--text-secondary)', fontSize: 12, marginTop: 2 }}>e.g. {link.placeholder}</div>}
+                        </>
+                      ) : (
+                        <>
+                          <div style={{
+                            fontSize: 14, fontWeight: 500,
+                            textDecoration: isCompleted ? 'line-through' : 'none',
+                            color: isCompleted ? 'var(--text-secondary)' : 'var(--text-primary)',
+                            overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+                          }}>{task?.title || 'Unknown Task'}</div>
+                          {isCT && ct?.actualDuration && (
+                            <div style={{ fontSize: 12, color: 'var(--text-secondary)', marginTop: 2, display: 'flex', alignItems: 'center', gap: 4 }}>
+                              <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                <circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>
+                              </svg>
+                              {ct.actualDuration}m
+                            </div>
+                          )}
+                          {isCT && ct?.notes && (
+                            <div style={{ fontSize: 12, color: 'var(--text-tertiary)', marginTop: 2, fontStyle: 'italic' }}>
+                              {ct.notes.length > 60 ? ct.notes.slice(0, 60) + '…' : ct.notes}
+                            </div>
+                          )}
+                        </>
+                      )}
+                    </div>
+
+                    {/* Actions */}
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexShrink: 0 }}>
+                      {!isPlaceholder && (
+                        <button
+                          className="btn btn-sm"
+                          onClick={(e) => { e.stopPropagation(); isCT ? handleCompleteCT(link.taskId) : handleCompleteMainTask(link.taskId); }}
+                          style={{
+                            background: isCompleted ? 'transparent' : accentColor,
+                            color: isCompleted ? 'var(--text-secondary)' : 'white',
+                            border: isCompleted ? '1px solid var(--border)' : 'none',
+                            fontSize: 12, padding: '4px 10px',
+                          }}
+                        >{isCompleted ? 'Undo' : 'Done'}</button>
+                      )}
+                      {isPlaceholder && (
+                        <button className="btn btn-sm btn-primary" onClick={(e) => { e.stopPropagation(); setReplacingPlaceholderIndex(index); }}>Select</button>
+                      )}
+                      <button
+                        className="btn btn-ghost btn-xs"
+                        onClick={(e) => { e.stopPropagation(); setAddingSubtaskForLinkId(link.id); setSubtaskTitle(''); setSelectedSubtaskMainTaskId(''); setSubtaskType('ct'); }}
+                        title="Add subtask" style={{ color: 'var(--text-tertiary)', padding: '4px 6px' }}
                       >
-                        Add
+                        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                          <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
+                        </svg>
+                      </button>
+                      <button
+                        className="btn btn-ghost btn-xs"
+                        onClick={(e) => { e.stopPropagation(); removeChainLink(selectedChainDate, index); debouncedSave(); }}
+                        title="Remove from chain" style={{ color: 'var(--text-tertiary)', padding: '4px 6px' }}
+                      >
+                        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                          <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+                        </svg>
                       </button>
                     </div>
-                  ) : (
-                    <div style={{ display: 'flex', gap: 8 }}>
-                      <select
-                        value={selectedSubtaskMainTaskId}
-                        onChange={(e) => setSelectedSubtaskMainTaskId(e.target.value)}
-                        style={{
-                          flex: 1,
-                          padding: '8px 12px',
-                          background: 'var(--bg-secondary)',
-                          border: '1px solid var(--border)',
-                          borderRadius: 'var(--radius-sm)',
-                          color: 'var(--text-primary)',
-                          fontSize: 13,
-                        }}
-                      >
-                        <option value="">Select task...</option>
-                        {Object.values(tasks).filter(t => !t.completed).map((t) => (
-                          <option key={t.id} value={t.id}>{t.title}</option>
-                        ))}
-                      </select>
-                      <button 
-                        className="btn btn-ghost btn-sm"
-                        onClick={() => {
-                          if (selectedSubtaskMainTaskId) {
-                            const selectedTask = tasks[selectedSubtaskMainTaskId];
-                            if (selectedTask) {
-                              addSubtaskToChain(selectedChainDate, link.id, selectedTask.title, 'realtask', selectedSubtaskMainTaskId);
-                              setAddingSubtaskForLinkId(null);
-                              setSelectedSubtaskMainTaskId('');
-                              debouncedSave();
-                            }
-                          }
-                        }}
-                        disabled={!selectedSubtaskMainTaskId}
-                      >
-                        Link
-                      </button>
+                  </div>
+
+                  {/* Subtasks nested inside card */}
+                  {(subtasks.length > 0 || addingSubtaskForLinkId === link.id) && (
+                    <div style={{ borderTop: '1px solid var(--border)', padding: '10px 16px 12px', display: 'flex', flexDirection: 'column', gap: 6 }}>
+                      {subtasks.length > 0 && (
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 2 }}>
+                          <span style={{ fontSize: 11, color: 'var(--text-secondary)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: 0.5 }}>Subtasks</span>
+                          <span style={{ fontSize: 11, color: 'var(--text-tertiary)' }}>
+                            {subtasks.filter(({ link: sl }) => {
+                              const sc = sl.subType === 'ct' ? chainTasks[sl.taskId] : null;
+                              const sm = sl.subType !== 'ct' && sl.taskId ? tasks[sl.taskId] : null;
+                              return (sc || sm)?.completed;
+                            }).length}/{subtasks.length}
+                          </span>
+                        </div>
+                      )}
+                      {subtasks.map(({ link: subLink, index: subIndex }) => {
+                        const subIsCT = subLink.subType === 'ct';
+                        const subCt = subIsCT ? chainTasks[subLink.taskId] : null;
+                        const subMain = !subIsCT && subLink.taskId ? tasks[subLink.taskId] : null;
+                        const subTask = subCt || subMain;
+                        const subDone = subTask?.completed || false;
+                        return (
+                          <div key={subLink.id}
+                            style={{
+                              display: 'flex', alignItems: 'center', gap: 8,
+                              padding: '7px 10px',
+                              background: subDone ? 'hsla(140,60%,40%,0.06)' : 'var(--bg-tertiary)',
+                              borderRadius: 8, border: '1px solid var(--border)',
+                            }}
+                            onDoubleClick={() => handleDoubleClick(subLink)}
+                            onContextMenu={(e) => handleRightClick(subLink, subIndex, e)}
+                          >
+                            <button
+                              onClick={(e) => { e.stopPropagation(); handleDoubleClick(subLink); }}
+                              style={{
+                                width: 20, height: 20, borderRadius: '50%', padding: 0,
+                                border: `2px solid ${subDone ? 'hsl(140,60%,40%)' : 'var(--border)'}`,
+                                background: subDone ? 'hsl(140,60%,40%)' : 'transparent',
+                                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                cursor: 'pointer', flexShrink: 0, transition: 'all 0.2s',
+                              }}
+                            >
+                              {subDone && <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg>}
+                            </button>
+                            <span style={{
+                              flex: 1, fontSize: 13,
+                              color: subDone ? 'var(--text-secondary)' : 'var(--text-primary)',
+                              textDecoration: subDone ? 'line-through' : 'none',
+                              overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+                            }}>{subTask?.title || 'Unknown'}</span>
+                            <span style={{
+                              fontSize: 10, fontWeight: 700, letterSpacing: 0.5, flexShrink: 0,
+                              color: subIsCT ? 'hsl(200,70%,50%)' : 'hsl(270,60%,50%)',
+                              background: subIsCT ? 'hsla(200,70%,50%,0.12)' : 'hsla(270,60%,50%,0.12)',
+                              padding: '2px 6px', borderRadius: 4,
+                            }}>{subIsCT ? 'CT' : 'M'}</span>
+                            <button
+                              className="btn btn-ghost btn-xs"
+                              onClick={(e) => { e.stopPropagation(); removeChainLink(selectedChainDate, subIndex); debouncedSave(); }}
+                              style={{ color: 'var(--text-tertiary)', padding: '2px 4px', flexShrink: 0 }}
+                            >
+                              <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                                <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+                              </svg>
+                            </button>
+                          </div>
+                        );
+                      })}
+
+                      {/* Add subtask form or button */}
+                      {addingSubtaskForLinkId === link.id ? (
+                        <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} style={{ marginTop: 4 }}>
+                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
+                            <div style={{ display: 'flex', gap: 6 }}>
+                              <button className={`btn btn-xs ${subtaskType === 'ct' ? 'btn-primary' : 'btn-ghost'}`} onClick={() => setSubtaskType('ct')}>CT</button>
+                              <button className={`btn btn-xs ${subtaskType === 'realtask' ? 'btn-primary' : 'btn-ghost'}`} onClick={() => setSubtaskType('realtask')}>Main Task</button>
+                            </div>
+                            <button className="btn btn-ghost btn-xs" onClick={() => { setAddingSubtaskForLinkId(null); setSubtaskTitle(''); setSelectedSubtaskMainTaskId(''); }}>×</button>
+                          </div>
+                          {subtaskType === 'ct' ? (
+                            <div style={{ display: 'flex', gap: 6 }}>
+                              <input type="text" value={subtaskTitle} onChange={(e) => setSubtaskTitle(e.target.value)} placeholder="New subtask..." autoFocus
+                                style={{ flex: 1, padding: '6px 10px', background: 'var(--bg-secondary)', border: '1px solid var(--border)', borderRadius: 6, color: 'var(--text-primary)', fontSize: 13 }}
+                                onKeyDown={(e) => { if (e.key === 'Enter' && subtaskTitle.trim()) { addSubtaskToChain(selectedChainDate, link.id, subtaskTitle.trim(), 'ct'); setAddingSubtaskForLinkId(null); setSubtaskTitle(''); debouncedSave(); } }}
+                              />
+                              <button className="btn btn-primary btn-sm" disabled={!subtaskTitle.trim()}
+                                onClick={() => { if (subtaskTitle.trim()) { addSubtaskToChain(selectedChainDate, link.id, subtaskTitle.trim(), 'ct'); setAddingSubtaskForLinkId(null); setSubtaskTitle(''); debouncedSave(); } }}>Add</button>
+                            </div>
+                          ) : (
+                            <div style={{ display: 'flex', gap: 6 }}>
+                              <select value={selectedSubtaskMainTaskId} onChange={(e) => setSelectedSubtaskMainTaskId(e.target.value)}
+                                style={{ flex: 1, padding: '6px 10px', background: 'var(--bg-secondary)', border: '1px solid var(--border)', borderRadius: 6, color: 'var(--text-primary)', fontSize: 13 }}>
+                                <option value="">Select task...</option>
+                                {Object.values(tasks).filter(t => !t.completed).map((t) => <option key={t.id} value={t.id}>{t.title}</option>)}
+                              </select>
+                              <button className="btn btn-ghost btn-sm" disabled={!selectedSubtaskMainTaskId}
+                                onClick={() => { const st = tasks[selectedSubtaskMainTaskId]; if (st) { addSubtaskToChain(selectedChainDate, link.id, st.title, 'realtask', selectedSubtaskMainTaskId); setAddingSubtaskForLinkId(null); setSelectedSubtaskMainTaskId(''); debouncedSave(); } }}>Link</button>
+                            </div>
+                          )}
+                        </motion.div>
+                      ) : (
+                        <button className="btn btn-ghost btn-xs"
+                          onClick={() => { setAddingSubtaskForLinkId(link.id); setSubtaskTitle(''); setSelectedSubtaskMainTaskId(''); setSubtaskType('ct'); }}
+                          style={{ color: 'var(--text-tertiary)', alignSelf: 'flex-start', fontSize: 12 }}>
+                          + Add subtask
+                        </button>
+                      )}
                     </div>
                   )}
                 </motion.div>
-              )}
-              
-              {/* Insert Button Between Tasks - replaced by inline modal when active */}
-              {insertAfterIndex === index && !replacingPlaceholderIndex ? (
-                <motion.div
-                  initial={{ opacity: 0, height: 0 }}
-                  animate={{ opacity: 1, height: 'auto' }}
-                  style={{
-                    background: 'var(--bg-secondary)',
-                    padding: 16,
-                    borderRadius: 'var(--radius-lg)',
-                    border: '2px solid var(--accent)',
-                    marginTop: 8,
-                    marginBottom: 8,
-                  }}
-                >
-                  <div style={{ 
-                    display: 'flex', 
-                    justifyContent: 'space-between',
-                    alignItems: 'center',
-                    marginBottom: 12,
-                  }}>
-                    <h3 style={{ fontSize: 15, margin: 0 }}>
-                      Insert After Task {index + 1}
-                    </h3>
-                    <button 
-                      className="btn btn-ghost btn-sm"
-                      onClick={() => {
-                        setInsertAfterIndex(null);
-                        setNewTaskTitle('');
-                        setSelectedMainTaskId('');
-                      }}
-                    >
-                      ×
-                    </button>
-                  </div>
-                  
-                  {/* Add CT */}
-                  <div style={{ display: 'flex', gap: 8, marginBottom: 12 }}>
-                    <input
-                      type="text"
-                      value={newTaskTitle}
-                      onChange={(e) => setNewTaskTitle(e.target.value)}
-                      placeholder="New chain task"
-                      style={{
-                        flex: 1,
-                        padding: '8px 12px',
-                        background: 'var(--bg-tertiary)',
-                        border: '1px solid var(--border)',
-                        borderRadius: 'var(--radius-sm)',
-                        color: 'var(--text-primary)',
-                        fontSize: 14,
-                      }}
-                      autoFocus
-                      onKeyDown={(e) => e.key === 'Enter' && handleAddCT()}
-                    />
-                    <button 
-                      className="btn btn-primary btn-sm" 
-                      onClick={handleAddCT}
-                      disabled={!newTaskTitle.trim()}
-                    >
-                      Add CT
-                    </button>
-                  </div>
 
-                  {/* Or divider */}
-                  <div style={{ 
-                    display: 'flex', 
-                    alignItems: 'center', 
-                    gap: 8, 
-                    marginBottom: 12,
-                    color: 'var(--text-secondary)',
-                    fontSize: 12,
-                  }}>
-                    <div style={{ flex: 1, height: 1, background: 'var(--border)' }} />
-                    OR
-                    <div style={{ flex: 1, height: 1, background: 'var(--border)' }} />
-                  </div>
-
-                  {/* Add Main Task */}
-                  <div style={{ display: 'flex', gap: 8 }}>
-                    <select
-                      value={selectedMainTaskId}
-                      onChange={(e) => setSelectedMainTaskId(e.target.value)}
-                      style={{
-                        flex: 1,
-                        padding: '8px 12px',
-                        background: 'var(--bg-tertiary)',
-                        border: '1px solid var(--border)',
-                        borderRadius: 'var(--radius-sm)',
-                        color: 'var(--text-primary)',
-                        fontSize: 14,
-                      }}
-                    >
-                      <option value="">Select from task pool...</option>
-                      {uncompletedTasks.map((t) => (
-                        <option key={t.id} value={t.id}>
-                          {t.title}
-                        </option>
-                      ))}
-                    </select>
-                    <button 
-                      className="btn btn-ghost btn-sm" 
-                      onClick={handleAddMainTask}
-                      disabled={!selectedMainTaskId}
-                    >
-                      Link Task
-                    </button>
-                  </div>
-                </motion.div>
-              ) : (
-                !insertAfterIndex && !replacingPlaceholderIndex && (
-                  <div style={{
-                    display: 'flex',
-                    justifyContent: 'center',
-                    padding: '8px 0',
-                  }}>
-                    <button
-                      className="btn btn-ghost btn-xs"
-                      onClick={() => setInsertAfterIndex(index)}
-                      style={{
-                        opacity: 0.5,
-                        transition: 'opacity 0.2s',
-                      }}
-                      onMouseEnter={(e) => e.currentTarget.style.opacity = '1'}
-                      onMouseLeave={(e) => e.currentTarget.style.opacity = '0.5'}
-                    >
-                      + Insert Task Here
-                    </button>
-                  </div>
-                )
-              )}
+                {/* Insert inline modal */}
+                {insertAfterIndex === index && !replacingPlaceholderIndex && (
+                  <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }}
+                    style={{ background: 'var(--bg-secondary)', padding: 14, borderRadius: 10, border: '2px solid var(--accent)', marginTop: 8, marginBottom: 4 }}
+                  >
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
+                      <h3 style={{ fontSize: 14, margin: 0 }}>Insert After #{nodeNumber}</h3>
+                      <button className="btn btn-ghost btn-sm" onClick={() => { setInsertAfterIndex(null); setNewTaskTitle(''); setSelectedMainTaskId(''); }}>×</button>
+                    </div>
+                    <div style={{ display: 'flex', gap: 8, marginBottom: 10 }}>
+                      <input type="text" value={newTaskTitle} onChange={(e) => setNewTaskTitle(e.target.value)} placeholder="New chain task" autoFocus
+                        style={{ flex: 1, padding: '7px 10px', background: 'var(--bg-tertiary)', border: '1px solid var(--border)', borderRadius: 6, color: 'var(--text-primary)', fontSize: 13 }}
+                        onKeyDown={(e) => e.key === 'Enter' && handleAddCT()}
+                      />
+                      <button className="btn btn-primary btn-sm" onClick={handleAddCT} disabled={!newTaskTitle.trim()}>Add CT</button>
+                    </div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10, color: 'var(--text-secondary)', fontSize: 11 }}>
+                      <div style={{ flex: 1, height: 1, background: 'var(--border)' }} />OR<div style={{ flex: 1, height: 1, background: 'var(--border)' }} />
+                    </div>
+                    <div style={{ display: 'flex', gap: 8 }}>
+                      <select value={selectedMainTaskId} onChange={(e) => setSelectedMainTaskId(e.target.value)}
+                        style={{ flex: 1, padding: '7px 10px', background: 'var(--bg-tertiary)', border: '1px solid var(--border)', borderRadius: 6, color: 'var(--text-primary)', fontSize: 13 }}>
+                        <option value="">Select from task pool...</option>
+                        {uncompletedTasks.map((t) => <option key={t.id} value={t.id}>{t.title}</option>)}
+                      </select>
+                      <button className="btn btn-ghost btn-sm" onClick={handleAddMainTask} disabled={!selectedMainTaskId}>Link Task</button>
+                    </div>
+                  </motion.div>
+                )}
+              </div>
             </div>
           );
         })}
         
         {/* Add at End Button / Inline Modal */}
-        {currentChain && currentChain.links.length > 0 && (
-          insertAfterIndex === currentChain.links.length - 1 && !replacingPlaceholderIndex ? (
+        {currentChain && chainItems.length > 0 && (
+          insertAfterIndex === chainItems[chainItems.length - 1].index && !replacingPlaceholderIndex ? (
             <motion.div
               initial={{ opacity: 0, height: 0 }}
               animate={{ opacity: 1, height: 'auto' }}
@@ -1321,7 +1123,7 @@ export function TaskChain() {
             !insertAfterIndex && !replacingPlaceholderIndex && (
               <button
                 className="btn btn-ghost"
-                onClick={() => setInsertAfterIndex(currentChain.links.length - 1)}
+                onClick={() => setInsertAfterIndex(chainItems[chainItems.length - 1].index)}
                 style={{
                   padding: '12px',
                   border: '2px dashed var(--border)',
