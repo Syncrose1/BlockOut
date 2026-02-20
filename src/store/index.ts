@@ -181,6 +181,7 @@ interface BlockOutState {
   completeChainTask: (ctId: string) => void;
   uncompleteChainTask: (ctId: string) => void;
   promoteCTtoTask: (ctId: string, categoryId: string) => string;
+  replacePlaceholderWithTask: (chainDate: string, linkIndex: number, taskId: string) => void;
   saveChainAsTemplate: (chainDate: string, name: string) => void;
   loadTemplateAsChain: (templateId: string, date: string) => void;
   updateTemplate: (templateId: string, updates: Partial<ChainTemplate>) => void;
@@ -973,6 +974,26 @@ export const useStore = create<BlockOutState>((set, get) => ({
       chainTasks: {
         ...state.chainTasks,
         [ctId]: { ...ct, actualDuration: minutes },
+      },
+    };
+  }),
+
+  replacePlaceholderWithTask: (chainDate, linkIndex, taskId) => set((state) => {
+    const chain = state.taskChains[chainDate];
+    if (!chain || !chain.links[linkIndex]) return state;
+    
+    const newLinks = [...chain.links];
+    newLinks[linkIndex] = {
+      ...newLinks[linkIndex],
+      type: 'realtask' as const,
+      taskId,
+      placeholder: undefined,
+    };
+    
+    return {
+      taskChains: {
+        ...state.taskChains,
+        [chainDate]: { ...chain, links: newLinks },
       },
     };
   }),

@@ -1,7 +1,8 @@
-import { useState, useMemo, useRef, useEffect } from 'react';
+import { useState, useMemo, useRef, useEffect, useCallback } from 'react';
 import { useStore } from '../store';
 import { motion, AnimatePresence } from 'framer-motion';
 import { debouncedSave } from '../utils/persistence';
+import { UnifiedTaskContextMenu } from './Modals';
 
 // Get today's date string
 function todayStr(): string {
@@ -15,8 +16,8 @@ export function TaskChain() {
   const chainTasks = useStore((s) => s.chainTasks);
   const chainTemplates = useStore((s) => s.chainTemplates);
   const selectedChainDate = useStore((s) => s.selectedChainDate);
-  const timeBlocks = useStore((s) => s.timeBlocks);
   const chainTaskCompletionSurveyId = useStore((s) => s.chainTaskCompletionSurveyId);
+  const selectedTaskIds = useStore((s) => s.selectedTaskIds);
   
   const setSelectedChainDate = useStore((s) => s.setSelectedChainDate);
   const addChainTask = useStore((s) => s.addChainTask);
@@ -30,21 +31,45 @@ export function TaskChain() {
   const deleteTemplate = useStore((s) => s.deleteTemplate);
   const setChainTaskDuration = useStore((s) => s.setChainTaskDuration);
   const setChainTaskCompletionSurveyId = useStore((s) => s.setChainTaskCompletionSurveyId);
-  const setCompletionSurveyTask = useStore((s) => s.setCompletionSurveyTask);
+  const replacePlaceholderWithTask = useStore((s) => s.replacePlaceholderWithTask);
+  const toggleTaskSelection = useStore((s) => s.toggleTaskSelection);
+  const clearTaskSelection = useStore((s) => s.clearTaskSelection);
+  const bulkDeleteTasks = useStore((s) => s.bulkDeleteTasks);
 
   const [showTemplates, setShowTemplates] = useState(false);
   const [newTaskTitle, setNewTaskTitle] = useState('');
-  const [selectedRealTaskId, setSelectedRealTaskId] = useState('');
+  const [selectedMainTaskId, setSelectedMainTaskId] = useState('');
   const [templateName, setTemplateName] = useState('');
   const [showSaveTemplate, setShowSaveTemplate] = useState(false);
   const [insertAfterIndex, setInsertAfterIndex] = useState<number | null>(null);
+  const [replacingPlaceholderIndex, setReplacingPlaceholderIndex] = useState<number | null>(null);
   const [showCalendar, setShowCalendar] = useState(false);
   const [customMinutes, setCustomMinutes] = useState('');
   const [showCustomTime, setShowCustomTime] = useState(false);
+  const [showBulkOperations, setShowBulkOperations] = useState(false);
+  const [contextMenu, setContextMenu] = useState<{ x: number; y: number; taskId: string; linkIndex: number } | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
+  const shiftPressed = useRef(false);
 
   const currentChain = taskChains[selectedChainDate];
   
+  // Track shift key
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Shift') shiftPressed.current = true;
+    };
+    const handleKeyUp = (e: KeyboardEvent) => {
+      if (e.key === 'Shift') shiftPressed.current = false;
+    };
+    
+    window.addEventListener('keydown', handleKeyDown);
+    window.addEventListener('keyup', handleKeyUp);
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown);
+      window.removeEventListener('keyup', handleKeyUp);
+    };
+  }, []);
+
   // Generate calendar for month navigation
   const calendarDays = useMemo(() => {
     const today = new Date();
@@ -57,14 +82,12 @@ export function TaskChain() {
     
     const days: Array<{ date: string; day: number; hasChain: boolean; isToday: boolean }> = [];
     
-    // Empty cells for days before month starts
     for (let i = 0; i < startDayOfWeek; i++) {
       days.push({ date: '', day: 0, hasChain: false, isToday: false });
     }
     
     const todayString = todayStr();
     
-    // Days of the month
     for (let day = 1; day <= daysInMonth; day++) {
       const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
       days.push({
@@ -78,6 +101,14 @@ export function TaskChain() {
     return days;
   }, [taskChains]);
 
+  // Get IDs of all tasks in the current chain for multiselect
+  const chainTaskIds = useMemo(() => {
+    if (!currentChain) return [];
+    return currentChain.links
+      .filter((l) => l.type === 'realtask' && l.taskId)
+      .map((l) => l.taskId);
+  }, [currentChain]);
+
   // Handle CT completion with survey
   const handleCompleteCT = (ctId: string) => {
     const ct = chainTasks[ctId];
@@ -85,16 +116,15 @@ export function TaskChain() {
     
     if (ct.completed) {
       uncompleteChainTask(ctId);
-      debouncedSave();
     } else {
       completeChainTask(ctId);
       setChainTaskCompletionSurveyId(ctId);
-      debouncedSave();
     }
+    debouncedSave();
   };
 
-  // Handle real task completion
-  const handleCompleteRealTask = (taskId: string) => {
+  // Handle Main Task completion
+  const handleCompleteMainTask = (taskId: string) => {
     toggleTask(taskId);
     debouncedSave();
   };
@@ -112,16 +142,101 @@ export function TaskChain() {
     debouncedSave();
   };
 
-  // Handle adding real task
-  const handleAddRealTask = () => {
-    if (!selectedRealTaskId) return;
-    if (insertAfterIndex !== null) {
-      addRealTaskToChain(selectedChainDate, selectedRealTaskId, insertAfterIndex);
+  // Handle adding Main Task
+  const handleAddMainTask = () => {
+    if (!selectedMainTaskId) return;
+    
+    // If we're replacing a placeholder, use the replace function
+    if (replacingPlaceholderIndex !== null) {
+      replacePlaceholderWithTask(selectedChainDate, replacingPlaceholderIndex, selectedMainTaskId);
+      setReplacingPlaceholderIndex(null);
+    } else if (insertAfterIndex !== null) {
+      addRealTaskToChain(selectedChainDate, selectedMainTaskId, insertAfterIndex);
     } else {
-      addRealTaskToChain(selectedChainDate, selectedRealTaskId);
+      addRealTaskToChain(selectedChainDate, selectedMainTaskId);
     }
-    setSelectedRealTaskId('');
+    
+    setSelectedMainTaskId('');
     setInsertAfterIndex(null);
+    debouncedSave();
+  };
+
+  // Handle double-click to complete
+  const handleDoubleClick = (link: any) => {
+    if (link.type === 'ct') {
+      handleCompleteCT(link.taskId);
+    } else if (link.type === 'realtask' && link.taskId) {
+      handleCompleteMainTask(link.taskId);
+    }
+  };
+
+  // Handle click with shift for multiselect (only for main tasks)
+  const handleTaskClick = (link: any, index: number, e: React.MouseEvent) => {
+    if (link.type === 'realtask' && link.taskId) {
+      if (shiftPressed.current || e.shiftKey) {
+        e.preventDefault();
+        e.stopPropagation();
+        toggleTaskSelection(link.taskId, true, false);
+      } else if (selectedTaskIds.length > 0) {
+        // If we have a selection, clicking without shift should clear it
+        // unless we're clicking on an already selected task
+        if (!selectedTaskIds.includes(link.taskId)) {
+          clearTaskSelection();
+        }
+      }
+    }
+  };
+
+  // Handle right-click for context menu
+  const handleRightClick = (link: any, index: number, e: React.MouseEvent) => {
+    e.preventDefault();
+    
+    if (link.type === 'realtask' && link.taskId) {
+      // For main tasks, show the unified context menu
+      if (selectedTaskIds.length > 0 && selectedTaskIds.includes(link.taskId)) {
+        // Show bulk operations for selected tasks
+        setShowBulkOperations(true);
+      } else {
+        // Show single task context menu
+        setContextMenu({ x: e.clientX, y: e.clientY, taskId: link.taskId, linkIndex: index });
+      }
+    } else if (link.type === 'ct') {
+      // For CTs, show a simple context menu
+      setContextMenu({ x: e.clientX, y: e.clientY, taskId: link.taskId, linkIndex: index });
+    }
+  };
+
+  // Handle bulk complete
+  const handleBulkComplete = () => {
+    selectedTaskIds.forEach((taskId) => {
+      const task = tasks[taskId];
+      if (task && !task.completed) {
+        toggleTask(taskId);
+      }
+    });
+    clearTaskSelection();
+    setShowBulkOperations(false);
+    debouncedSave();
+  };
+
+  // Handle bulk delete from chain
+  const handleBulkDeleteFromChain = () => {
+    // Remove all selected tasks from the chain
+    if (currentChain) {
+      const indicesToRemove: number[] = [];
+      currentChain.links.forEach((link, index) => {
+        if (link.type === 'realtask' && selectedTaskIds.includes(link.taskId)) {
+          indicesToRemove.push(index);
+        }
+      });
+      
+      // Remove from highest index to lowest to maintain correct indices
+      indicesToRemove.reverse().forEach((index) => {
+        removeChainLink(selectedChainDate, index);
+      });
+    }
+    clearTaskSelection();
+    setShowBulkOperations(false);
     debouncedSave();
   };
 
@@ -183,6 +298,15 @@ export function TaskChain() {
   
   // Get currently surveyed CT
   const surveyedCT = chainTaskCompletionSurveyId ? chainTasks[chainTaskCompletionSurveyId] : null;
+
+  // Get selected CTs for bulk operations
+  const selectedCTs = useMemo(() => {
+    if (!currentChain) return [];
+    return currentChain.links
+      .filter((l) => l.type === 'ct' && selectedTaskIds.includes(l.taskId))
+      .map((l) => chainTasks[l.taskId])
+      .filter(Boolean);
+  }, [currentChain, selectedTaskIds, chainTasks]);
 
   return (
     <div 
@@ -386,24 +510,29 @@ export function TaskChain() {
         {currentChain && currentChain.links.map((link, index) => {
           const isCT = link.type === 'ct';
           const ct = isCT ? chainTasks[link.taskId] : null;
-          const realTask = !isCT && link.taskId ? tasks[link.taskId] : null;
+          const mainTask = !isCT && link.taskId ? tasks[link.taskId] : null;
           const isPlaceholder = !isCT && !link.taskId;
           
-          const task = ct || realTask;
+          const task = ct || mainTask;
           const isCompleted = task?.completed || false;
+          const isSelected = mainTask && selectedTaskIds.includes(mainTask.id);
           
           // Determine colors based on completion and type
           let bgColor = 'var(--bg-secondary)';
           let borderColor = 'var(--border)';
           let accentColor = 'var(--accent)';
           
-          if (isCompleted) {
+          if (isSelected) {
+            bgColor = 'hsla(210, 100%, 65%, 0.1)';
+            borderColor = 'hsl(210, 100%, 65%)';
+            accentColor = 'hsl(210, 100%, 65%)';
+          } else if (isCompleted) {
             bgColor = 'hsla(140, 60%, 40%, 0.1)';
             borderColor = 'hsla(140, 60%, 40%, 0.3)';
             accentColor = 'hsl(140, 60%, 40%)';
           } else if (isCT) {
             accentColor = 'hsl(200, 70%, 50%)';
-          } else if (realTask) {
+          } else if (mainTask) {
             accentColor = 'hsl(270, 60%, 50%)';
           } else {
             // Placeholder
@@ -417,6 +546,9 @@ export function TaskChain() {
                 initial={{ opacity: 0, x: -20 }}
                 animate={{ opacity: 1, x: 0 }}
                 transition={{ delay: index * 0.05 }}
+                onDoubleClick={() => handleDoubleClick(link)}
+                onClick={(e) => handleTaskClick(link, index, e)}
+                onContextMenu={(e) => handleRightClick(link, index, e)}
                 style={{
                   display: 'flex',
                   alignItems: 'stretch',
@@ -425,6 +557,7 @@ export function TaskChain() {
                   borderRadius: 'var(--radius-lg)',
                   overflow: 'hidden',
                   transition: 'all 0.2s ease',
+                  cursor: mainTask ? 'pointer' : 'default',
                 }}
               >
                 {/* Completion Status Bar */}
@@ -447,20 +580,32 @@ export function TaskChain() {
                     width: 36,
                     height: 36,
                     borderRadius: '50%',
-                    background: isCompleted 
-                      ? 'hsla(140, 60%, 40%, 0.2)' 
-                      : isCT 
-                        ? 'hsla(200, 70%, 50%, 0.2)' 
-                        : isPlaceholder 
-                          ? 'var(--bg-tertiary)' 
-                          : 'hsla(270, 60%, 50%, 0.2)',
+                    background: isSelected
+                      ? 'hsla(210, 100%, 65%, 0.2)'
+                      : isCompleted 
+                        ? 'hsla(140, 60%, 40%, 0.2)' 
+                        : isCT 
+                          ? 'hsla(200, 70%, 50%, 0.2)' 
+                          : isPlaceholder 
+                            ? 'var(--bg-tertiary)' 
+                            : 'hsla(270, 60%, 50%, 0.2)',
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'center',
-                    fontSize: 16,
+                    fontSize: 14,
+                    fontWeight: 600,
                     flexShrink: 0,
+                    color: isSelected
+                      ? 'hsl(210, 100%, 65%)'
+                      : isCompleted
+                        ? 'hsl(140, 60%, 40%)'
+                        : isCT
+                          ? 'hsl(200, 70%, 50%)'
+                          : isPlaceholder
+                            ? 'var(--text-tertiary)'
+                            : 'hsl(270, 60%, 50%)',
                   }}>
-                    {isCompleted ? '✓' : isCT ? 'CT' : isPlaceholder ? '?' : 'T'}
+                    {isCompleted ? '✓' : isCT ? 'CT' : isPlaceholder ? '?' : 'M'}
                   </div>
                   
                   {/* Task Info */}
@@ -472,7 +617,7 @@ export function TaskChain() {
                           fontStyle: 'italic',
                           fontSize: 14,
                         }}>
-                          Insert Real Task
+                          Insert Main Task
                         </div>
                         {link.placeholder && (
                           <div style={{ 
@@ -512,11 +657,12 @@ export function TaskChain() {
                     {!isPlaceholder && (
                       <button
                         className="btn btn-sm"
-                        onClick={() => {
+                        onClick={(e) => {
+                          e.stopPropagation();
                           if (isCT) {
                             handleCompleteCT(link.taskId);
                           } else {
-                            handleCompleteRealTask(link.taskId);
+                            handleCompleteMainTask(link.taskId);
                           }
                         }}
                         style={{
@@ -532,15 +678,19 @@ export function TaskChain() {
                     {isPlaceholder && (
                       <button
                         className="btn btn-sm btn-primary"
-                        onClick={() => setInsertAfterIndex(index)}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setReplacingPlaceholderIndex(index);
+                        }}
                       >
-                        Select Task
+                        Select
                       </button>
                     )}
                     
                     <button
                       className="btn btn-ghost btn-sm"
-                      onClick={() => {
+                      onClick={(e) => {
+                        e.stopPropagation();
                         removeChainLink(selectedChainDate, index);
                         debouncedSave();
                       }}
@@ -553,7 +703,7 @@ export function TaskChain() {
               </motion.div>
               
               {/* Insert Button Between Tasks */}
-              {!insertAfterIndex && (
+              {!insertAfterIndex && !replacingPlaceholderIndex && (
                 <div style={{
                   display: 'flex',
                   justifyContent: 'center',
@@ -578,7 +728,7 @@ export function TaskChain() {
         })}
         
         {/* Add at End Button */}
-        {currentChain && currentChain.links.length > 0 && !insertAfterIndex && (
+        {currentChain && currentChain.links.length > 0 && !insertAfterIndex && !replacingPlaceholderIndex && (
           <button
             className="btn btn-ghost"
             onClick={() => setInsertAfterIndex(currentChain.links.length - 1)}
@@ -594,7 +744,7 @@ export function TaskChain() {
         )}
 
         {/* Add Task Interface */}
-        {insertAfterIndex !== null && (
+        {(insertAfterIndex !== null || replacingPlaceholderIndex !== null) && (
           <motion.div
             initial={{ opacity: 0, y: -10 }}
             animate={{ opacity: 1, y: 0 }}
@@ -613,16 +763,21 @@ export function TaskChain() {
               marginBottom: 16,
             }}>
               <h3 style={{ fontSize: 16, margin: 0 }}>
-                {insertAfterIndex === -1 
-                  ? 'Add First Task' 
-                  : `Insert After Task ${insertAfterIndex + 1}`}
+                {replacingPlaceholderIndex !== null 
+                  ? 'Select Main Task'
+                  : insertAfterIndex === -1 
+                    ? 'Add First Task' 
+                    : insertAfterIndex !== null
+                      ? `Insert After Task ${insertAfterIndex + 1}`
+                      : 'Add Task'}
               </h3>
               <button 
                 className="btn btn-ghost btn-sm"
                 onClick={() => {
                   setInsertAfterIndex(null);
+                  setReplacingPlaceholderIndex(null);
                   setNewTaskTitle('');
-                  setSelectedRealTaskId('');
+                  setSelectedMainTaskId('');
                 }}
               >
                 Cancel
@@ -670,11 +825,11 @@ export function TaskChain() {
               <div style={{ flex: 1, height: 1, background: 'var(--border)' }} />
             </div>
 
-            {/* Add Real Task */}
+            {/* Add Main Task */}
             <div style={{ display: 'flex', gap: 12 }}>
               <select
-                value={selectedRealTaskId}
-                onChange={(e) => setSelectedRealTaskId(e.target.value)}
+                value={selectedMainTaskId}
+                onChange={(e) => setSelectedMainTaskId(e.target.value)}
                 style={{
                   flex: 1,
                   padding: '10px 12px',
@@ -693,10 +848,10 @@ export function TaskChain() {
               </select>
               <button 
                 className="btn btn-ghost" 
-                onClick={handleAddRealTask}
-                disabled={!selectedRealTaskId}
+                onClick={handleAddMainTask}
+                disabled={!selectedMainTaskId}
               >
-                Link Task
+                {replacingPlaceholderIndex !== null ? 'Replace' : 'Link Task'}
               </button>
             </div>
           </motion.div>
@@ -827,6 +982,97 @@ export function TaskChain() {
               >
                 Skip
               </button>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Context Menu for Main Tasks */}
+      <AnimatePresence>
+        {contextMenu && contextMenu.taskId && tasks[contextMenu.taskId] && (
+          <UnifiedTaskContextMenu
+            open={true}
+            onClose={() => setContextMenu(null)}
+            taskId={contextMenu.taskId}
+            x={contextMenu.x}
+            y={contextMenu.y}
+          />
+        )}
+      </AnimatePresence>
+
+      {/* Bulk Operations Modal for Task Chain */}
+      <AnimatePresence>
+        {showBulkOperations && selectedTaskIds.length > 0 && (
+          <motion.div
+            className="modal-overlay"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            onClick={() => setShowBulkOperations(false)}
+          >
+            <motion.div
+              className="modal"
+              initial={{ scale: 0.92, opacity: 0, y: 20 }}
+              animate={{ scale: 1, opacity: 1, y: 0 }}
+              exit={{ scale: 0.92, opacity: 0, y: 20 }}
+              onClick={(e) => e.stopPropagation()}
+              style={{ maxWidth: 500 }}
+            >
+              <h2>{selectedTaskIds.length} Selected in Chain</h2>
+              
+              <div style={{ marginBottom: 20 }}>
+                <div style={{ fontSize: 13, color: 'var(--text-secondary)', marginBottom: 12 }}>
+                  <strong>Selected tasks:</strong>
+                </div>
+                <div style={{ 
+                  maxHeight: 120, 
+                  overflow: 'auto',
+                  padding: 8,
+                  background: 'var(--bg-tertiary)',
+                  borderRadius: 'var(--radius-sm)',
+                  fontSize: 13
+                }}>
+                  {selectedTaskIds.map((id) => {
+                    const task = tasks[id] || chainTasks[id];
+                    return task ? (
+                      <div key={id} style={{ padding: '2px 0' }}>
+                        {task.title}
+                      </div>
+                    ) : null;
+                  })}
+                </div>
+              </div>
+
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 20 }}>
+                <button 
+                  className="btn btn-primary"
+                  onClick={handleBulkComplete}
+                >
+                  ✓ Mark All Complete
+                </button>
+                
+                <button 
+                  className="btn btn-danger"
+                  onClick={handleBulkDeleteFromChain}
+                >
+                  Remove from Chain
+                </button>
+              </div>
+
+              <div className="modal-actions">
+                <button 
+                  className="btn btn-ghost" 
+                  onClick={() => {
+                    clearTaskSelection();
+                    setShowBulkOperations(false);
+                  }}
+                >
+                  Clear Selection
+                </button>
+                <button className="btn btn-ghost" onClick={() => setShowBulkOperations(false)}>
+                  Done
+                </button>
+              </div>
             </motion.div>
           </motion.div>
         )}
