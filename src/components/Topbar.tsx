@@ -62,6 +62,7 @@ export function Topbar() {
   const views: { id: ViewMode; label: string }[] = [
     { id: 'treemap', label: 'Treemap' },
     { id: 'timeline', label: 'Timeline' },
+    { id: 'taskchain', label: 'Task Chain' },
   ];
 
   // Close dropdown when clicking outside

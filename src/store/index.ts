@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import { v4 as uuid } from 'uuid';
-import type { Task, Category, TimeBlock, PomodoroState, PomodoroSession, ViewMode, StreakData, DragState } from '../types';
+import type { Task, Category, TimeBlock, PomodoroState, PomodoroSession, ViewMode, StreakData, DragState, TaskChain, ChainTask, ChainTemplate } from '../types';
 import { getCategoryColor } from '../utils/colors';
 
 function todayStr(): string {
@@ -93,6 +93,13 @@ interface BlockOutState {
     };
   } | null;
 
+  // Task Chains
+  taskChains: Record<string, TaskChain>; // key: YYYY-MM-DD
+  chainTemplates: Record<string, ChainTemplate>;
+  chainTasks: Record<string, ChainTask>; // CTs that exist in chains
+  selectedChainDate: string; // YYYY-MM-DD, defaults to today
+  showTaskChainModal: boolean;
+
   // Actions — Categories
   addCategory: (name: string) => string;
   addSubcategory: (categoryId: string, name: string) => void;
@@ -162,6 +169,22 @@ interface BlockOutState {
   setSyncSettingsOpen: (open: boolean) => void;
   setConflictState: (state: BlockOutState['conflictState']) => void;
 
+  // Actions — Task Chains
+  setSelectedChainDate: (date: string) => void;
+  setShowTaskChainModal: (show: boolean) => void;
+  addChainTask: (chainDate: string, title: string, afterIndex?: number) => void;
+  addRealTaskToChain: (chainDate: string, taskId: string, afterIndex?: number) => void;
+  removeChainLink: (chainDate: string, index: number) => void;
+  reorderChainLink: (chainDate: string, fromIndex: number, toIndex: number) => void;
+  completeChainTask: (ctId: string) => void;
+  uncompleteChainTask: (ctId: string) => void;
+  promoteCTtoTask: (ctId: string, categoryId: string) => string;
+  saveChainAsTemplate: (chainDate: string, name: string) => void;
+  loadTemplateAsChain: (templateId: string, date: string) => void;
+  updateTemplate: (templateId: string, updates: Partial<ChainTemplate>) => void;
+  deleteTemplate: (templateId: string) => void;
+  setChainTaskDuration: (ctId: string, minutes: number) => void;
+
   // Persistence
   loadData: (data: {
     tasks: Record<string, Task>;
@@ -202,6 +225,13 @@ export const useStore = create<BlockOutState>((set, get) => ({
   syncStatus: 'idle',
   syncSettingsOpen: false,
   conflictState: null,
+
+  // Task Chains
+  taskChains: {},
+  chainTemplates: {},
+  chainTasks: {},
+  selectedChainDate: todayStr(),
+  showTaskChainModal: false,
 
   drag: {
     draggedTaskId: null,
@@ -703,6 +733,241 @@ export const useStore = create<BlockOutState>((set, get) => ({
   setFocusedTask: (taskId) =>
     set((state) => ({ pomodoro: { ...state.pomodoro, focusedTaskId: taskId } })),
 
+  // Task Chains
+  setSelectedChainDate: (date) => set({ selectedChainDate: date }),
+  setShowTaskChainModal: (show) => set({ showTaskChainModal: show }),
+
+  addChainTask: (chainDate, title, afterIndex) => set((state) => {
+    const ctId = uuid();
+    const newCT: ChainTask = { id: ctId, title, type: 'ct', completed: false };
+    
+    const existingChain = state.taskChains[chainDate];
+    const newLink = { id: uuid(), type: 'ct' as const, taskId: ctId };
+    
+    let newLinks;
+    if (existingChain) {
+      newLinks = [...existingChain.links];
+      if (afterIndex !== undefined && afterIndex >= 0 && afterIndex < newLinks.length) {
+        newLinks.splice(afterIndex + 1, 0, newLink);
+      } else {
+        newLinks.push(newLink);
+      }
+    } else {
+      newLinks = [newLink];
+    }
+    
+    return {
+      chainTasks: { ...state.chainTasks, [ctId]: newCT },
+      taskChains: {
+        ...state.taskChains,
+        [chainDate]: {
+          id: existingChain?.id || uuid(),
+          date: chainDate,
+          links: newLinks,
+          createdAt: existingChain?.createdAt || Date.now(),
+        },
+      },
+    };
+  }),
+
+  addRealTaskToChain: (chainDate, taskId, afterIndex) => set((state) => {
+    const existingChain = state.taskChains[chainDate];
+    const newLink = { id: uuid(), type: 'realtask' as const, taskId };
+    
+    let newLinks;
+    if (existingChain) {
+      newLinks = [...existingChain.links];
+      if (afterIndex !== undefined && afterIndex >= 0 && afterIndex < newLinks.length) {
+        newLinks.splice(afterIndex + 1, 0, newLink);
+      } else {
+        newLinks.push(newLink);
+      }
+    } else {
+      newLinks = [newLink];
+    }
+    
+    return {
+      taskChains: {
+        ...state.taskChains,
+        [chainDate]: {
+          id: existingChain?.id || uuid(),
+          date: chainDate,
+          links: newLinks,
+          createdAt: existingChain?.createdAt || Date.now(),
+        },
+      },
+    };
+  }),
+
+  removeChainLink: (chainDate, index) => set((state) => {
+    const chain = state.taskChains[chainDate];
+    if (!chain) return state;
+    
+    const link = chain.links[index];
+    const newLinks = chain.links.filter((_, i) => i !== index);
+    
+    // If it's a CT, we could optionally delete it from chainTasks, but let's keep it for history
+    
+    return {
+      taskChains: {
+        ...state.taskChains,
+        [chainDate]: { ...chain, links: newLinks },
+      },
+    };
+  }),
+
+  reorderChainLink: (chainDate, fromIndex, toIndex) => set((state) => {
+    const chain = state.taskChains[chainDate];
+    if (!chain) return state;
+    
+    const links = [...chain.links];
+    const [moved] = links.splice(fromIndex, 1);
+    links.splice(toIndex, 0, moved);
+    
+    return {
+      taskChains: {
+        ...state.taskChains,
+        [chainDate]: { ...chain, links },
+      },
+    };
+  }),
+
+  completeChainTask: (ctId) => set((state) => {
+    const ct = state.chainTasks[ctId];
+    if (!ct) return state;
+    
+    return {
+      chainTasks: {
+        ...state.chainTasks,
+        [ctId]: { ...ct, completed: true, completedAt: Date.now() },
+      },
+    };
+  }),
+
+  uncompleteChainTask: (ctId) => set((state) => {
+    const ct = state.chainTasks[ctId];
+    if (!ct) return state;
+    
+    const { completedAt, ...rest } = ct;
+    return {
+      chainTasks: {
+        ...state.chainTasks,
+        [ctId]: { ...rest, completed: false },
+      },
+    };
+  }),
+
+  promoteCTtoTask: (ctId, categoryId) => {
+    const ct = get().chainTasks[ctId];
+    if (!ct) return '';
+    
+    const taskId = get().addTask({
+      title: ct.title,
+      categoryId,
+      weight: 3,
+    });
+    
+    // Update the chain link to point to the real task
+    set((state) => {
+      const newTaskChains = { ...state.taskChains };
+      Object.keys(newTaskChains).forEach((date) => {
+        const chain = newTaskChains[date];
+        const linkIndex = chain.links.findIndex((l) => l.taskId === ctId && l.type === 'ct');
+        if (linkIndex !== -1) {
+          chain.links[linkIndex] = { ...chain.links[linkIndex], type: 'realtask' as const, taskId };
+        }
+      });
+      return { taskChains: newTaskChains };
+    });
+    
+    return taskId;
+  },
+
+  saveChainAsTemplate: (chainDate, name) => set((state) => {
+    const chain = state.taskChains[chainDate];
+    if (!chain) return state;
+    
+    const templateLinks = chain.links.map((link) => {
+      if (link.type === 'ct') {
+        const ct = state.chainTasks[link.taskId];
+        return { type: 'ct' as const, ctTitle: ct?.title || 'Chain Task' };
+      } else {
+        const task = state.tasks[link.taskId];
+        return { type: 'realtask' as const, realTaskPlaceholder: task?.title || 'Insert Real Task' };
+      }
+    });
+    
+    const template: ChainTemplate = {
+      id: uuid(),
+      name,
+      links: templateLinks,
+      createdAt: Date.now(),
+    };
+    
+    return {
+      chainTemplates: { ...state.chainTemplates, [template.id]: template },
+    };
+  }),
+
+  loadTemplateAsChain: (templateId, date) => set((state) => {
+    const template = state.chainTemplates[templateId];
+    if (!template) return state;
+    
+    const newChainTasks: Record<string, ChainTask> = {};
+    const newLinks = template.links.map((link) => {
+      if (link.type === 'ct') {
+        const ctId = uuid();
+        newChainTasks[ctId] = { id: ctId, title: link.ctTitle || 'Chain Task', type: 'ct', completed: false };
+        return { id: uuid(), type: 'ct' as const, taskId: ctId };
+      } else {
+        // For real task placeholders, we create an empty slot
+        // User will need to fill in the actual task later
+        return { id: uuid(), type: 'realtask' as const, taskId: '' };
+      }
+    });
+    
+    const chain: TaskChain = {
+      id: uuid(),
+      date,
+      links: newLinks,
+      createdAt: Date.now(),
+    };
+    
+    return {
+      chainTasks: { ...state.chainTasks, ...newChainTasks },
+      taskChains: { ...state.taskChains, [date]: chain },
+    };
+  }),
+
+  updateTemplate: (templateId, updates) => set((state) => {
+    const template = state.chainTemplates[templateId];
+    if (!template) return state;
+    
+    return {
+      chainTemplates: {
+        ...state.chainTemplates,
+        [templateId]: { ...template, ...updates, updatedAt: Date.now() },
+      },
+    };
+  }),
+
+  deleteTemplate: (templateId) => set((state) => {
+    const { [templateId]: _, ...rest } = state.chainTemplates;
+    return { chainTemplates: rest };
+  }),
+
+  setChainTaskDuration: (ctId, minutes) => set((state) => {
+    const ct = state.chainTasks[ctId];
+    if (!ct) return state;
+    
+    return {
+      chainTasks: {
+        ...state.chainTasks,
+        [ctId]: { ...ct, actualDuration: minutes },
+      },
+    };
+  }),
+
   // Persistence
   loadData: (data) => {
     const streak = data.streak || { completionDates: [], currentStreak: 0, longestStreak: 0 };
@@ -717,6 +982,10 @@ export const useStore = create<BlockOutState>((set, get) => ({
         ...state.pomodoro,
         sessions: data.pomodoroSessions || [],
       },
+      // Task chains - load if provided, otherwise keep existing
+      ...(data as any).taskChains && { taskChains: (data as any).taskChains },
+      ...(data as any).chainTemplates && { chainTemplates: (data as any).chainTemplates },
+      ...(data as any).chainTasks && { chainTasks: (data as any).chainTasks },
     }));
   },
   getSerializableState: () => {
@@ -728,6 +997,9 @@ export const useStore = create<BlockOutState>((set, get) => ({
       activeBlockId: s.activeBlockId,
       streak: s.streak,
       pomodoroSessions: s.pomodoro.sessions,
+      taskChains: s.taskChains,
+      chainTemplates: s.chainTemplates,
+      chainTasks: s.chainTasks,
     };
   },
 }));

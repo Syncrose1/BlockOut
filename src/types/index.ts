@@ -76,9 +76,45 @@ export interface SelectionState {
   lastSelectedTaskId: string | null; // For SHIFT+click range selection
 }
 
-export type ViewMode = 'treemap' | 'timeline';
+export type ViewMode = 'treemap' | 'timeline' | 'taskchain';
 
 export type PoolViewMode = 'all' | 'unassigned'; // For filtering the task pool
+
+// Task Chain types
+export interface ChainTask {
+  id: string;
+  title: string;
+  type: 'ct'; // Chain Task
+  completed: boolean;
+  completedAt?: number;
+  actualDuration?: number; // minutes
+}
+
+export interface ChainLink {
+  id: string;
+  type: 'ct' | 'realtask';
+  taskId: string; // For CT: chain task ID, for realtask: task ID
+}
+
+export interface TaskChain {
+  id: string;
+  date: string; // YYYY-MM-DD
+  links: ChainLink[];
+  createdAt: number;
+  completedAt?: number;
+}
+
+export interface ChainTemplate {
+  id: string;
+  name: string;
+  links: Array<{
+    type: 'ct' | 'realtask';
+    ctTitle?: string; // For CT: the title
+    realTaskPlaceholder?: string; // For realtask: example task name
+  }>;
+  createdAt: number;
+  updatedAt?: number;
+}
 
 export interface TreemapNode {
   id: string;

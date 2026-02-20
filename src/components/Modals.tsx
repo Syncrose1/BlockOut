@@ -3136,10 +3136,7 @@ Generate tasks based on the user's content above.`;
     
     if (result.newCategories) {
       result.newCategories.forEach((newCat: any) => {
-        const id = addCategory({ 
-          name: newCat.name, 
-          subcategories: newCat.subcategories || [] 
-        });
+        const id = addCategory(newCat.name);
         categoryIdMap[newCat.name] = id;
       });
     }
@@ -3158,7 +3155,7 @@ Generate tasks based on the user's content above.`;
       
       if (!categoryId && task.categoryName) {
         // Create new category
-        categoryId = addCategory({ name: task.categoryName, subcategories: [] });
+        categoryId = addCategory(task.categoryName);
       }
       
       // Add task

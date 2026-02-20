@@ -7,6 +7,7 @@ import { Topbar } from './components/Topbar';
 import { Treemap } from './components/Treemap';
 
 import { Timeline } from './components/Timeline';
+import { TaskChain } from './components/TaskChain';
 import { Pomodoro } from './components/Pomodoro';
 import { OnboardingTour } from './components/Onboarding';
 import {
@@ -102,6 +103,7 @@ export function App() {
         {viewMode === 'treemap' && <Treemap />}
 
         {viewMode === 'timeline' && <Timeline />}
+        {viewMode === 'taskchain' && <TaskChain />}
       </div>
       <Pomodoro />
       <NewBlockModal />
