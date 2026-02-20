@@ -94,6 +94,7 @@ export interface ChainLink {
   id: string;
   type: 'ct' | 'realtask';
   taskId: string; // For CT: chain task ID, for realtask: task ID
+  placeholder?: string; // For realtask placeholders: example task name
 }
 
 export interface TaskChain {

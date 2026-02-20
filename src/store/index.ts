@@ -64,6 +64,7 @@ interface BlockOutState {
   editingTaskId: string | null;
   focusMode: boolean;
   completionSurveyTaskId: string | null; // task pending duration survey
+  chainTaskCompletionSurveyId: string | null; // CT pending duration survey
   pomodoroSettingsOpen: boolean;
 
   // Drag and drop
@@ -132,6 +133,7 @@ interface BlockOutState {
   setShowNewTaskModal: (show: boolean) => void;
   setEditingTaskId: (id: string | null) => void;
   setCompletionSurveyTask: (id: string | null) => void;
+  setChainTaskCompletionSurveyId: (id: string | null) => void;
   setPomodoroSettingsOpen: (open: boolean) => void;
 
   // Actions — Focus mode
@@ -221,6 +223,7 @@ export const useStore = create<BlockOutState>((set, get) => ({
   editingTaskId: null,
   focusMode: false,
   completionSurveyTaskId: null,
+  chainTaskCompletionSurveyId: null,
   pomodoroSettingsOpen: false,
   syncStatus: 'idle',
   syncSettingsOpen: false,
@@ -518,6 +521,7 @@ export const useStore = create<BlockOutState>((set, get) => ({
   setShowNewTaskModal: (show) => set({ showNewTaskModal: show }),
   setEditingTaskId: (id) => set({ editingTaskId: id }),
   setCompletionSurveyTask: (id) => set({ completionSurveyTaskId: id }),
+  setChainTaskCompletionSurveyId: (id) => set({ chainTaskCompletionSurveyId: id }),
   setPomodoroSettingsOpen: (open) => set({ pomodoroSettingsOpen: open }),
   setSyncStatus: (status) => set({ syncStatus: status }),
   setSyncSettingsOpen: (open) => set({ syncSettingsOpen: open }),
@@ -920,9 +924,14 @@ export const useStore = create<BlockOutState>((set, get) => ({
         newChainTasks[ctId] = { id: ctId, title: link.ctTitle || 'Chain Task', type: 'ct', completed: false };
         return { id: uuid(), type: 'ct' as const, taskId: ctId };
       } else {
-        // For real task placeholders, we create an empty slot
+        // For real task placeholders, we create an empty slot with placeholder text
         // User will need to fill in the actual task later
-        return { id: uuid(), type: 'realtask' as const, taskId: '' };
+        return { 
+          id: uuid(), 
+          type: 'realtask' as const, 
+          taskId: '',
+          placeholder: link.realTaskPlaceholder || 'Insert Real Task'
+        };
       }
     });
     

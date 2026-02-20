@@ -1,13 +1,11 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useRef, useEffect } from 'react';
 import { useStore } from '../store';
 import { motion, AnimatePresence } from 'framer-motion';
 import { debouncedSave } from '../utils/persistence';
 
-function formatDuration(minutes: number): string {
-  if (minutes < 60) return `${minutes}m`;
-  const hours = Math.floor(minutes / 60);
-  const mins = minutes % 60;
-  return mins > 0 ? `${hours}h ${mins}m` : `${hours}h`;
+// Get today's date string
+function todayStr(): string {
+  return new Date().toISOString().slice(0, 10);
 }
 
 export function TaskChain() {
@@ -18,6 +16,7 @@ export function TaskChain() {
   const chainTemplates = useStore((s) => s.chainTemplates);
   const selectedChainDate = useStore((s) => s.selectedChainDate);
   const timeBlocks = useStore((s) => s.timeBlocks);
+  const chainTaskCompletionSurveyId = useStore((s) => s.chainTaskCompletionSurveyId);
   
   const setSelectedChainDate = useStore((s) => s.setSelectedChainDate);
   const addChainTask = useStore((s) => s.addChainTask);
@@ -30,18 +29,23 @@ export function TaskChain() {
   const loadTemplateAsChain = useStore((s) => s.loadTemplateAsChain);
   const deleteTemplate = useStore((s) => s.deleteTemplate);
   const setChainTaskDuration = useStore((s) => s.setChainTaskDuration);
+  const setChainTaskCompletionSurveyId = useStore((s) => s.setChainTaskCompletionSurveyId);
+  const setCompletionSurveyTask = useStore((s) => s.setCompletionSurveyTask);
 
   const [showTemplates, setShowTemplates] = useState(false);
   const [newTaskTitle, setNewTaskTitle] = useState('');
   const [selectedRealTaskId, setSelectedRealTaskId] = useState('');
   const [templateName, setTemplateName] = useState('');
   const [showSaveTemplate, setShowSaveTemplate] = useState(false);
-  const [editingDuration, setEditingDuration] = useState<string | null>(null);
-  const [durationInput, setDurationInput] = useState('');
+  const [insertAfterIndex, setInsertAfterIndex] = useState<number | null>(null);
+  const [showCalendar, setShowCalendar] = useState(false);
+  const [customMinutes, setCustomMinutes] = useState('');
+  const [showCustomTime, setShowCustomTime] = useState(false);
+  const containerRef = useRef<HTMLDivElement>(null);
 
   const currentChain = taskChains[selectedChainDate];
   
-  // Generate calendar days (current month)
+  // Generate calendar for month navigation
   const calendarDays = useMemo(() => {
     const today = new Date();
     const year = today.getFullYear();
@@ -51,12 +55,14 @@ export function TaskChain() {
     const daysInMonth = lastDay.getDate();
     const startDayOfWeek = firstDay.getDay();
     
-    const days: Array<{ date: string; day: number; hasChain: boolean }> = [];
+    const days: Array<{ date: string; day: number; hasChain: boolean; isToday: boolean }> = [];
     
     // Empty cells for days before month starts
     for (let i = 0; i < startDayOfWeek; i++) {
-      days.push({ date: '', day: 0, hasChain: false });
+      days.push({ date: '', day: 0, hasChain: false, isToday: false });
     }
+    
+    const todayString = todayStr();
     
     // Days of the month
     for (let day = 1; day <= daysInMonth; day++) {
@@ -65,43 +71,91 @@ export function TaskChain() {
         date: dateStr,
         day,
         hasChain: !!taskChains[dateStr],
+        isToday: dateStr === todayString,
       });
     }
     
     return days;
   }, [taskChains]);
 
+  // Handle CT completion with survey
+  const handleCompleteCT = (ctId: string) => {
+    const ct = chainTasks[ctId];
+    if (!ct) return;
+    
+    if (ct.completed) {
+      uncompleteChainTask(ctId);
+      debouncedSave();
+    } else {
+      completeChainTask(ctId);
+      setChainTaskCompletionSurveyId(ctId);
+      debouncedSave();
+    }
+  };
+
+  // Handle real task completion
+  const handleCompleteRealTask = (taskId: string) => {
+    toggleTask(taskId);
+    debouncedSave();
+  };
+
+  // Handle adding CT
   const handleAddCT = () => {
     if (!newTaskTitle.trim()) return;
-    addChainTask(selectedChainDate, newTaskTitle);
+    if (insertAfterIndex !== null) {
+      addChainTask(selectedChainDate, newTaskTitle, insertAfterIndex);
+    } else {
+      addChainTask(selectedChainDate, newTaskTitle);
+    }
     setNewTaskTitle('');
+    setInsertAfterIndex(null);
     debouncedSave();
   };
 
+  // Handle adding real task
   const handleAddRealTask = () => {
     if (!selectedRealTaskId) return;
-    addRealTaskToChain(selectedChainDate, selectedRealTaskId);
-    setSelectedRealTaskId('');
-    debouncedSave();
-  };
-
-  const handleComplete = (link: any, index: number) => {
-    if (link.type === 'ct') {
-      const ct = chainTasks[link.taskId];
-      if (ct?.completed) {
-        uncompleteChainTask(link.taskId);
-      } else {
-        completeChainTask(link.taskId);
-        // Prompt for duration
-        setEditingDuration(link.taskId);
-      }
+    if (insertAfterIndex !== null) {
+      addRealTaskToChain(selectedChainDate, selectedRealTaskId, insertAfterIndex);
     } else {
-      // Real task
-      toggleTask(link.taskId);
+      addRealTaskToChain(selectedChainDate, selectedRealTaskId);
     }
+    setSelectedRealTaskId('');
+    setInsertAfterIndex(null);
     debouncedSave();
   };
 
+  // Handle duration selection
+  const handleDurationSelect = (minutes: number) => {
+    if (chainTaskCompletionSurveyId) {
+      setChainTaskDuration(chainTaskCompletionSurveyId, minutes);
+      setChainTaskCompletionSurveyId(null);
+      debouncedSave();
+    }
+    setShowCustomTime(false);
+    setCustomMinutes('');
+  };
+
+  // Handle custom duration
+  const handleCustomDuration = () => {
+    const mins = parseInt(customMinutes);
+    if (mins > 0 && chainTaskCompletionSurveyId) {
+      setChainTaskDuration(chainTaskCompletionSurveyId, mins);
+      setChainTaskCompletionSurveyId(null);
+      debouncedSave();
+    }
+    setShowCustomTime(false);
+    setCustomMinutes('');
+  };
+
+  // Handle skip duration
+  const handleSkipDuration = () => {
+    setChainTaskCompletionSurveyId(null);
+    setShowCustomTime(false);
+    setCustomMinutes('');
+  };
+
+  // Handle save template
   const handleSaveTemplate = () => {
     if (!templateName.trim() || !currentChain) return;
     saveChainAsTemplate(selectedChainDate, templateName);
@@ -110,317 +164,673 @@ export function TaskChain() {
     debouncedSave();
   };
 
-  const handleDurationSubmit = (ctId: string) => {
-    const minutes = parseInt(durationInput, 10);
-    if (!isNaN(minutes) && minutes > 0) {
-      setChainTaskDuration(ctId, minutes);
-      debouncedSave();
+  // Click outside to close calendar
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (containerRef.current && !containerRef.current.contains(event.target as Node)) {
+        setShowCalendar(false);
+      }
+    };
+    
+    if (showCalendar) {
+      document.addEventListener('mousedown', handleClickOutside);
+      return () => document.removeEventListener('mousedown', handleClickOutside);
     }
-    setEditingDuration(null);
-    setDurationInput('');
-  };
+  }, [showCalendar]);
 
   // Get uncompleted tasks for the dropdown
   const uncompletedTasks = Object.values(tasks).filter((t) => !t.completed);
+  
+  // Get currently surveyed CT
+  const surveyedCT = chainTaskCompletionSurveyId ? chainTasks[chainTaskCompletionSurveyId] : null;
 
   return (
-    <div className="taskchain-container" style={{ padding: 20, maxWidth: 900, margin: '0 auto' }}>
+    <div 
+      ref={containerRef}
+      className="taskchain-container" 
+      style={{ 
+        height: '100%',
+        display: 'flex',
+        flexDirection: 'column',
+        padding: '20px 30px',
+        overflow: 'auto',
+      }}
+    >
       {/* Header with Calendar */}
-      <div style={{ display: 'flex', gap: 30, marginBottom: 30 }}>
-        {/* Calendar */}
-        <div style={{ 
-          background: 'var(--bg-secondary)', 
-          padding: 16, 
-          borderRadius: 'var(--radius-lg)',
-          minWidth: 280,
-        }}>
-          <div style={{ 
-            display: 'grid', 
-            gridTemplateColumns: 'repeat(7, 1fr)', 
-            gap: 4,
-            textAlign: 'center',
-            fontSize: 12,
+      <div style={{ 
+        display: 'flex', 
+        justifyContent: 'space-between',
+        alignItems: 'flex-start',
+        marginBottom: 24,
+        flexShrink: 0,
+      }}>
+        <div>
+          <h1 style={{ 
+            fontSize: 24, 
+            fontWeight: 600,
+            marginBottom: 4,
+            display: 'flex',
+            alignItems: 'center',
+            gap: 12,
           }}>
-            {['Su', 'Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa'].map((d) => (
-              <div key={d} style={{ color: 'var(--text-secondary)', padding: '4px' }}>{d}</div>
-            ))}
-            {calendarDays.map((day, i) => (
-              <button
-                key={i}
-                onClick={() => day.date && setSelectedChainDate(day.date)}
+            <span style={{ fontSize: 28 }}>⛓️</span>
+            Task Chain
+          </h1>
+          <div style={{ color: 'var(--text-secondary)', fontSize: 14 }}>
+            {new Date(selectedChainDate).toLocaleDateString('en-US', { 
+              weekday: 'long', 
+              year: 'numeric',
+              month: 'long', 
+              day: 'numeric' 
+            })}
+          </div>
+        </div>
+
+        {/* Calendar Picker */}
+        <div style={{ position: 'relative' }}>
+          <button 
+            className="btn btn-ghost"
+            onClick={() => setShowCalendar(!showCalendar)}
+            style={{ display: 'flex', alignItems: 'center', gap: 8 }}
+          >
+            <span>📅</span>
+            {showCalendar ? 'Hide Calendar' : 'Select Date'}
+          </button>
+          
+          <AnimatePresence>
+            {showCalendar && (
+              <motion.div
+                initial={{ opacity: 0, y: -10, scale: 0.95 }}
+                animate={{ opacity: 1, y: 0, scale: 1 }}
+                exit={{ opacity: 0, y: -10, scale: 0.95 }}
                 style={{
-                  padding: '6px',
-                  borderRadius: 'var(--radius-sm)',
-                  background: day.date === selectedChainDate ? 'var(--accent)' : 'transparent',
-                  color: day.date === selectedChainDate ? 'white' : 'var(--text-primary)',
-                  border: day.hasChain ? '2px solid var(--accent)' : 'none',
-                  cursor: day.date ? 'pointer' : 'default',
-                  opacity: day.date ? 1 : 0,
-                  fontSize: 13,
-                  fontWeight: day.date === selectedChainDate ? 600 : 400,
+                  position: 'absolute',
+                  top: '100%',
+                  right: 0,
+                  marginTop: 8,
+                  background: 'var(--bg-secondary)',
+                  padding: 16,
+                  borderRadius: 'var(--radius-lg)',
+                  boxShadow: 'var(--shadow-lg)',
+                  zIndex: 100,
+                  minWidth: 280,
+                  border: '1px solid var(--border)',
                 }}
               >
-                {day.day || ''}
-              </button>
-            ))}
-          </div>
-          
-          <div style={{ marginTop: 12, fontSize: 12, color: 'var(--text-secondary)', display: 'flex', gap: 12 }}>
-            <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-              <span style={{ width: 8, height: 8, border: '2px solid var(--accent)', borderRadius: 2 }} />
-              Has Chain
-            </span>
-            <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-              <span style={{ width: 8, height: 8, background: 'var(--accent)', borderRadius: 2 }} />
-              Selected
-            </span>
-          </div>
-        </div>
-
-        {/* Actions */}
-        <div style={{ flex: 1 }}>
-          <h2 style={{ marginBottom: 16 }}>
-            Task Chain: {new Date(selectedChainDate).toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })}
-          </h2>
-          
-          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-            <button 
-              className="btn btn-primary btn-sm"
-              onClick={() => setShowTemplates(true)}
-            >
-              Load Template
-            </button>
-            {currentChain && (
-              <button 
-                className="btn btn-ghost btn-sm"
-                onClick={() => setShowSaveTemplate(true)}
-              >
-                Save as Template
-              </button>
+                <div style={{ 
+                  display: 'grid', 
+                  gridTemplateColumns: 'repeat(7, 1fr)', 
+                  gap: 4,
+                  textAlign: 'center',
+                  fontSize: 11,
+                }}>
+                  {['Su', 'Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa'].map((d) => (
+                    <div key={d} style={{ color: 'var(--text-secondary)', padding: '4px', fontWeight: 600 }}>
+                      {d}
+                    </div>
+                  ))}
+                  {calendarDays.map((day, i) => (
+                    <button
+                      key={i}
+                      onClick={() => {
+                        if (day.date) {
+                          setSelectedChainDate(day.date);
+                          setShowCalendar(false);
+                        }
+                      }}
+                      style={{
+                        padding: '6px',
+                        borderRadius: 'var(--radius-sm)',
+                        background: day.date === selectedChainDate 
+                          ? 'var(--accent)' 
+                          : day.isToday 
+                            ? 'var(--bg-tertiary)' 
+                            : 'transparent',
+                        color: day.date === selectedChainDate ? 'white' : 'var(--text-primary)',
+                        border: day.hasChain 
+                          ? '2px solid var(--accent)' 
+                          : day.isToday 
+                            ? '1px solid var(--border)' 
+                            : 'none',
+                        cursor: day.date ? 'pointer' : 'default',
+                        opacity: day.date ? 1 : 0,
+                        fontSize: 13,
+                        fontWeight: day.date === selectedChainDate || day.isToday ? 600 : 400,
+                      }}
+                    >
+                      {day.day || ''}
+                    </button>
+                  ))}
+                </div>
+                
+                <div style={{ marginTop: 12, fontSize: 11, color: 'var(--text-secondary)', display: 'flex', gap: 16, justifyContent: 'center' }}>
+                  <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                    <span style={{ width: 8, height: 8, border: '2px solid var(--accent)', borderRadius: 2 }} />
+                    Has Chain
+                  </span>
+                  <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                    <span style={{ width: 8, height: 8, background: 'var(--accent)', borderRadius: 2 }} />
+                    Selected
+                  </span>
+                </div>
+              </motion.div>
             )}
-          </div>
+          </AnimatePresence>
         </div>
       </div>
 
-      {/* Add Tasks Section */}
+      {/* Template Actions */}
       <div style={{ 
-        background: 'var(--bg-secondary)', 
-        padding: 20, 
-        borderRadius: 'var(--radius-lg)',
-        marginBottom: 30,
+        display: 'flex', 
+        gap: 12, 
+        marginBottom: 24,
+        flexShrink: 0,
       }}>
-        <h3 style={{ marginBottom: 16, fontSize: 16 }}>Add to Chain</h3>
-        
-        <div style={{ display: 'flex', gap: 12, marginBottom: 16 }}>
-          <input
-            type="text"
-            value={newTaskTitle}
-            onChange={(e) => setNewTaskTitle(e.target.value)}
-            placeholder="New chain task (CT)"
-            style={{
-              flex: 1,
-              padding: '10px 12px',
-              background: 'var(--bg-tertiary)',
-              border: '1px solid var(--border)',
-              borderRadius: 'var(--radius-sm)',
-              color: 'var(--text-primary)',
-            }}
-            onKeyDown={(e) => e.key === 'Enter' && handleAddCT()}
-          />
-          <button className="btn btn-primary" onClick={handleAddCT}>
-            + CT
-          </button>
-        </div>
-
-        <div style={{ display: 'flex', gap: 12 }}>
-          <select
-            value={selectedRealTaskId}
-            onChange={(e) => setSelectedRealTaskId(e.target.value)}
-            style={{
-              flex: 1,
-              padding: '10px 12px',
-              background: 'var(--bg-tertiary)',
-              border: '1px solid var(--border)',
-              borderRadius: 'var(--radius-sm)',
-              color: 'var(--text-primary)',
-            }}
-          >
-            <option value="">Select existing task...</option>
-            {uncompletedTasks.map((t) => (
-              <option key={t.id} value={t.id}>
-                {t.title} ({categories[t.categoryId]?.name || 'Uncategorized'})
-              </option>
-            ))}
-          </select>
+        <button 
+          className="btn btn-ghost btn-sm"
+          onClick={() => setShowTemplates(true)}
+        >
+          📋 Load Template
+        </button>
+        {currentChain && currentChain.links.length > 0 && (
           <button 
-            className="btn btn-ghost" 
-            onClick={handleAddRealTask}
-            disabled={!selectedRealTaskId}
+            className="btn btn-ghost btn-sm"
+            onClick={() => setShowSaveTemplate(true)}
           >
-            + Real Task
+            💾 Save as Template
           </button>
-        </div>
+        )}
       </div>
 
-      {/* Chain Flowchart */}
-      {currentChain && currentChain.links.length > 0 ? (
-        <div style={{ position: 'relative' }}>
-          {currentChain.links.map((link, index) => {
-            const isCT = link.type === 'ct';
-            const ct = isCT ? chainTasks[link.taskId] : null;
-            const realTask = !isCT ? tasks[link.taskId] : null;
-            const task = ct || realTask;
-            
-            if (!task) return null;
-            
-            const isCompleted = task.completed;
-            const isEditingDuration = isCT && editingDuration === link.taskId;
-            
-            return (
+      {/* Main Chain Area */}
+      <div style={{ 
+        flex: 1,
+        display: 'flex',
+        flexDirection: 'column',
+        gap: 12,
+        overflow: 'auto',
+        paddingRight: 8,
+      }}>
+        {/* Add First Task Button (when empty) */}
+        {(!currentChain || currentChain.links.length === 0) && !insertAfterIndex && (
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            style={{
+              display: 'flex',
+              flexDirection: 'column',
+              alignItems: 'center',
+              justifyContent: 'center',
+              padding: 60,
+              background: 'var(--bg-secondary)',
+              borderRadius: 'var(--radius-xl)',
+              border: '2px dashed var(--border)',
+              gap: 16,
+            }}
+          >
+            <div style={{ fontSize: 48 }}>⛓️</div>
+            <h3 style={{ color: 'var(--text-secondary)' }}>Start your task chain</h3>
+            <p style={{ color: 'var(--text-tertiary)', textAlign: 'center', maxWidth: 400 }}>
+              Add chain tasks for quick to-dos or link existing tasks from your pool.
+            </p>
+            <button 
+              className="btn btn-primary"
+              onClick={() => setInsertAfterIndex(-1)}
+            >
+              + Add First Task
+            </button>
+          </motion.div>
+        )}
+
+        {/* Chain Links */}
+        {currentChain && currentChain.links.map((link, index) => {
+          const isCT = link.type === 'ct';
+          const ct = isCT ? chainTasks[link.taskId] : null;
+          const realTask = !isCT && link.taskId ? tasks[link.taskId] : null;
+          const isPlaceholder = !isCT && !link.taskId;
+          
+          const task = ct || realTask;
+          const isCompleted = task?.completed || false;
+          
+          // Determine colors based on completion and type
+          let bgColor = 'var(--bg-secondary)';
+          let borderColor = 'var(--border)';
+          let accentColor = 'var(--accent)';
+          
+          if (isCompleted) {
+            bgColor = 'hsla(140, 60%, 40%, 0.1)';
+            borderColor = 'hsla(140, 60%, 40%, 0.3)';
+            accentColor = 'hsl(140, 60%, 40%)';
+          } else if (isCT) {
+            accentColor = 'hsl(200, 70%, 50%)';
+          } else if (realTask) {
+            accentColor = 'hsl(270, 60%, 50%)';
+          } else {
+            // Placeholder
+            accentColor = 'var(--text-tertiary)';
+          }
+          
+          return (
+            <div key={link.id}>
+              {/* Chain Link Card */}
               <motion.div
-                key={link.id}
                 initial={{ opacity: 0, x: -20 }}
                 animate={{ opacity: 1, x: 0 }}
                 transition={{ delay: index * 0.05 }}
                 style={{
                   display: 'flex',
-                  alignItems: 'center',
-                  marginBottom: 8,
+                  alignItems: 'stretch',
+                  background: bgColor,
+                  border: `2px solid ${borderColor}`,
+                  borderRadius: 'var(--radius-lg)',
+                  overflow: 'hidden',
+                  transition: 'all 0.2s ease',
                 }}
               >
-                {/* Connector line */}
-                {index > 0 && (
-                  <div style={{
-                    position: 'absolute',
-                    left: 20,
-                    top: -16,
-                    width: 2,
-                    height: 24,
-                    background: 'var(--border)',
-                  }} />
-                )}
+                {/* Completion Status Bar */}
+                <div style={{
+                  width: 6,
+                  background: isCompleted ? accentColor : 'transparent',
+                  transition: 'background 0.3s ease',
+                }} />
                 
-                {/* Task box */}
-                <div
-                  style={{
-                    flex: 1,
+                {/* Main Content */}
+                <div style={{
+                  flex: 1,
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 16,
+                  padding: '16px 20px',
+                }}>
+                  {/* Type Icon */}
+                  <div style={{
+                    width: 36,
+                    height: 36,
+                    borderRadius: '50%',
+                    background: isCompleted 
+                      ? 'hsla(140, 60%, 40%, 0.2)' 
+                      : isCT 
+                        ? 'hsla(200, 70%, 50%, 0.2)' 
+                        : isPlaceholder 
+                          ? 'var(--bg-tertiary)' 
+                          : 'hsla(270, 60%, 50%, 0.2)',
                     display: 'flex',
                     alignItems: 'center',
-                    gap: 12,
-                    padding: '12px 16px',
-                    background: isCT 
-                      ? (isCompleted ? 'var(--bg-tertiary)' : 'hsla(200, 70%, 50%, 0.1)') 
-                      : (isCompleted ? 'var(--bg-tertiary)' : 'hsla(270, 60%, 50%, 0.1)'),
-                    border: `2px solid ${isCT 
-                      ? (isCompleted ? 'var(--border)' : 'hsl(200, 70%, 50%)') 
-                      : (isCompleted ? 'var(--border)' : 'hsl(270, 60%, 50%)')}`,
-                    borderRadius: 'var(--radius-lg)',
-                    opacity: isCompleted ? 0.7 : 1,
-                  }}
-                >
-                  {/* Type badge */}
-                  <span style={{
-                    fontSize: 10,
-                    padding: '2px 6px',
-                    borderRadius: 'var(--radius-sm)',
-                    background: isCT ? 'hsl(200, 70%, 50%)' : 'hsl(270, 60%, 50%)',
-                    color: 'white',
-                    fontWeight: 600,
+                    justifyContent: 'center',
+                    fontSize: 16,
+                    flexShrink: 0,
                   }}>
-                    {isCT ? 'CT' : 'TASK'}
-                  </span>
+                    {isCompleted ? '✓' : isCT ? 'CT' : isPlaceholder ? '?' : 'T'}
+                  </div>
                   
-                  {/* Task title */}
-                  <span style={{ 
-                    flex: 1,
-                    textDecoration: isCompleted ? 'line-through' : 'none',
-                  }}>
-                    {task.title}
-                  </span>
-                  
-                  {/* Duration (for CTs) */}
-                  {isCT && (
-                    <>
-                      {isEditingDuration ? (
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-                          <input
-                            type="number"
-                            value={durationInput}
-                            onChange={(e) => setDurationInput(e.target.value)}
-                            placeholder="min"
-                            style={{
-                              width: 60,
-                              padding: '4px 8px',
-                              fontSize: 12,
-                            }}
-                            autoFocus
-                            onKeyDown={(e) => {
-                              if (e.key === 'Enter') handleDurationSubmit(link.taskId);
-                              if (e.key === 'Escape') {
-                                setEditingDuration(null);
-                                setDurationInput('');
-                              }
-                            }}
-                          />
-                          <button 
-                            className="btn btn-xs"
-                            onClick={() => handleDurationSubmit(link.taskId)}
-                          >
-                            ✓
-                          </button>
+                  {/* Task Info */}
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    {isPlaceholder ? (
+                      <>
+                        <div style={{ 
+                          color: 'var(--text-tertiary)', 
+                          fontStyle: 'italic',
+                          fontSize: 14,
+                        }}>
+                          Insert Real Task
                         </div>
-                      ) : (
-                        <button
-                          className="btn btn-ghost btn-xs"
-                          onClick={() => {
-                            setEditingDuration(link.taskId);
-                            setDurationInput(ct?.actualDuration?.toString() || '');
-                          }}
-                          style={{ fontSize: 12, color: 'var(--text-secondary)' }}
-                        >
-                          {ct?.actualDuration ? formatDuration(ct.actualDuration) : 'Add time'}
-                        </button>
-                      )}
-                    </>
-                  )}
+                        {link.placeholder && (
+                          <div style={{ 
+                            color: 'var(--text-secondary)', 
+                            fontSize: 12,
+                            marginTop: 2,
+                          }}>
+                            e.g. {link.placeholder}
+                          </div>
+                        )}
+                      </>
+                    ) : (
+                      <>
+                        <div style={{ 
+                          fontSize: 15,
+                          fontWeight: 500,
+                          textDecoration: isCompleted ? 'line-through' : 'none',
+                          color: isCompleted ? 'var(--text-secondary)' : 'var(--text-primary)',
+                        }}>
+                          {task?.title || 'Unknown Task'}
+                        </div>
+                        {isCT && ct?.actualDuration && (
+                          <div style={{ 
+                            fontSize: 12, 
+                            color: 'var(--text-secondary)',
+                            marginTop: 2,
+                          }}>
+                            ⏱️ {ct.actualDuration} minutes
+                          </div>
+                        )}
+                      </>
+                    )}
+                  </div>
                   
-                  {/* Complete button */}
-                  <button
-                    className={`btn btn-sm ${isCompleted ? 'btn-ghost' : 'btn-primary'}`}
-                    onClick={() => handleComplete(link, index)}
-                  >
-                    {isCompleted ? '↩ Undo' : '✓ Done'}
-                  </button>
-                  
-                  {/* Remove button */}
-                  <button
-                    className="btn btn-ghost btn-sm"
-                    onClick={() => {
-                      removeChainLink(selectedChainDate, index);
-                      debouncedSave();
-                    }}
-                    style={{ color: 'var(--text-tertiary)' }}
-                  >
-                    ×
-                  </button>
+                  {/* Actions */}
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
+                    {!isPlaceholder && (
+                      <button
+                        className="btn btn-sm"
+                        onClick={() => {
+                          if (isCT) {
+                            handleCompleteCT(link.taskId);
+                          } else {
+                            handleCompleteRealTask(link.taskId);
+                          }
+                        }}
+                        style={{
+                          background: isCompleted ? 'transparent' : accentColor,
+                          color: isCompleted ? 'var(--text-secondary)' : 'white',
+                          border: isCompleted ? '1px solid var(--border)' : 'none',
+                        }}
+                      >
+                        {isCompleted ? 'Undo' : 'Complete'}
+                      </button>
+                    )}
+                    
+                    {isPlaceholder && (
+                      <button
+                        className="btn btn-sm btn-primary"
+                        onClick={() => setInsertAfterIndex(index)}
+                      >
+                        Select Task
+                      </button>
+                    )}
+                    
+                    <button
+                      className="btn btn-ghost btn-sm"
+                      onClick={() => {
+                        removeChainLink(selectedChainDate, index);
+                        debouncedSave();
+                      }}
+                      style={{ color: 'var(--text-tertiary)' }}
+                    >
+                      ×
+                    </button>
+                  </div>
                 </div>
               </motion.div>
-            );
-          })}
-        </div>
-      ) : (
-        <div style={{ 
-          textAlign: 'center', 
-          padding: 60, 
-          color: 'var(--text-secondary)',
-          background: 'var(--bg-secondary)',
-          borderRadius: 'var(--radius-lg)',
-        }}>
-          <div style={{ fontSize: 48, marginBottom: 16 }}>⛓️</div>
-          <h3>No tasks in this chain</h3>
-          <p>Add chain tasks (CTs) or existing tasks above to build your workflow.</p>
-        </div>
-      )}
+              
+              {/* Insert Button Between Tasks */}
+              {!insertAfterIndex && (
+                <div style={{
+                  display: 'flex',
+                  justifyContent: 'center',
+                  padding: '8px 0',
+                }}>
+                  <button
+                    className="btn btn-ghost btn-xs"
+                    onClick={() => setInsertAfterIndex(index)}
+                    style={{
+                      opacity: 0.5,
+                      transition: 'opacity 0.2s',
+                    }}
+                    onMouseEnter={(e) => e.currentTarget.style.opacity = '1'}
+                    onMouseLeave={(e) => e.currentTarget.style.opacity = '0.5'}
+                  >
+                    + Insert Task Here
+                  </button>
+                </div>
+              )}
+            </div>
+          );
+        })}
+        
+        {/* Add at End Button */}
+        {currentChain && currentChain.links.length > 0 && !insertAfterIndex && (
+          <button
+            className="btn btn-ghost"
+            onClick={() => setInsertAfterIndex(currentChain.links.length - 1)}
+            style={{
+              padding: '12px',
+              border: '2px dashed var(--border)',
+              borderRadius: 'var(--radius-lg)',
+              marginTop: 8,
+            }}
+          >
+            + Add Task to End
+          </button>
+        )}
+
+        {/* Add Task Interface */}
+        {insertAfterIndex !== null && (
+          <motion.div
+            initial={{ opacity: 0, y: -10 }}
+            animate={{ opacity: 1, y: 0 }}
+            style={{
+              background: 'var(--bg-secondary)',
+              padding: 20,
+              borderRadius: 'var(--radius-lg)',
+              border: '2px solid var(--accent)',
+              marginTop: 8,
+            }}
+          >
+            <div style={{ 
+              display: 'flex', 
+              justifyContent: 'space-between',
+              alignItems: 'center',
+              marginBottom: 16,
+            }}>
+              <h3 style={{ fontSize: 16, margin: 0 }}>
+                {insertAfterIndex === -1 
+                  ? 'Add First Task' 
+                  : `Insert After Task ${insertAfterIndex + 1}`}
+              </h3>
+              <button 
+                className="btn btn-ghost btn-sm"
+                onClick={() => {
+                  setInsertAfterIndex(null);
+                  setNewTaskTitle('');
+                  setSelectedRealTaskId('');
+                }}
+              >
+                Cancel
+              </button>
+            </div>
+            
+            {/* Add CT */}
+            <div style={{ display: 'flex', gap: 12, marginBottom: 16 }}>
+              <input
+                type="text"
+                value={newTaskTitle}
+                onChange={(e) => setNewTaskTitle(e.target.value)}
+                placeholder="New chain task (quick to-do)"
+                style={{
+                  flex: 1,
+                  padding: '10px 12px',
+                  background: 'var(--bg-tertiary)',
+                  border: '1px solid var(--border)',
+                  borderRadius: 'var(--radius-sm)',
+                  color: 'var(--text-primary)',
+                }}
+                autoFocus
+                onKeyDown={(e) => e.key === 'Enter' && handleAddCT()}
+              />
+              <button 
+                className="btn btn-primary" 
+                onClick={handleAddCT}
+                disabled={!newTaskTitle.trim()}
+              >
+                Add CT
+              </button>
+            </div>
+
+            {/* Or divider */}
+            <div style={{ 
+              display: 'flex', 
+              alignItems: 'center', 
+              gap: 12, 
+              marginBottom: 16,
+              color: 'var(--text-secondary)',
+              fontSize: 13,
+            }}>
+              <div style={{ flex: 1, height: 1, background: 'var(--border)' }} />
+              OR
+              <div style={{ flex: 1, height: 1, background: 'var(--border)' }} />
+            </div>
+
+            {/* Add Real Task */}
+            <div style={{ display: 'flex', gap: 12 }}>
+              <select
+                value={selectedRealTaskId}
+                onChange={(e) => setSelectedRealTaskId(e.target.value)}
+                style={{
+                  flex: 1,
+                  padding: '10px 12px',
+                  background: 'var(--bg-tertiary)',
+                  border: '1px solid var(--border)',
+                  borderRadius: 'var(--radius-sm)',
+                  color: 'var(--text-primary)',
+                }}
+              >
+                <option value="">Select from task pool...</option>
+                {uncompletedTasks.map((t) => (
+                  <option key={t.id} value={t.id}>
+                    {t.title}
+                  </option>
+                ))}
+              </select>
+              <button 
+                className="btn btn-ghost" 
+                onClick={handleAddRealTask}
+                disabled={!selectedRealTaskId}
+              >
+                Link Task
+              </button>
+            </div>
+          </motion.div>
+        )}
+      </div>
+
+      {/* Duration Survey Modal for CTs */}
+      <AnimatePresence>
+        {surveyedCT && (
+          <motion.div
+            className="survey-overlay"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            onClick={handleSkipDuration}
+            style={{
+              position: 'fixed',
+              top: 0,
+              left: 0,
+              right: 0,
+              bottom: 0,
+              background: 'rgba(0,0,0,0.5)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              zIndex: 1000,
+            }}
+          >
+            <motion.div
+              initial={{ scale: 0.85, opacity: 0, y: 40 }}
+              animate={{ scale: 1, opacity: 1, y: 0 }}
+              exit={{ scale: 0.85, opacity: 0, y: 40 }}
+              onClick={(e) => e.stopPropagation()}
+              style={{
+                background: 'var(--bg-secondary)',
+                padding: '32px 40px',
+                borderRadius: 'var(--radius-xl)',
+                maxWidth: 420,
+                textAlign: 'center',
+                border: '1px solid var(--border)',
+              }}
+            >
+              <div style={{ marginBottom: 16 }}>
+                <svg width="48" height="48" viewBox="0 0 48 48">
+                  <circle cx="24" cy="24" r="20" fill="none" stroke="hsl(140, 60%, 40%)" strokeWidth="2" />
+                  <motion.path
+                    d="M14 24 L20 30 L34 16"
+                    fill="none"
+                    stroke="hsl(140, 60%, 40%)"
+                    strokeWidth="3"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    initial={{ pathLength: 0 }}
+                    animate={{ pathLength: 1 }}
+                    transition={{ duration: 0.4, delay: 0.1 }}
+                  />
+                </svg>
+              </div>
+              <div style={{ fontSize: 20, fontWeight: 600, marginBottom: 8 }}>
+                Chain Task Complete!
+              </div>
+              <div style={{ fontSize: 16, color: 'var(--text-secondary)', marginBottom: 24 }}>
+                {surveyedCT.title}
+              </div>
+              <div style={{ fontSize: 14, color: 'var(--text-secondary)', marginBottom: 16 }}>
+                How long did this take?
+              </div>
+              
+              {!showCustomTime ? (
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, justifyContent: 'center', marginBottom: 16 }}>
+                  {[5, 15, 30, 45, 60, 90, 120].map((mins) => (
+                    <button
+                      key={mins}
+                      className="btn btn-ghost"
+                      onClick={() => handleDurationSelect(mins)}
+                      style={{ minWidth: 60 }}
+                    >
+                      {mins < 60 ? `${mins}m` : `${mins / 60}h`}
+                    </button>
+                  ))}
+                  <button
+                    className="btn btn-ghost"
+                    onClick={() => setShowCustomTime(true)}
+                  >
+                    Custom
+                  </button>
+                </div>
+              ) : (
+                <motion.div
+                  initial={{ height: 0, opacity: 0 }}
+                  animate={{ height: 'auto', opacity: 1 }}
+                  style={{ marginBottom: 16 }}
+                >
+                  <div style={{ display: 'flex', gap: 8, justifyContent: 'center' }}>
+                    <input
+                      type="number"
+                      value={customMinutes}
+                      onChange={(e) => setCustomMinutes(e.target.value)}
+                      placeholder="Minutes"
+                      autoFocus
+                      style={{
+                        width: 100,
+                        padding: '8px 12px',
+                        background: 'var(--bg-tertiary)',
+                        border: '1px solid var(--border)',
+                        borderRadius: 'var(--radius-sm)',
+                        color: 'var(--text-primary)',
+                        textAlign: 'center',
+                      }}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') handleCustomDuration();
+                      }}
+                    />
+                    <button className="btn btn-primary" onClick={handleCustomDuration}>
+                      Save
+                    </button>
+                    <button className="btn btn-ghost" onClick={() => setShowCustomTime(false)}>
+                      Back
+                    </button>
+                  </div>
+                </motion.div>
+              )}
+              
+              <button 
+                className="btn btn-ghost btn-sm" 
+                onClick={handleSkipDuration}
+                style={{ color: 'var(--text-tertiary)' }}
+              >
+                Skip
+              </button>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* Templates Modal */}
       <AnimatePresence>
@@ -438,7 +848,7 @@ export function TaskChain() {
               animate={{ scale: 1, opacity: 1, y: 0 }}
               exit={{ scale: 0.92, opacity: 0, y: 20 }}
               onClick={(e) => e.stopPropagation()}
-              style={{ maxWidth: 500 }}
+              style={{ maxWidth: 500, maxHeight: '80vh', overflow: 'auto' }}
             >
               <h2>Load Template</h2>
               
@@ -455,15 +865,16 @@ export function TaskChain() {
                         display: 'flex',
                         alignItems: 'center',
                         justifyContent: 'space-between',
-                        padding: 12,
+                        padding: 16,
                         background: 'var(--bg-tertiary)',
                         borderRadius: 'var(--radius-sm)',
+                        border: '1px solid var(--border)',
                       }}
                     >
                       <div>
-                        <strong>{template.name}</strong>
-                        <div style={{ fontSize: 12, color: 'var(--text-secondary)' }}>
-                          {template.links.length} tasks
+                        <strong style={{ fontSize: 15 }}>{template.name}</strong>
+                        <div style={{ fontSize: 12, color: 'var(--text-secondary)', marginTop: 4 }}>
+                          {template.links.length} tasks • Created {new Date(template.createdAt).toLocaleDateString()}
                         </div>
                       </div>
                       <div style={{ display: 'flex', gap: 8 }}>
