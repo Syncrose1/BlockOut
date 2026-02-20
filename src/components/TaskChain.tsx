@@ -714,7 +714,7 @@ export function TaskChain() {
           else if (isCompleted) { cardBg = 'hsla(140, 60%, 40%, 0.06)'; cardBorder = 'hsla(140, 60%, 40%, 0.3)'; }
 
           return (
-            <div key={link.id} style={{ display: 'flex' }}>
+            <div key={link.id} style={{ display: 'flex', alignItems: 'flex-start' }}>
               {/* Left connector column */}
               <div style={{ width: 56, display: 'flex', flexDirection: 'column', alignItems: 'center', flexShrink: 0 }}>
                 {/* Top connector line */}
@@ -726,12 +726,12 @@ export function TaskChain() {
                 {/* Node circle */}
                 <div style={{
                   width: 36, height: 36, borderRadius: '50%',
-                  background: isCompleted ? 'hsl(140, 60%, 40%)' : isActive ? `${accentColor}18` : 'var(--bg-secondary)',
-                  border: isActive ? `1.5px solid ${accentColor}50` : isCompleted ? 'none' : '1px solid var(--border)',
+                  background: isCompleted ? 'hsl(140, 60%, 40%)' : isActive ? `${accentColor}18` : 'transparent',
+                  border: isActive ? `1.5px solid ${accentColor}50` : `1px solid ${isCompleted ? 'hsl(140, 60%, 40%)' : 'var(--border)'}`,
                   display: 'flex', alignItems: 'center', justifyContent: 'center',
                   color: isCompleted || isActive ? 'white' : 'var(--text-secondary)',
                   fontWeight: 700, fontSize: 13, flexShrink: 0, transition: 'all 0.3s ease',
-                  boxShadow: isActive ? `0 0 20px ${accentColor}20` : 'none',
+                  boxShadow: isActive ? `0 0 20px ${accentColor}20` : isCompleted ? '0 0 10px hsla(140, 60%, 40%, 0.3)' : 'none',
                 }}>
                   {isCompleted ? (
                     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
@@ -740,70 +740,63 @@ export function TaskChain() {
                   ) : nodeNumber}
                 </div>
 
-                {/* Bottom connector + chain links + insert button */}
+                {/* Bottom connector - grows with card height */}
                 {!isLastItem && (
-                  <>
-                    <div style={{ height: 12, width: 2, borderRadius: '9999px', backgroundColor: 'var(--border)' }} />
-                    {/* Chain link SVG - V0 style */}
-                    <svg width="14" height="18" viewBox="0 0 14 18" fill="none" style={{ flexShrink: 0, margin: '2px 0' }}>
-                      <path
-                        d="M7 0 V4 C7 5.5 10 5.5 10 7 V11 C10 12.5 7 12.5 7 14 V18"
-                        stroke="var(--border)"
-                        strokeWidth="1.5"
-                        strokeLinecap="round"
-                      />
-                      <path
-                        d="M7 0 V4 C7 5.5 4 5.5 4 7 V11 C4 12.5 7 12.5 7 14 V18"
-                        stroke="var(--border)"
-                        strokeWidth="1.5"
-                        strokeLinecap="round"
-                      />
-                    </svg>
-                    {/* Insert task button */}
+                  <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', flex: 1, width: 2, backgroundColor: 'var(--border)', minHeight: 40 }}>
+                    {/* Chain link SVG - positioned absolutely to not affect height */}
+                    <div style={{ position: 'relative', width: 14, height: 0 }}>
+                      <svg width="14" height="18" viewBox="0 0 14 18" fill="none" style={{ position: 'absolute', top: 8, left: -6 }}>
+                        <path
+                          d="M7 0 V4 C7 5.5 10 5.5 10 7 V11 C10 12.5 7 12.5 7 14 V18"
+                          stroke="var(--border)"
+                          strokeWidth="1.5"
+                          strokeLinecap="round"
+                        />
+                        <path
+                          d="M7 0 V4 C7 5.5 4 5.5 4 7 V11 C4 12.5 7 12.5 7 14 V18"
+                          stroke="var(--border)"
+                          strokeWidth="1.5"
+                          strokeLinecap="round"
+                        />
+                      </svg>
+                    </div>
+                    {/* Insert task button - centered in the connector */}
                     {!insertAfterIndex && !replacingPlaceholderIndex && (
-                      <button
-                        onClick={() => setInsertAfterIndex(index)}
-                        title="Insert task here"
-                        style={{
-                          width: 20, height: 20, borderRadius: '50%',
-                          border: '1px dashed var(--border)',
-                          background: 'transparent',
-                          color: 'var(--text-secondary)',
-                          cursor: 'pointer',
-                          display: 'flex', alignItems: 'center', justifyContent: 'center',
-                          fontSize: 14, lineHeight: 1,
-                          flexShrink: 0, padding: 0,
-                          transition: 'all 0.2s ease',
-                          margin: '2px 0',
-                        }}
-                        onMouseEnter={(e) => {
-                          e.currentTarget.style.borderColor = 'var(--accent)';
-                          e.currentTarget.style.color = 'var(--accent)';
-                          e.currentTarget.style.background = 'hsla(210, 100%, 60%, 0.1)';
-                        }}
-                        onMouseLeave={(e) => {
-                          e.currentTarget.style.borderColor = 'var(--border)';
-                          e.currentTarget.style.color = 'var(--text-secondary)';
-                          e.currentTarget.style.background = 'transparent';
-                        }}
-                      >+</button>
+                      <div style={{ position: 'relative', width: 14, height: 0, marginTop: 'auto', marginBottom: 'auto' }}>
+                        <button
+                          onClick={() => setInsertAfterIndex(index)}
+                          title="Insert task here"
+                          style={{
+                            position: 'absolute',
+                            top: -11,
+                            left: -4,
+                            width: 22, height: 22, borderRadius: '50%',
+                            border: '1px solid rgba(255,255,255,0.3)',
+                            background: 'rgba(255,255,255,0.05)',
+                            color: 'rgba(255,255,255,0.8)',
+                            cursor: 'pointer',
+                            display: 'flex', alignItems: 'center', justifyContent: 'center',
+                            fontSize: 16, lineHeight: 1,
+                            flexShrink: 0, padding: 0,
+                            transition: 'all 0.2s ease',
+                            boxShadow: '0 0 8px rgba(255,255,255,0.15)',
+                          }}
+                          onMouseEnter={(e) => {
+                            e.currentTarget.style.borderColor = 'rgba(255,255,255,0.6)';
+                            e.currentTarget.style.color = 'white';
+                            e.currentTarget.style.background = 'rgba(255,255,255,0.15)';
+                            e.currentTarget.style.boxShadow = '0 0 12px rgba(255,255,255,0.25)';
+                          }}
+                          onMouseLeave={(e) => {
+                            e.currentTarget.style.borderColor = 'rgba(255,255,255,0.3)';
+                            e.currentTarget.style.color = 'rgba(255,255,255,0.8)';
+                            e.currentTarget.style.background = 'rgba(255,255,255,0.05)';
+                            e.currentTarget.style.boxShadow = '0 0 8px rgba(255,255,255,0.15)';
+                          }}
+                        >+</button>
+                      </div>
                     )}
-                    <svg width="14" height="18" viewBox="0 0 14 18" fill="none" style={{ flexShrink: 0, margin: '2px 0' }}>
-                      <path
-                        d="M7 0 V4 C7 5.5 10 5.5 10 7 V11 C10 12.5 7 12.5 7 14 V18"
-                        stroke="var(--border)"
-                        strokeWidth="1.5"
-                        strokeLinecap="round"
-                      />
-                      <path
-                        d="M7 0 V4 C7 5.5 4 5.5 4 7 V11 C4 12.5 7 12.5 7 14 V18"
-                        stroke="var(--border)"
-                        strokeWidth="1.5"
-                        strokeLinecap="round"
-                      />
-                    </svg>
-                    <div style={{ height: 12, width: 2, borderRadius: '9999px', backgroundColor: 'var(--border)' }} />
-                  </>
+                  </div>
                 )}
                 {isLastItem && <div style={{ height: 20 }} />}
               </div>
