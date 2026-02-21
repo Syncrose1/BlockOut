@@ -247,7 +247,7 @@ export function Sidebar() {
                 setShowTimelessPool(true);
                 setViewMode('treemap');
               }}
-              style={{ paddingLeft: 40, fontSize: 12 }}
+              style={{ paddingLeft: 40, fontSize: 14 }}
             >
               Unassigned
               <span className="block-countdown">{unassignedTasks}</span>
