@@ -4,6 +4,9 @@ import { debouncedSave } from '../utils/persistence';
 import { CategorySettingsModal, BlockSettingsModal } from './Modals';
 import { AnalyticsModal } from './AnalyticsModal';
 
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const getViewMode = (): string => (localStorage.getItem('blockout-view-mode') as any) || 'treemap';
+
 function formatCountdown(endDate: number): string {
   const now = Date.now();
   const diff = endDate - now;
@@ -37,6 +40,8 @@ export function Sidebar() {
   const setPoolViewMode = useStore((s) => s.setPoolViewMode);
   const setShowNewBlockModal = useStore((s) => s.setShowNewBlockModal);
   const setShowNewCategoryModal = useStore((s) => s.setShowNewCategoryModal);
+  const setViewMode = useStore((s) => s.setViewMode);
+  const viewMode = useStore((s) => s.viewMode);
   const setDragOverBlock = useStore((s) => s.setDragOverBlock);
   const setDragOverPool = useStore((s) => s.setDragOverPool);
   const setDraggedTask = useStore((s) => s.setDraggedTask);
@@ -200,14 +205,27 @@ export function Sidebar() {
       </div>
 
       <div className="sidebar-scroll">
+        {/* Task Chain */}
+        <div className="sidebar-section">
+          <div className="sidebar-section-title">Workflow</div>
+          <button
+            className={`sidebar-item ${viewMode === 'taskchain' ? 'active' : ''}`}
+            onClick={() => setViewMode('taskchain')}
+          >
+            <span style={{ fontSize: 13 }}>⛓️</span>
+            Task Chain
+          </button>
+        </div>
+
         {/* Timeless Pool */}
         <div className="sidebar-section">
           <div className="sidebar-section-title">Pool</div>
           <button
-            className={`sidebar-item ${showTimelessPool && poolViewMode === 'all' ? 'active' : ''} ${drag.dragOverPool ? 'drag-over' : ''} ${drag.isDragging && !drag.dragOverPool ? 'drag-preview' : ''}`}
+            className={`sidebar-item ${showTimelessPool && poolViewMode === 'all' && viewMode !== 'taskchain' ? 'active' : ''} ${drag.dragOverPool ? 'drag-over' : ''} ${drag.isDragging && !drag.dragOverPool ? 'drag-preview' : ''}`}
             onClick={() => {
               setPoolViewMode('all');
               setShowTimelessPool(true);
+              setViewMode('treemap');
             }}
             onDragOver={handleDragOverPool}
             onDrop={handleDropPool}
@@ -219,10 +237,11 @@ export function Sidebar() {
           </button>
           {unassignedTasks > 0 && (
             <button
-              className={`sidebar-item ${showTimelessPool && poolViewMode === 'unassigned' ? 'active' : ''}`}
+              className={`sidebar-item ${showTimelessPool && poolViewMode === 'unassigned' && viewMode !== 'taskchain' ? 'active' : ''}`}
               onClick={() => {
                 setPoolViewMode('unassigned');
                 setShowTimelessPool(true);
+                setViewMode('treemap');
               }}
               style={{ paddingLeft: 40, fontSize: 12 }}
             >
@@ -243,12 +262,15 @@ export function Sidebar() {
           {activeBlocks.map((block) => {
             const completedCount = block.taskIds.filter((id) => tasks[id]?.completed).length;
             const total = block.taskIds.length;
-            const isActive = activeBlockId === block.id && !showTimelessPool;
+            const isActive = activeBlockId === block.id && !showTimelessPool && viewMode !== 'taskchain';
             return (
               <div key={block.id} style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
                 <button
                   className={getBlockItemClass(block.id, isActive)}
-                  onClick={() => setActiveBlock(block.id)}
+                  onClick={() => {
+                    setActiveBlock(block.id);
+                    setViewMode('treemap');
+                  }}
                   onDragOver={(e) => handleDragOver(e, block.id)}
                   onDrop={(e) => handleDrop(e, block.id)}
                   onDragLeave={handleDragLeave}
@@ -299,12 +321,15 @@ export function Sidebar() {
           <div className="sidebar-section">
             <div className="sidebar-section-title">Archived</div>
             {archivedBlocks.map((block) => {
-              const isActive = activeBlockId === block.id && !showTimelessPool;
+              const isActive = activeBlockId === block.id && !showTimelessPool && viewMode !== 'taskchain';
               return (
                 <div key={block.id} style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
                   <button
                     className={getBlockItemClass(block.id, isActive)}
-                    onClick={() => setActiveBlock(block.id)}
+                    onClick={() => {
+                      setActiveBlock(block.id);
+                      setViewMode('treemap');
+                    }}
                     style={{ flex: 1, opacity: 0.6, minWidth: 0 }}
                   >
                     <span className="dot" style={{ background: 'var(--text-tertiary)', flexShrink: 0 }} />
