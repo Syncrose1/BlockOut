@@ -119,17 +119,24 @@ export function waitForAuth(timeout = 3000): Promise<User | null> {
       return;
     }
     
-    // Wait for auth state to change
-    const unsubscribe = onAuthChange((newUser) => {
-      unsubscribe();
-      resolve(newUser);
-    });
+    let unsubscribe: (() => void) | null = null;
     
     // Timeout after specified duration
-    setTimeout(() => {
-      unsubscribe();
+    const timeoutId = setTimeout(() => {
+      if (unsubscribe) {
+        unsubscribe();
+      }
       resolve(getCurrentUser());
     }, timeout);
+    
+    // Wait for auth state to change
+    unsubscribe = onAuthChange((newUser) => {
+      clearTimeout(timeoutId);
+      if (unsubscribe) {
+        unsubscribe();
+      }
+      resolve(newUser);
+    });
   });
 }
 
