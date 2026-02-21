@@ -25,6 +25,7 @@ export function App() {
   const viewMode = useStore((s) => s.viewMode);
   const selectedTaskIds = useStore((s) => s.selectedTaskIds);
   const [oauthError, setOauthError] = useState<string | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
   const oauthProcessed = useRef(false);
 
   // Handle Dropbox OAuth callback on mount
@@ -67,6 +68,9 @@ export function App() {
         console.log('[BlockOut] No cached view found, defaulting to All Tasks');
         useStore.getState().setShowTimelessPool(true);
       }
+      
+      // Small delay to ensure UI is ready before showing content
+      setTimeout(() => setIsLoading(false), 100);
     };
     
     initializeApp();
@@ -87,6 +91,42 @@ export function App() {
 
   return (
     <div className="app">
+      {/* Loading overlay */}
+      {isLoading && (
+        <div style={{
+          position: 'fixed',
+          inset: 0,
+          background: 'var(--bg-primary)',
+          zIndex: 9998,
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'center',
+          justifyContent: 'center',
+          gap: 24,
+        }}>
+          <div style={{
+            width: 48,
+            height: 48,
+            border: '3px solid var(--bg-tertiary)',
+            borderTop: '3px solid var(--accent)',
+            borderRadius: '50%',
+            animation: 'spin 1s linear infinite',
+          }} />
+          <div style={{
+            color: 'var(--text-secondary)',
+            fontSize: 14,
+            fontWeight: 500,
+          }}>
+            Loading BlockOut...
+          </div>
+          <style>{`
+            @keyframes spin {
+              0% { transform: rotate(0deg); }
+              100% { transform: rotate(360deg); }
+            }
+          `}</style>
+        </div>
+      )}
       {oauthError && (
         <div style={{
           position: 'fixed',
