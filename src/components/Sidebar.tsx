@@ -4,9 +4,6 @@ import { debouncedSave } from '../utils/persistence';
 import { CategorySettingsModal, BlockSettingsModal } from './Modals';
 import { AnalyticsModal } from './AnalyticsModal';
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-const getViewMode = (): string => (localStorage.getItem('blockout-view-mode') as any) || 'treemap';
-
 function formatCountdown(endDate: number): string {
   const now = Date.now();
   const diff = endDate - now;

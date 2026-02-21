@@ -1,5 +1,7 @@
 import { useStore } from '../store';
-import { syncToDropbox, syncFromDropbox, isDropboxConfigured, syncToDropboxWithResolution, getDropboxAuthInfo, forceUploadToDropbox, type SyncResult, type AnyRecord } from './dropbox';
+import { syncToDropbox, syncFromDropbox, isDropboxConfigured, syncToDropboxWithResolution, getDropboxAuthInfo, forceUploadToDropbox, mergeSnapshots, type AnyRecord } from './dropbox';
+
+const DEBUG = import.meta.env.DEV;
 
 // ─── IndexedDB ───────────────────────────────────────────────────────────────
 
@@ -76,180 +78,6 @@ export function getLastSyncedTime(): number | null {
   return v ? parseInt(v, 10) : null;
 }
 
-// ─── Merge ────────────────────────────────────────────────────────────────────
-//
-// Strategy:
-//   - Remote is the base (cloud changes from other devices are preserved)
-//   - Local tasks created after lastSyncedAt are injected (offline creations kept)
-//   - Local task completions recorded after lastSyncedAt are overlaid
-//   - Categories: union of both sets (no createdAt, so we never silently drop either)
-//   - TimeBlocks: locally-created blocks added; shared blocks get taskId union
-//   - Pomodoro sessions: append local sessions not already on remote
-//   - Streak dates: union of both date sets
-
-// AnyRecord type is imported from dropbox.ts
-
-interface MergeInfo {
-  localTasksAdded: number;
-  cloudTasksAdded: number;
-  completionsFromLocal: number;
-  categoriesFromLocal: number;
-  blocksFromLocal: number;
-}
-
-function mergeSnapshots(
-  local: AnyRecord,
-  remote: AnyRecord,
-  lastSyncedAt: number
-): { merged: AnyRecord; info: MergeInfo } {
-  const localTasks: AnyRecord = local.tasks ?? {};
-  const remoteTasks: AnyRecord = remote.tasks ?? {};
-  const localCats: AnyRecord = local.categories ?? {};
-  const remoteCats: AnyRecord = remote.categories ?? {};
-  const localBlocks: AnyRecord = local.timeBlocks ?? {};
-  const remoteBlocks: AnyRecord = remote.timeBlocks ?? {};
-
-  let localTasksAdded = 0;
-  let cloudTasksAdded = 0;
-  let completionsFromLocal = 0;
-  let categoriesFromLocal = 0;
-  let blocksFromLocal = 0;
-
-  // ── Tasks ──────────────────────────────────────────────────────────────────
-  // Start with remote as base.
-  const mergedTasks: AnyRecord = { ...remoteTasks };
-
-  // Count tasks the cloud added that weren't in local.
-  for (const id of Object.keys(remoteTasks)) {
-    if (!localTasks[id]) cloudTasksAdded++;
-  }
-
-  // Inject locally-created tasks (created after last sync, not yet on remote).
-  for (const [id, task] of Object.entries(localTasks)) {
-    if (!remoteTasks[id] && task.createdAt > lastSyncedAt) {
-      mergedTasks[id] = task;
-      localTasksAdded++;
-    }
-  }
-
-  // Overlay local completions: task completed offline that remote still shows incomplete.
-  for (const [id, localTask] of Object.entries(localTasks)) {
-    if (
-      remoteTasks[id] &&
-      localTask.completed &&
-      !remoteTasks[id].completed &&
-      localTask.completedAt &&
-      localTask.completedAt > lastSyncedAt
-    ) {
-      mergedTasks[id] = {
-        ...remoteTasks[id],
-        completed: true,
-        completedAt: localTask.completedAt,
-      };
-      completionsFromLocal++;
-    }
-  }
-
-  // ── Categories ─────────────────────────────────────────────────────────────
-  // Union: no timestamps on categories so we never drop either side.
-  const mergedCats: AnyRecord = { ...remoteCats };
-  for (const [id, cat] of Object.entries(localCats)) {
-    if (!remoteCats[id]) {
-      mergedCats[id] = cat;
-      categoriesFromLocal++;
-    }
-  }
-
-  // ── TimeBlocks ─────────────────────────────────────────────────────────────
-  const mergedBlocks: AnyRecord = { ...remoteBlocks };
-  for (const [id, block] of Object.entries(localBlocks)) {
-    if (!remoteBlocks[id] && block.createdAt > lastSyncedAt) {
-      // Created locally while offline — add it.
-      mergedBlocks[id] = block;
-      blocksFromLocal++;
-    } else if (remoteBlocks[id]) {
-      // Shared block — union the taskId lists so no assignment is lost.
-      const unionIds = [...new Set([...remoteBlocks[id].taskIds, ...block.taskIds])];
-      mergedBlocks[id] = { ...remoteBlocks[id], taskIds: unionIds };
-    }
-  }
-
-  // ── Pomodoro sessions ──────────────────────────────────────────────────────
-  const remoteSessions: AnyRecord[] = remote.pomodoroSessions ?? [];
-  const localSessions: AnyRecord[] = local.pomodoroSessions ?? [];
-  const remoteSessionIds = new Set(remoteSessions.map((s) => s.id));
-  const newLocalSessions = localSessions.filter(
-    (s) => !remoteSessionIds.has(s.id) && s.startTime > lastSyncedAt
-  );
-
-  // ── Streak ─────────────────────────────────────────────────────────────────
-  const localDates: string[] = local.streak?.completionDates ?? [];
-  const remoteDates: string[] = remote.streak?.completionDates ?? [];
-  const mergedDates = [...new Set([...localDates, ...remoteDates])];
-
-  // ── Task Chains ────────────────────────────────────────────────────────────
-  // Union approach - preserve both local and remote task chains
-  const localTaskChains: AnyRecord = local.taskChains ?? {};
-  const remoteTaskChains: AnyRecord = remote.taskChains ?? {};
-  const mergedTaskChains: AnyRecord = { ...remoteTaskChains };
-  
-  // Add local task chains that don't exist in remote
-  for (const [date, chain] of Object.entries(localTaskChains)) {
-    if (!remoteTaskChains[date]) {
-      mergedTaskChains[date] = chain;
-    }
-  }
-  
-  // ── Chain Templates ────────────────────────────────────────────────────────
-  const localTemplates: AnyRecord = local.chainTemplates ?? {};
-  const remoteTemplates: AnyRecord = remote.chainTemplates ?? {};
-  const mergedTemplates: AnyRecord = { ...remoteTemplates };
-  
-  // Add local templates that don't exist in remote
-  for (const [id, template] of Object.entries(localTemplates)) {
-    if (!remoteTemplates[id]) {
-      mergedTemplates[id] = template;
-    }
-  }
-  
-  // ── Chain Tasks ─────────────────────────────────────────────────────────────
-  const localChainTasks: AnyRecord = local.chainTasks ?? {};
-  const remoteChainTasks: AnyRecord = remote.chainTasks ?? {};
-  const mergedChainTasks: AnyRecord = { ...remoteChainTasks };
-  
-  // Add local chain tasks that don't exist in remote
-  for (const [id, task] of Object.entries(localChainTasks)) {
-    if (!remoteChainTasks[id]) {
-      mergedChainTasks[id] = task;
-    }
-  }
-
-  const merged: AnyRecord = {
-    tasks: mergedTasks,
-    categories: mergedCats,
-    timeBlocks: mergedBlocks,
-    activeBlockId: remote.activeBlockId,
-    pomodoroSessions: [...remoteSessions, ...newLocalSessions],
-    streak: {
-      completionDates: mergedDates,
-      currentStreak: Math.max(
-        local.streak?.currentStreak ?? 0,
-        remote.streak?.currentStreak ?? 0
-      ),
-      longestStreak: Math.max(
-        local.streak?.longestStreak ?? 0,
-        remote.streak?.longestStreak ?? 0
-      ),
-    },
-    taskChains: mergedTaskChains,
-    chainTemplates: mergedTemplates,
-    chainTasks: mergedChainTasks,
-    lastModified: Date.now(),
-  };
-
-  return { merged, info: { localTasksAdded, cloudTasksAdded, completionsFromLocal, categoriesFromLocal, blocksFromLocal } };
-}
-
 // ─── Save ─────────────────────────────────────────────────────────────────────
 
 export async function saveLocal(): Promise<void> {
@@ -262,7 +90,7 @@ export async function saveToCloud(): Promise<void> {
   // Check if Dropbox is configured
   if (isDropboxConfigured()) {
     const data = useStore.getState().getSerializableState() as any;
-    console.log('[BlockOut] Syncing to Dropbox:', {
+    if (DEBUG) console.log('[BlockOut] Syncing to Dropbox:', {
       hasTaskChains: !!data.taskChains,
       taskChainCount: Object.keys(data.taskChains || {}).length,
       hasChainTemplates: !!data.chainTemplates,
@@ -277,10 +105,10 @@ export async function saveToCloud(): Promise<void> {
     
     // If remote was downloaded, apply it to the store
     if (result.action === 'downloaded' && result.data) {
-      console.log('[BlockOut] Remote is newer, applying downloaded data');
+      if (DEBUG) console.log('[BlockOut] Remote is newer, applying downloaded data');
       applyData(result.data, 'saveToCloud-downloaded');
     } else if (result.action === 'merged' && result.data) {
-      console.log('[BlockOut] Merge complete, applying merged data');
+      if (DEBUG) console.log('[BlockOut] Merge complete, applying merged data');
       applyData(result.data, 'saveToCloud-merged');
     }
     
@@ -354,7 +182,7 @@ export async function loadData(): Promise<void> {
               
             case 'downloaded':
               // Remote was newer, use the data that was already downloaded
-              console.log('[BlockOut] Downloaded case, has data:', !!result.data);
+              if (DEBUG) console.log('[BlockOut] Downloaded case, has data:', !!result.data);
               if (result.data) {
                 applyData(result.data, 'dropbox-downloaded');
                 useStore.getState().setSyncStatus('synced');
@@ -489,20 +317,18 @@ export async function loadData(): Promise<void> {
 
 function applyData(data: AnyRecord, source: string = 'unknown'): void {
   try {
-    console.log('[BlockOut] Applying data', {
+    if (DEBUG) console.log('[BlockOut] Applying data', {
       source,
-      hasTasks: Object.keys(data.tasks || {}).length,
-      hasCategories: Object.keys(data.categories || {}).length,
-      hasTimeBlocks: Object.keys(data.timeBlocks || {}).length,
-      hasTaskChains: Object.keys(data.taskChains || {}).length,
-      taskChainCount: Object.keys(data.taskChains || {}).length,
-      hasChainTemplates: Object.keys(data.chainTemplates || {}).length,
-      hasChainTasks: Object.keys(data.chainTasks || {}).length,
+      tasks: Object.keys(data.tasks || {}).length,
+      categories: Object.keys(data.categories || {}).length,
+      timeBlocks: Object.keys(data.timeBlocks || {}).length,
+      taskChains: Object.keys(data.taskChains || {}).length,
+      chainTemplates: Object.keys(data.chainTemplates || {}).length,
+      chainTasks: Object.keys(data.chainTasks || {}).length,
     });
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     useStore.getState().loadData(data as any);
     markDataLoaded();
-    console.log('[BlockOut] Data applied successfully');
   } catch (e) {
     console.warn('[BlockOut] Failed to apply state', e);
   }
@@ -523,7 +349,7 @@ export async function resolveConflict(choice: 'local' | 'remote'): Promise<void>
       // Force upload local data to cloud (bypass conflict resolution)
       if (isDropboxConfigured()) {
         const data = useStore.getState().getSerializableState() as any;
-        console.log('[BlockOut] Force uploading local data to Dropbox');
+        if (DEBUG) console.log('[BlockOut] Force uploading local data to Dropbox');
         await forceUploadToDropbox(data);
       } else {
         await saveToCloud();
@@ -567,9 +393,9 @@ export function debouncedSave(): void {
       // But skip if we're currently syncing (prevents infinite loops)
       if (!_skipCloudSaveFlag) {
         _cloudSavePending = true;
-        console.log('[BlockOut] Local save complete, cloud sync flagged');
+        if (DEBUG) console.log('[BlockOut] Local save complete, cloud sync flagged');
       } else {
-        console.log('[BlockOut] Local save complete, skipped cloud flag (sync in progress)');
+        if (DEBUG) console.log('[BlockOut] Local save complete, skipped cloud flag (sync in progress)');
       }
     });
   }, 800);
@@ -605,7 +431,7 @@ export function startPeriodicCloudSync(): () => void {
     _cloudSavePending = false;
     _syncInProgress = true;
     
-    console.log('[BlockOut] Cloud sync triggered by periodic check');
+    if (DEBUG) console.log('[BlockOut] Cloud sync triggered by periodic check');
     
     // Set flag to prevent debouncedSave from re-triggering cloud sync
     _skipCloudSaveFlag = true;
@@ -613,7 +439,7 @@ export function startPeriodicCloudSync(): () => void {
     try {
       useStore.getState().setSyncStatus('syncing');
       await saveToCloud();
-      console.log('[BlockOut] Cloud sync completed successfully');
+      if (DEBUG) console.log('[BlockOut] Cloud sync completed successfully');
       useStore.getState().setSyncStatus('synced');
     } catch (e) {
       console.warn('[BlockOut] Cloud sync failed, will retry in 10s:', e);
@@ -625,7 +451,7 @@ export function startPeriodicCloudSync(): () => void {
       // Clear the skip flag after a short delay to allow any pending local saves to complete
       setTimeout(() => {
         _skipCloudSaveFlag = false;
-        console.log('[BlockOut] Cloud save skip flag cleared');
+        if (DEBUG) console.log('[BlockOut] Cloud save skip flag cleared');
       }, 2000);
     }
   }, CLOUD_SYNC_CHECK_INTERVAL_MS);
@@ -666,7 +492,7 @@ export function startPeriodicCloudSync(): () => void {
 // Manually trigger cloud sync (useful for "Sync Now" buttons)
 export function triggerCloudSync(): void {
   _cloudSavePending = true;
-  console.log('[BlockOut] Cloud sync manually triggered');
+  if (DEBUG) console.log('[BlockOut] Cloud sync manually triggered');
 }
 
 // Check if cloud sync is pending (for debugging)

@@ -139,7 +139,7 @@ function createEmptyAnalytics(): UserAnalytics {
   };
 }
 
-// Activity tracking
+// Activity tracking — fire-and-forget, non-critical
 export function logActivity(
   taskId: string,
   event: TaskActivity['event'],
@@ -151,10 +151,23 @@ export function logActivity(
     timestamp: Date.now(),
     metadata,
   };
-  
-  // Store in memory for now - will be persisted with analytics
-  const store = useStore.getState();
-  // We'll add this to the store later
+
+  getAnalyticsData()
+    .then((analytics) => {
+      const today = new Date().toISOString().slice(0, 10);
+      const updated: UserAnalytics = {
+        ...analytics,
+        activityLog: [...analytics.activityLog, activity],
+        lastActiveAt: Date.now(),
+        totalActiveDays: analytics.dailyStats[today]
+          ? analytics.totalActiveDays
+          : analytics.totalActiveDays + 1,
+      };
+      return saveAnalyticsData(updated);
+    })
+    .catch(() => {
+      // Analytics are non-critical — silently ignore errors
+    });
 }
 
 // Calculate daily stats for heatmap

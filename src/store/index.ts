@@ -2,6 +2,9 @@ import { create } from 'zustand';
 import { v4 as uuid } from 'uuid';
 import type { Task, Category, TimeBlock, PomodoroState, PomodoroSession, ViewMode, StreakData, DragState, TaskChain, ChainTask, ChainTemplate } from '../types';
 import { getCategoryColor } from '../utils/colors';
+// Safe circular dep: analytics.ts uses useStore only inside function bodies,
+// so by the time any action below runs, both modules are fully initialized.
+import { logActivity } from '../utils/analytics';
 
 function todayStr(): string {
   return new Date().toISOString().slice(0, 10);
@@ -369,6 +372,7 @@ export const useStore = create<BlockOutState>((set, get) => ({
         },
       },
     }));
+    logActivity(id, 'created');
     return id;
   },
 
@@ -409,6 +413,9 @@ export const useStore = create<BlockOutState>((set, get) => ({
         completionSurveyTaskId: nowCompleted ? id : state.completionSurveyTaskId,
       };
     });
+    // Log after set so we read the committed state, not a stale closure.
+    const committed = get().tasks[id];
+    if (committed) logActivity(id, committed.completed ? 'completed' : 'started');
   },
 
   updateTask: (id, updates) => {
@@ -422,9 +429,11 @@ export const useStore = create<BlockOutState>((set, get) => ({
         },
       };
     });
+    logActivity(id, 'edited', { newValue: updates });
   },
 
   deleteTask: (id) => {
+    logActivity(id, 'deleted'); // log before set — task won't exist in store after
     set((state) => {
       const { [id]: _, ...rest } = state.tasks;
       const timeBlocks = { ...state.timeBlocks };
@@ -509,6 +518,7 @@ export const useStore = create<BlockOutState>((set, get) => ({
         },
       };
     });
+    logActivity(taskId, 'moved', { toBlockId: blockId });
   },
 
   removeTaskFromBlock: (taskId, blockId) => {
@@ -825,12 +835,9 @@ export const useStore = create<BlockOutState>((set, get) => ({
   removeChainLink: (chainDate, index) => set((state) => {
     const chain = state.taskChains[chainDate];
     if (!chain) return state;
-    
-    const link = chain.links[index];
+
     const newLinks = chain.links.filter((_, i) => i !== index);
-    
-    // If it's a CT, we could optionally delete it from chainTasks, but let's keep it for history
-    
+
     return {
       taskChains: {
         ...state.taskChains,

@@ -177,8 +177,9 @@ export function Pomodoro() {
         dragElastic={0}
         dragConstraints={dragConstraints}
         onDragStart={updateConstraints}
-        onDragEnd={(_, info) => {
-          saveWidgetPosition(info.offset.x, info.offset.y);
+        onDragEnd={() => {
+          // Use the motion values (accumulated position) not info.offset (delta from drag start)
+          saveWidgetPosition(x.get(), y.get());
         }}
         style={{ 
           x, 

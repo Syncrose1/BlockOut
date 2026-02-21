@@ -3,6 +3,7 @@
 // NO TOKENS ARE STORED IN CODE - each user authenticates with their own account
 
 const DROPBOX_APP_KEY = import.meta.env.VITE_DROPBOX_APP_KEY || '';
+const DEBUG = import.meta.env.DEV;
 
 interface DropboxToken {
   access_token: string;
@@ -30,8 +31,9 @@ const DROPBOX_FILE_PATH = '/blockout-data.json';
 const DROPBOX_LAST_SYNC_VERSION_KEY = getStorageKey('dropbox-last-version');
 const DROPBOX_LAST_SYNC_AT_KEY = getStorageKey('dropbox-last-sync-at');
 
-// Debug logging helper
+// Debug logging helper — only active in development
 function logAuthDebug(message: string, data?: unknown) {
+  if (!DEBUG) return;
   console.log(`[BlockOut Dropbox] ${message}`, data !== undefined ? data : '');
 }
 
@@ -79,13 +81,13 @@ export function getDropboxAuthInfo(): {
 function getDropboxToken(): string | null {
   try {
     const stored = localStorage.getItem(DROPBOX_TOKEN_KEY);
-    console.log('[BlockOut] Getting Dropbox token, exists:', !!stored);
+    if (DEBUG) console.log('[BlockOut] Getting Dropbox token, exists:', !!stored);
     if (!stored) return null;
     const token: DropboxToken = JSON.parse(stored);
-    console.log('[BlockOut] Token expires at:', token.expires_at, 'now:', Date.now());
+    if (DEBUG) console.log('[BlockOut] Token expires at:', token.expires_at, 'now:', Date.now());
     // Check if token is expired
     if (token.expires_at && Date.now() > token.expires_at) {
-      console.log('[BlockOut] Token expired, clearing');
+      if (DEBUG) console.log('[BlockOut] Token expired, clearing');
       clearDropboxConfig();
       return null;
     }
@@ -112,7 +114,7 @@ export function clearDropboxConfig(): void {
   localStorage.removeItem(DROPBOX_PKCE_DOMAIN_KEY);
   localStorage.removeItem(DROPBOX_LAST_SYNC_VERSION_KEY);
   localStorage.removeItem(DROPBOX_LAST_SYNC_AT_KEY);
-  console.log('[BlockOut] Dropbox config cleared for domain:', window.location.origin);
+  if (DEBUG) console.log('[BlockOut] Dropbox config cleared for domain:', window.location.origin);
 }
 
 // Force complete re-authentication
@@ -121,7 +123,7 @@ export function forceReauth(): void {
   // Also clear any cached data
   localStorage.removeItem('blockout-last-synced-version');
   localStorage.removeItem('blockout-last-synced-at');
-  console.log('[BlockOut] Force reauth - all Dropbox data cleared');
+  if (DEBUG) console.log('[BlockOut] Force reauth - all Dropbox data cleared');
   // Redirect to auth
   startDropboxAuth();
 }
@@ -163,15 +165,15 @@ export function startDropboxAuth(): void {
   const redirectUri = `${window.location.origin}/`;
   const currentDomain = window.location.hostname;
   
-  console.log('[BlockOut] Starting Dropbox auth with redirect:', redirectUri);
-  console.log('[BlockOut] Current domain:', currentDomain);
+  if (DEBUG) console.log('[BlockOut] Starting Dropbox auth with redirect:', redirectUri);
+  if (DEBUG) console.log('[BlockOut] Current domain:', currentDomain);
   
   const { verifier, challenge } = generatePKCE();
   
   // Store verifier AND domain for callback (use localStorage as it persists through redirects)
   localStorage.setItem(DROPBOX_PKCE_VERIFIER_KEY, verifier);
   localStorage.setItem(DROPBOX_PKCE_DOMAIN_KEY, currentDomain);
-  console.log('[BlockOut] PKCE verifier stored for domain:', currentDomain);
+  if (DEBUG) console.log('[BlockOut] PKCE verifier stored for domain:', currentDomain);
   
   const params = new URLSearchParams({
     client_id: DROPBOX_APP_KEY,
@@ -183,7 +185,7 @@ export function startDropboxAuth(): void {
   });
 
   const authUrl = `https://www.dropbox.com/oauth2/authorize?${params.toString()}`;
-  console.log('[BlockOut] Redirecting to:', authUrl);
+  if (DEBUG) console.log('[BlockOut] Redirecting to:', authUrl);
   window.location.href = authUrl;
 }
 
@@ -193,9 +195,9 @@ export async function handleDropboxCallback(code: string): Promise<{ success: bo
   const storedDomain = localStorage.getItem(DROPBOX_PKCE_DOMAIN_KEY);
   const currentDomain = window.location.hostname;
   
-  console.log('[BlockOut] Handling Dropbox callback on domain:', currentDomain);
-  console.log('[BlockOut] Stored domain:', storedDomain);
-  console.log('[BlockOut] Verifier exists:', !!verifier);
+  if (DEBUG) console.log('[BlockOut] Handling Dropbox callback on domain:', currentDomain);
+  if (DEBUG) console.log('[BlockOut] Stored domain:', storedDomain);
+  if (DEBUG) console.log('[BlockOut] Verifier exists:', !!verifier);
   
   // Check if verifier exists
   if (!verifier) {
@@ -214,7 +216,7 @@ export async function handleDropboxCallback(code: string): Promise<{ success: bo
 
   try {
     const redirectUri = `${window.location.origin}/`;
-    console.log('[BlockOut] Exchanging code for token with redirect:', redirectUri);
+    if (DEBUG) console.log('[BlockOut] Exchanging code for token with redirect:', redirectUri);
     
     const response = await fetch('https://api.dropboxapi.com/oauth2/token', {
       method: 'POST',
@@ -257,7 +259,7 @@ export async function handleDropboxCallback(code: string): Promise<{ success: bo
     }
 
     const data = await response.json();
-    console.log('[BlockOut] Token received, expires in:', data.expires_in);
+    if (DEBUG) console.log('[BlockOut] Token received, expires in:', data.expires_in);
     setDropboxToken(data.access_token, data.expires_in);
     
     // Clean up
