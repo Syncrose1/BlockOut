@@ -888,6 +888,45 @@ export function TaskChain() {
                           )}
                         </>
                       )}
+                      {/* ADD SUBTASK button - placed after task info */}
+                      {!isPlaceholder && (
+                        <button
+                          onClick={(e) => { e.stopPropagation(); setAddingSubtaskForLinkId(link.id); setSubtaskTitle(''); setSelectedSubtaskMainTaskId(''); setSubtaskType('ct'); }}
+                          style={{
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            gap: 4,
+                            marginTop: 8,
+                            padding: '4px 10px',
+                            fontSize: 10,
+                            fontWeight: 600,
+                            letterSpacing: 0.5,
+                            textTransform: 'uppercase',
+                            color: 'var(--text-secondary)',
+                            background: 'transparent',
+                            border: '1px solid var(--border)',
+                            borderRadius: 6,
+                            cursor: 'pointer',
+                            transition: 'all 0.2s ease',
+                          }}
+                          onMouseEnter={(e) => {
+                            e.currentTarget.style.borderColor = 'var(--accent)';
+                            e.currentTarget.style.color = 'var(--accent)';
+                            e.currentTarget.style.background = 'hsla(210, 100%, 60%, 0.1)';
+                          }}
+                          onMouseLeave={(e) => {
+                            e.currentTarget.style.borderColor = 'var(--border)';
+                            e.currentTarget.style.color = 'var(--text-secondary)';
+                            e.currentTarget.style.background = 'transparent';
+                          }}
+                        >
+                          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                            <line x1="12" y1="5" x2="12" y2="19"/>
+                            <line x1="5" y1="12" x2="19" y2="12"/>
+                          </svg>
+                          Add Subtask
+                        </button>
+                      )}
                     </div>
 
                     {/* Actions */}
@@ -1028,19 +1067,13 @@ export function TaskChain() {
                             </div>
                           )}
                         </motion.div>
-                      ) : (
-                        <button className="btn btn-ghost btn-xs"
-                          onClick={() => { setAddingSubtaskForLinkId(link.id); setSubtaskTitle(''); setSelectedSubtaskMainTaskId(''); setSubtaskType('ct'); }}
-                          style={{ color: 'var(--text-tertiary)', alignSelf: 'flex-start', fontSize: 12 }}>
-                          + Add subtask
-                        </button>
-                      )}
+                      ) : null}
                     </div>
                   )}
                 </motion.div>
 
-                {/* Insert inline modal */}
-                {insertAfterIndex === index && !replacingPlaceholderIndex && (
+                {/* Insert inline modal - don't show for last item (handled by Add to End) */}
+                {insertAfterIndex === index && !replacingPlaceholderIndex && index !== chainItems[chainItems.length - 1].index && (
                   <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }}
                     style={{ background: 'var(--bg-secondary)', padding: 14, borderRadius: 10, border: '2px solid var(--accent)', marginTop: 8, marginBottom: 4 }}
                   >
