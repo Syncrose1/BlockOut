@@ -221,7 +221,13 @@ export async function saveLocal(): Promise<void> {
 export async function saveToCloud(): Promise<void> {
   // Check if Dropbox is configured
   if (isDropboxConfigured()) {
-    const data = useStore.getState().getSerializableState();
+    const data = useStore.getState().getSerializableState() as any;
+    console.log('[BlockOut] Syncing to Dropbox:', {
+      hasTaskChains: !!data.taskChains,
+      taskChainCount: Object.keys(data.taskChains || {}).length,
+      hasChainTemplates: !!data.chainTemplates,
+      chainTemplateCount: Object.keys(data.chainTemplates || {}).length,
+    });
     await syncToDropbox(data);
     useStore.getState().setSyncStatus('synced');
     return;

@@ -1789,6 +1789,31 @@ export function SyncSettingsModal() {
                 >
                   {testing ? 'Testing…' : 'Test & sync now'}
                 </button>
+                {syncProvider === 'dropbox' && isDropboxConfigured() && (
+                  <button
+                    className="btn btn-ghost"
+                    onClick={async () => {
+                      try {
+                        setSyncStatus('syncing');
+                        const remote = await syncFromDropbox();
+                        if (remote) {
+                          useStore.getState().loadData(remote as any);
+                          setSyncStatus('synced');
+                          setTestResult('ok');
+                          alert('Data refreshed from Dropbox!');
+                        } else {
+                          alert('No data found in Dropbox');
+                        }
+                      } catch (err) {
+                        console.error('Force refresh error:', err);
+                        setSyncStatus('error');
+                        alert('Failed to refresh: ' + (err as Error).message);
+                      }
+                    }}
+                  >
+                    Force refresh from Dropbox
+                  </button>
+                )}
                 <button 
                   className="btn btn-danger" 
                   onClick={handleDisconnect}
