@@ -187,7 +187,7 @@ export function Topbar() {
         </div>
 
         <div className="view-switcher">
-          {views.map((v) => (
+          {views.filter(v => v.id !== 'taskchain').map((v) => (
             <button
               key={v.id}
               className={viewMode === v.id ? 'active' : ''}
@@ -197,6 +197,24 @@ export function Topbar() {
             </button>
           ))}
         </div>
+
+        {/* Task Chain - separated as it's a function, not a view */}
+        <button
+          className={`btn btn-ghost btn-sm ${viewMode === 'taskchain' ? 'active' : ''}`}
+          onClick={() => setViewMode('taskchain')}
+          style={{
+            marginLeft: '8px',
+            padding: '5px 12px',
+            fontSize: '13px',
+            fontWeight: 600,
+            border: '1px solid var(--border)',
+            borderRadius: 'var(--radius-sm)',
+            background: viewMode === 'taskchain' ? 'var(--bg-hover)' : 'transparent',
+            color: viewMode === 'taskchain' ? 'var(--text-primary)' : 'var(--text-tertiary)',
+          }}
+        >
+          Task Chain
+        </button>
 
         {/* Export dropdown - always show import, conditionally show PNG export */}
         <div ref={dropdownRef} style={{ position: 'relative' }}>
