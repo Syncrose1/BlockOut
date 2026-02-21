@@ -268,7 +268,22 @@ export async function saveToCloud(): Promise<void> {
       hasChainTemplates: !!data.chainTemplates,
       chainTemplateCount: Object.keys(data.chainTemplates || {}).length,
     });
-    await syncToDropbox(data);
+    
+    const result = await syncToDropboxWithResolution(data, 'saveToCloud');
+    
+    if (!result.success) {
+      throw new Error(result.error || 'Sync failed');
+    }
+    
+    // If remote was downloaded, apply it to the store
+    if (result.action === 'downloaded' && result.data) {
+      console.log('[BlockOut] Remote is newer, applying downloaded data');
+      applyData(result.data, 'saveToCloud-downloaded');
+    } else if (result.action === 'merged' && result.data) {
+      console.log('[BlockOut] Merge complete, applying merged data');
+      applyData(result.data, 'saveToCloud-merged');
+    }
+    
     useStore.getState().setSyncStatus('synced');
     return;
   }
