@@ -182,20 +182,27 @@ class DropboxAPI {
   }
 
   private async contentRequest(path: string, options: RequestInit = {}): Promise<Response> {
-    const response = await fetch(`https://content.dropboxapi.com/2${path}`, {
-      ...options,
-      headers: {
-        'Authorization': `Bearer ${this.accessToken}`,
-        ...options.headers,
-      },
-    });
+    try {
+      const response = await fetch(`https://content.dropboxapi.com/2${path}`, {
+        ...options,
+        headers: {
+          'Authorization': `Bearer ${this.accessToken}`,
+          ...options.headers,
+        },
+      });
 
-    if (!response.ok) {
-      const error = await response.text();
-      throw new Error(`Dropbox API error: ${error}`);
+      if (!response.ok) {
+        const error = await response.text();
+        throw new Error(`Dropbox API error: ${error}`);
+      }
+
+      return response;
+    } catch (error) {
+      if (error instanceof TypeError && error.message.includes('NetworkError')) {
+        throw new Error('CORS/Network error: Cannot connect to Dropbox. Token may be invalid or expired. Please reconnect Dropbox.');
+      }
+      throw error;
     }
-
-    return response;
   }
 
   async uploadFile(path: string, content: string): Promise<DropboxFileMetadata> {
