@@ -15,17 +15,18 @@ import { getAuth, signInAnonymously, type Auth } from 'firebase/auth';
 // Type for the data we sync
 type AnyRecord = Record<string, any>;
 
-// Firebase config (user will provide this)
-interface FirebaseConfig {
-  apiKey: string;
-  authDomain: string;
-  projectId: string;
-  storageBucket: string;
-  messagingSenderId: string;
-  appId: string;
-}
+// Default Firebase config (embedded in app - safe to be public)
+// Users can override this by setting their own config in localStorage
+const DEFAULT_FIREBASE_CONFIG = {
+  apiKey: "AIzaSyCIWWHlPX_u5Xzi0HHKXpovaRWh006kWis",
+  authDomain: "blockout-59350.firebaseapp.com",
+  projectId: "blockout-59350",
+  storageBucket: "blockout-59350.firebasestorage.app",
+  messagingSenderId: "983612208586",
+  appId: "1:983612208586:web:20f3186d8ac83c55f0cb33"
+};
 
-// Storage keys
+// Storage key for custom config (optional override)
 const FIREBASE_CONFIG_KEY = 'blockout-firebase-config';
 
 let app: FirebaseApp | null = null;
@@ -33,23 +34,25 @@ let db: Firestore | null = null;
 let auth: Auth | null = null;
 let isInitialized = false;
 
-// Get stored Firebase config
-export function getFirebaseConfig(): FirebaseConfig | null {
+// Get Firebase config (uses default, but allows user override)
+export function getFirebaseConfig() {
   try {
     const stored = localStorage.getItem(FIREBASE_CONFIG_KEY);
-    if (!stored) return null;
-    return JSON.parse(stored);
+    if (stored) {
+      return JSON.parse(stored);
+    }
   } catch {
-    return null;
+    // Fall through to default
   }
+  return DEFAULT_FIREBASE_CONFIG;
 }
 
-// Save Firebase config
-export function saveFirebaseConfig(config: FirebaseConfig): void {
+// Save custom Firebase config (optional)
+export function saveFirebaseConfig(config: typeof DEFAULT_FIREBASE_CONFIG): void {
   localStorage.setItem(FIREBASE_CONFIG_KEY, JSON.stringify(config));
 }
 
-// Clear Firebase config
+// Clear custom Firebase config (revert to default)
 export function clearFirebaseConfig(): void {
   localStorage.removeItem(FIREBASE_CONFIG_KEY);
   app = null;
@@ -58,9 +61,9 @@ export function clearFirebaseConfig(): void {
   isInitialized = false;
 }
 
-// Check if Firebase is configured
+// Check if Firebase is configured (always true with default)
 export function isFirebaseConfigured(): boolean {
-  return !!getFirebaseConfig();
+  return true; // Always available with default config
 }
 
 // Initialize Firebase
