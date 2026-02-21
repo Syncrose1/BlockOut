@@ -300,9 +300,11 @@ export async function loadData(): Promise<void> {
     try {
       console.log('[BlockOut] Loading from Firebase...');
       
-      // Check if user is authenticated first (wait up to 2 seconds for auth to init)
+      // Check if user is authenticated first (wait up to 5 seconds for auth to restore session)
       const { waitForAuth } = await import('./firebase');
-      const user = await waitForAuth(2000);
+      console.log('[BlockOut] Waiting for Firebase auth...');
+      const user = await waitForAuth(5000);
+      console.log('[BlockOut] Firebase auth result:', user ? `User: ${user.email}` : 'No user');
       
       if (!user) {
         console.log('[BlockOut] Firebase configured but user not signed in yet');
