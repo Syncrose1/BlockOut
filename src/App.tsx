@@ -26,6 +26,7 @@ export function App() {
   const selectedTaskIds = useStore((s) => s.selectedTaskIds);
   const [oauthError, setOauthError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [isFadingOut, setIsFadingOut] = useState(false);
   const oauthProcessed = useRef(false);
 
   // Handle Dropbox OAuth callback on mount
@@ -70,7 +71,10 @@ export function App() {
       }
       
       // Small delay to ensure UI is ready before showing content
-      setTimeout(() => setIsLoading(false), 100);
+      setTimeout(() => {
+        setIsFadingOut(true);
+        setTimeout(() => setIsLoading(false), 600); // Wait for fade animation to complete
+      }, 100);
     };
     
     initializeApp();
@@ -103,6 +107,10 @@ export function App() {
           alignItems: 'center',
           justifyContent: 'center',
           gap: 32,
+          opacity: isFadingOut ? 0 : 1,
+          visibility: isFadingOut ? 'hidden' : 'visible',
+          transition: 'opacity 0.6s ease-out, visibility 0.6s ease-out',
+          pointerEvents: isFadingOut ? 'none' : 'auto',
         }}>
           {/* Animated logo/pulse */}
           <div style={{
@@ -250,24 +258,30 @@ export function App() {
           </button>
         </div>
       )}
-      <Sidebar />
-      <div className="main">
-        <Topbar />
-        {viewMode === 'treemap' && <Treemap />}
+      <div style={{
+        opacity: isFadingOut ? 1 : 0,
+        transition: 'opacity 0.6s ease-in',
+        display: 'contents',
+      }}>
+        <Sidebar />
+        <div className="main">
+          <Topbar />
+          {viewMode === 'treemap' && <Treemap />}
 
-        {viewMode === 'timeline' && <Timeline />}
-        {viewMode === 'taskchain' && <TaskChain />}
+          {viewMode === 'timeline' && <Timeline />}
+          {viewMode === 'taskchain' && <TaskChain />}
+        </div>
+        <Pomodoro />
+        <NewBlockModal />
+        <NewCategoryModal />
+        <NewTaskModal />
+        <TaskEditModal />
+        <TaskCompletionSurvey />
+        <PomodoroSettingsModal />
+        <SyncSettingsModal />
+        <ConflictResolutionModal />
+        <OnboardingTour />
       </div>
-      <Pomodoro />
-      <NewBlockModal />
-      <NewCategoryModal />
-      <NewTaskModal />
-      <TaskEditModal />
-      <TaskCompletionSurvey />
-      <PomodoroSettingsModal />
-      <SyncSettingsModal />
-      <ConflictResolutionModal />
-      <OnboardingTour />
     </div>
   );
 }
