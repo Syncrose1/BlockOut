@@ -18,6 +18,13 @@ import {
   startDropboxAuth,
   forceReauth,
 } from '../utils/dropbox';
+import {
+  isFirebaseConfigured,
+  saveFirebaseConfig,
+  clearFirebaseConfig,
+  testFirebaseConnection,
+  syncFromFirebase,
+} from '../utils/firebase';
 
 // ─── Calendar Date Picker ────────────────────────────────────────────────────
 
@@ -1541,16 +1548,20 @@ export function SyncSettingsModal() {
   const syncStatus = useStore((s) => s.syncStatus);
   const setSyncStatus = useStore((s) => s.setSyncStatus);
 
-  const [syncProvider, setSyncProvider] = useState<'self-hosted' | 'dropbox'>(() => {
-    // Default to Dropbox unless self-hosted is already configured
+  const [syncProvider, setSyncProvider] = useState<'self-hosted' | 'dropbox' | 'firebase'>(() => {
+    // Check what's configured
     const cfg = getCloudConfig();
     if (cfg.url) return 'self-hosted';
-    return 'dropbox';
+    if (isFirebaseConfigured()) return 'firebase';
+    return 'firebase'; // Default to Firebase (easiest for hobbyists)
   });
 
   // Self-hosted state
   const [url, setUrl] = useState(() => getCloudConfig().url);
   const [token, setToken] = useState(() => getCloudConfig().token);
+  
+  // Firebase state
+  const [firebaseConfig, setFirebaseConfig] = useState('');
   
   const [testing, setTesting] = useState(false);
   const [testResult, setTestResult] = useState<'ok' | 'fail' | null>(null);
@@ -1573,11 +1584,32 @@ export function SyncSettingsModal() {
     if (syncProvider === 'self-hosted') {
       setCloudConfig(url, token);
       clearDropboxConfig();
+      clearFirebaseConfig();
+    } else if (syncProvider === 'firebase') {
+      // Firebase config is saved when pasted
+      setCloudConfig('', '');
+      clearDropboxConfig();
     } else {
       // Dropbox is configured via OAuth, not manual token
       setCloudConfig('', '');
+      clearFirebaseConfig();
     }
     setSyncSettingsOpen(false);
+  };
+
+  const handleFirebaseConfigSave = (configText: string) => {
+    try {
+      const config = JSON.parse(configText);
+      if (config.apiKey && config.projectId) {
+        saveFirebaseConfig(config);
+        setTestResult('ok');
+        alert('Firebase configured successfully!');
+      } else {
+        alert('Invalid Firebase config. Must include apiKey and projectId.');
+      }
+    } catch {
+      alert('Invalid JSON. Please paste the entire Firebase config object.');
+    }
   };
 
   const handleTestAndSync = async () => {
@@ -1611,6 +1643,9 @@ export function SyncSettingsModal() {
       setCloudConfig('', '');
       setUrl('');
       setToken('');
+    } else if (syncProvider === 'firebase') {
+      clearFirebaseConfig();
+      setFirebaseConfig('');
     } else {
       clearDropboxConfig();
     }
@@ -1619,6 +1654,8 @@ export function SyncSettingsModal() {
 
   const isConfigured = syncProvider === 'self-hosted' 
     ? url.trim().length > 0 
+    : syncProvider === 'firebase'
+    ? isFirebaseConfigured()
     : isDropboxConfigured();
 
   const statusDot: Record<string, string> = {
@@ -1670,6 +1707,13 @@ export function SyncSettingsModal() {
           {/* Provider Selection */}
           <div style={{ display: 'flex', gap: 8, marginBottom: 20 }}>
             <button
+              className={`btn ${syncProvider === 'firebase' ? 'btn-primary' : 'btn-ghost'}`}
+              onClick={() => setSyncProvider('firebase')}
+              title="Recommended for hobby projects - easiest setup"
+            >
+              Firebase (Recommended)
+            </button>
+            <button
               className={`btn ${syncProvider === 'dropbox' ? 'btn-primary' : 'btn-ghost'}`}
               onClick={() => setSyncProvider('dropbox')}
             >
@@ -1683,7 +1727,78 @@ export function SyncSettingsModal() {
             </button>
           </div>
 
-          {syncProvider === 'self-hosted' ? (
+          {syncProvider === 'firebase' ? (
+            <>
+              {isFirebaseConfigured() ? (
+                <div style={{ 
+                  padding: 16, 
+                  background: 'var(--bg-tertiary)', 
+                  borderRadius: 'var(--radius-sm)',
+                  textAlign: 'center',
+                  marginBottom: 16
+                }}>
+                  <div style={{ fontSize: 14, marginBottom: 8 }}>
+                    ✅ Connected to Firebase
+                  </div>
+                  <div style={{ fontSize: 12, color: 'var(--text-secondary)' }}>
+                    Your data syncs automatically to Google Firebase
+                  </div>
+                </div>
+              ) : (
+                <>
+                  <div className="modal-field" style={{ marginBottom: 16 }}>
+                    <label>Firebase Config (JSON)</label>
+                    <textarea
+                      value={firebaseConfig}
+                      onChange={(e) => setFirebaseConfig(e.target.value)}
+                      placeholder={`Paste your Firebase config here:
+{
+  "apiKey": "your-api-key",
+  "authDomain": "your-project.firebaseapp.com",
+  "projectId": "your-project-id",
+  "storageBucket": "your-project.appspot.com",
+  "messagingSenderId": "123456789",
+  "appId": "1:123456789:web:abcdef"
+}`}
+                      rows={8}
+                      style={{ 
+                        fontFamily: 'monospace', 
+                        fontSize: 12,
+                        resize: 'vertical'
+                      }}
+                    />
+                    <div style={{ fontSize: 11, color: 'var(--text-tertiary)', marginTop: 4 }}>
+                      Get this from Firebase Console → Project Settings → General → Your apps → Web app → Config
+                    </div>
+                  </div>
+
+                  <div style={{ fontSize: 12, color: 'var(--text-secondary)', marginBottom: 16, padding: 12, background: 'var(--bg-tertiary)', borderRadius: 'var(--radius-sm)' }}>
+                    <strong>Setup Instructions:</strong>
+                    <ol style={{ margin: '8px 0', paddingLeft: 20 }}>
+                      <li>Go to <a href="https://console.firebase.google.com" target="_blank" rel="noopener noreferrer" style={{ color: 'var(--accent)' }}>Firebase Console</a></li>
+                      <li>Create a new project (no Google Analytics needed)</li>
+                      <li>Click the ⚙️ (gear icon) → Project settings</li>
+                      <li>Under "Your apps", click the web icon (&lt;/&gt;)</li>
+                      <li>Register app with any nickname</li>
+                      <li>Copy the firebaseConfig object and paste above</li>
+                    </ol>
+                    <div style={{ marginTop: 8, color: 'var(--text-tertiary)' }}>
+                      Note: Firebase free tier includes 1GB storage and 50K reads/day
+                    </div>
+                  </div>
+
+                  <button 
+                    className="btn btn-primary" 
+                    onClick={() => handleFirebaseConfigSave(firebaseConfig)}
+                    disabled={!firebaseConfig.trim()}
+                    style={{ width: '100%', marginBottom: 12 }}
+                  >
+                    Save Firebase Config
+                  </button>
+                </>
+              )}
+            </>
+          ) : syncProvider === 'self-hosted' ? (
             <>
               <div className="modal-field">
                 <label>Remote server URL</label>
@@ -1729,9 +1844,38 @@ export function SyncSettingsModal() {
                 </div>
               ) : (
                 <>
+                  {/* Personal Access Token Option */}
+                  <div className="modal-field" style={{ marginBottom: 16 }}>
+                    <label>Personal Access Token (Easiest for hobbyists)</label>
+                    <input
+                      type="password"
+                      placeholder="Paste your Dropbox access token here"
+                      onChange={(e) => {
+                        const token = e.target.value.trim();
+                        if (token.length > 20) {
+                          // Store as if it came from OAuth
+                          localStorage.setItem('blockout-dropbox-token', JSON.stringify({
+                            access_token: token,
+                            expires_at: undefined  // Personal tokens don't expire
+                          }));
+                          setSyncStatus('synced');
+                          alert('Access token saved! You can now sync.');
+                        }
+                      }}
+                    />
+                    <div style={{ fontSize: 11, color: 'var(--text-tertiary)', marginTop: 4 }}>
+                      Get this from your Dropbox App Console → Settings → Generated access token
+                    </div>
+                  </div>
+
+                  <div style={{ textAlign: 'center', margin: '16px 0', color: 'var(--text-tertiary)', fontSize: 12 }}>
+                    — OR —
+                  </div>
+
+                  {/* OAuth Option */}
                   <div className="modal-field">
                     <div style={{ fontSize: 12, color: 'var(--text-secondary)', marginBottom: 16 }}>
-                      <strong>Connect with Dropbox:</strong>
+                      <strong>Connect with OAuth (Requires app approval):</strong>
                       <ol style={{ margin: '8px 0', paddingLeft: 20 }}>
                         <li>You'll be redirected to Dropbox to authorize this app</li>
                         <li>We only access a single folder (/Apps/BlockOut)</li>
@@ -1743,7 +1887,7 @@ export function SyncSettingsModal() {
                       onClick={startDropboxAuth}
                       style={{ width: '100%' }}
                     >
-                      Connect to Dropbox
+                      Connect to Dropbox (OAuth)
                     </button>
                   </div>
 
