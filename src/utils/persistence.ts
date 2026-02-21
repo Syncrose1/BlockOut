@@ -1,5 +1,5 @@
 import { useStore } from '../store';
-import { syncToDropbox, syncFromDropbox, isDropboxConfigured, syncToDropboxWithResolution, type SyncResult, type AnyRecord } from './dropbox';
+import { syncToDropbox, syncFromDropbox, isDropboxConfigured, syncToDropboxWithResolution, getDropboxAuthInfo, type SyncResult, type AnyRecord } from './dropbox';
 
 // ─── IndexedDB ───────────────────────────────────────────────────────────────
 
@@ -287,7 +287,7 @@ export async function loadData(): Promise<void> {
     try {
       if (local) {
         // Use smart sync with conflict resolution
-        const result = await syncToDropboxWithResolution(local);
+        const result = await syncToDropboxWithResolution(local, 'loadData');
         
         if (result.success) {
           switch (result.action) {
@@ -482,6 +482,51 @@ export function debouncedSave(): void {
   localSaveTimeout = setTimeout(saveLocal, 800);
 }
 
+// ─── Progress sync ────────────────────────────────────────────────────────────
+// Sync immediately after user progress actions (task CRUD, timeblock changes, etc.)
+// This ensures cloud backup happens right away, not just on periodic sync
+
+let _progressSyncTimeout: ReturnType<typeof setTimeout> | null = null;
+let _progressSyncInProgress = false;
+
+export function syncProgress(action: string): void {
+  if (!_hasLoaded) return;
+  
+  // First, save locally immediately
+  saveLocal().catch(e => console.warn('[BlockOut] Local save failed:', e));
+  
+  // Debounce cloud sync to batch rapid actions
+  if (_progressSyncTimeout) {
+    clearTimeout(_progressSyncTimeout);
+  }
+  
+  _progressSyncTimeout = setTimeout(async () => {
+    if (_progressSyncInProgress) return;
+    
+    const hasDropbox = isDropboxConfigured();
+    const { url } = getCloudConfig();
+    
+    if (!hasDropbox && !url) {
+      console.log('[BlockOut] No cloud sync configured, skipping progress sync');
+      return;
+    }
+    
+    _progressSyncInProgress = true;
+    console.log('[BlockOut] Progress sync triggered by:', action);
+    
+    try {
+      useStore.getState().setSyncStatus('syncing');
+      await saveToCloud();
+      console.log('[BlockOut] Progress sync completed successfully');
+    } catch (e) {
+      console.warn('[BlockOut] Progress sync failed:', e);
+      useStore.getState().setSyncStatus('error');
+    } finally {
+      _progressSyncInProgress = false;
+    }
+  }, 1500); // 1.5s debounce for cloud sync
+}
+
 // ─── Periodic cloud push ─────────────────────────────────────────────────────
 
 const CLOUD_PUSH_INTERVAL_MS = 5 * 60 * 1000;
@@ -540,3 +585,6 @@ export function startPeriodicCloudSync(): () => void {
     window.removeEventListener('beforeunload', handleUnload);
   };
 }
+
+// Export Dropbox auth info for debugging
+export { getDropboxAuthInfo };

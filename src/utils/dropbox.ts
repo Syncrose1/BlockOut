@@ -30,9 +30,49 @@ const DROPBOX_FILE_PATH = '/blockout-data.json';
 const DROPBOX_LAST_SYNC_VERSION_KEY = getStorageKey('dropbox-last-version');
 const DROPBOX_LAST_SYNC_AT_KEY = getStorageKey('dropbox-last-sync-at');
 
+// Debug logging helper
+function logAuthDebug(message: string, data?: unknown) {
+  console.log(`[BlockOut Dropbox] ${message}`, data !== undefined ? data : '');
+}
+
 // Check if Dropbox is configured (user has authenticated)
 export function isDropboxConfigured(): boolean {
-  return !!getDropboxToken();
+  const token = getDropboxToken();
+  const configured = !!token;
+  
+  logAuthDebug('isDropboxConfigured check', {
+    configured,
+    domain: window.location.hostname,
+    tokenKey: DROPBOX_TOKEN_KEY,
+    hasToken: !!token,
+    tokenLength: token ? token.length : 0
+  });
+  
+  return configured;
+}
+
+// Get Dropbox auth info for debugging
+export function getDropboxAuthInfo(): {
+  isConfigured: boolean;
+  domain: string;
+  tokenKey: string;
+  lastSyncedAt: number | null;
+  lastSyncedVersion: number;
+} {
+  const token = getDropboxToken();
+  const lastSyncedAt = getLastSyncedAt();
+  const lastSyncedVersion = getLastSyncedVersion();
+  
+  const info = {
+    isConfigured: !!token,
+    domain: window.location.hostname,
+    tokenKey: DROPBOX_TOKEN_KEY,
+    lastSyncedAt: lastSyncedAt || null,
+    lastSyncedVersion
+  };
+  
+  logAuthDebug('Auth info', info);
+  return info;
 }
 
 // Get stored token
@@ -467,9 +507,18 @@ function mergeSnapshots(
 }
 
 // Smart sync with conflict resolution (mirrors self-hosted architecture)
-export async function syncToDropboxWithResolution(localData: AnyRecord): Promise<SyncResult> {
+export async function syncToDropboxWithResolution(localData: AnyRecord, source: string = 'unknown'): Promise<SyncResult> {
+  logAuthDebug('Starting sync', { 
+    source, 
+    domain: window.location.hostname,
+    tasksCount: Object.keys(localData.tasks ?? {}).length,
+    lastSyncedVersion: getLastSyncedVersion(),
+    lastSyncedAt: getLastSyncedAt()
+  });
+  
   const token = getDropboxToken();
   if (!token) {
+    logAuthDebug('Sync failed - no token');
     return { success: false, action: 'error', error: 'Not authenticated with Dropbox' };
   }
 
@@ -479,14 +528,16 @@ export async function syncToDropboxWithResolution(localData: AnyRecord): Promise
   const localLastModified = localData.lastModified ?? 0;
 
   try {
+    logAuthDebug('Downloading remote data to check for conflicts');
     // First, download remote to check for conflicts
     const remoteResult = await dropbox.downloadFile(DROPBOX_FILE_PATH);
     
     if (!remoteResult) {
-      // File doesn't exist - upload initial data
+      logAuthDebug('No remote file exists - uploading initial data');
       const payload = { ...localData, version: 1, lastModified: Date.now() };
       const metadata = await dropbox.uploadFile(DROPBOX_FILE_PATH, JSON.stringify(payload, null, 2));
       recordSuccessfulSync(1);
+      logAuthDebug('Initial upload complete', { version: 1 });
       return { success: true, action: 'uploaded', remoteVersion: 1 };
     }
 
@@ -494,9 +545,24 @@ export async function syncToDropboxWithResolution(localData: AnyRecord): Promise
     const remoteVersion = remoteData.version ?? 0;
     const remoteLastModified = remoteData.lastModified ?? 0;
 
+    logAuthDebug('Remote data downloaded', { 
+      remoteVersion, 
+      remoteLastModified,
+      localLastModified,
+      lastSyncedVersion,
+      lastSyncedAt
+    });
+
     // Detect conflicts
     const remoteHasNewWrites = remoteVersion > lastSyncedVersion;
     const localHasUnpushedChanges = localLastModified > lastSyncedAt && lastSyncedAt > 0;
+
+    logAuthDebug('Conflict detection', { 
+      remoteHasNewWrites, 
+      localHasUnpushedChanges,
+      lastSyncedVersion,
+      lastSyncedAt
+    });
 
     // Case D: First time connecting to Dropbox with existing remote content
     if (lastSyncedVersion === 0 && remoteVersion > 0) {
@@ -505,7 +571,7 @@ export async function syncToDropboxWithResolution(localData: AnyRecord): Promise
         Object.keys(remoteData.categories ?? {}).length > 0;
       
       if (remoteHasContent) {
-        // Return remote data for caller to apply
+        logAuthDebug('First-time sync with existing remote content');
         return { 
           success: true, 
           action: 'downloaded', 
@@ -517,6 +583,7 @@ export async function syncToDropboxWithResolution(localData: AnyRecord): Promise
 
     // Case C: Both have changes - merge required
     if (remoteHasNewWrites && localHasUnpushedChanges) {
+      logAuthDebug('Conflict detected - merging changes');
       const { merged, info } = mergeSnapshots(localData, remoteData, lastSyncedAt);
       const newVersion = Math.max(remoteVersion, lastSyncedVersion) + 1;
       const payload = { ...merged, version: newVersion, lastModified: Date.now() };
@@ -524,6 +591,7 @@ export async function syncToDropboxWithResolution(localData: AnyRecord): Promise
       await dropbox.uploadFile(DROPBOX_FILE_PATH, JSON.stringify(payload, null, 2));
       recordSuccessfulSync(newVersion);
       
+      logAuthDebug('Merge complete', { newVersion, mergeInfo: info });
       return {
         success: true,
         action: 'merged',
@@ -535,6 +603,7 @@ export async function syncToDropboxWithResolution(localData: AnyRecord): Promise
 
     // Case B: Remote has changes, local unchanged - download
     if (remoteHasNewWrites) {
+      logAuthDebug('Remote has new changes - downloading');
       recordSuccessfulSync(remoteVersion);
       return {
         success: true,
@@ -546,12 +615,14 @@ export async function syncToDropboxWithResolution(localData: AnyRecord): Promise
 
     // Case A: Remote unchanged or local is newer - upload
     if (localLastModified >= remoteLastModified) {
+      logAuthDebug('Uploading local changes');
       const newVersion = Math.max(remoteVersion, lastSyncedVersion) + 1;
       const payload = { ...localData, version: newVersion, lastModified: Date.now() };
       
       await dropbox.uploadFile(DROPBOX_FILE_PATH, JSON.stringify(payload, null, 2));
       recordSuccessfulSync(newVersion);
       
+      logAuthDebug('Upload complete', { newVersion });
       return {
         success: true,
         action: 'uploaded',
@@ -561,6 +632,7 @@ export async function syncToDropboxWithResolution(localData: AnyRecord): Promise
     }
 
     // Remote is newer despite version check - download it
+    logAuthDebug('Remote is newer - downloading');
     recordSuccessfulSync(remoteVersion);
     return {
       success: true,
@@ -570,6 +642,7 @@ export async function syncToDropboxWithResolution(localData: AnyRecord): Promise
     };
 
   } catch (error) {
+    logAuthDebug('Sync error', { error: error instanceof Error ? error.message : 'Unknown' });
     console.error('Dropbox sync error:', error);
     return { 
       success: false, 
