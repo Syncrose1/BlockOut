@@ -190,14 +190,11 @@ export function Sidebar() {
               }}
             >
               <span style={{
-                fontSize: 11,
-                fontWeight: 700,
+                fontSize: 14,
+                fontWeight: 500,
                 color: 'hsl(210, 80%, 60%)',
-                letterSpacing: '0.25em',
-                fontFamily: 'var(--font-mono)',
-                textTransform: 'uppercase',
               }}>
-                {streak.currentStreak}<span style={{ textTransform: 'lowercase' }}>d</span> streak
+                {streak.currentStreak}d streak
               </span>
             </button>
           </div>
@@ -247,8 +244,13 @@ export function Sidebar() {
                 setShowTimelessPool(true);
                 setViewMode('treemap');
               }}
-              style={{ paddingLeft: 40, fontSize: 14 }}
+              style={{ paddingLeft: 40, fontSize: 13 }}
             >
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }}>
+                <circle cx="12" cy="12" r="10"/>
+                <path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/>
+                <line x1="12" y1="17" x2="12.01" y2="17"/>
+              </svg>
               Unassigned
               <span className="block-countdown">{unassignedTasks}</span>
             </button>
