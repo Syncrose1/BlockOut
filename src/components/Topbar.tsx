@@ -204,13 +204,18 @@ export function Topbar() {
           onClick={() => setViewMode('taskchain')}
           style={{
             marginLeft: '8px',
-            padding: '5px 12px',
+            padding: '5px 14px',
             fontSize: '13px',
             fontWeight: 600,
             border: '1px solid var(--border)',
             borderRadius: 'var(--radius-sm)',
             background: viewMode === 'taskchain' ? 'var(--bg-hover)' : 'transparent',
-            color: viewMode === 'taskchain' ? 'var(--text-primary)' : 'var(--text-tertiary)',
+            color: viewMode === 'taskchain' ? 'var(--text-primary)' : '#22d3ee',
+            textShadow: '0 0 8px rgba(34, 211, 238, 0.5)',
+            boxShadow: viewMode === 'taskchain' ? '0 0 12px rgba(34, 211, 238, 0.3)' : '0 0 8px rgba(34, 211, 238, 0.2)',
+            height: '32px',
+            display: 'flex',
+            alignItems: 'center',
           }}
         >
           Task Chain
@@ -223,7 +228,7 @@ export function Topbar() {
             onClick={() => setExportDropdownOpen(!exportDropdownOpen)}
             title="Export/Import"
           >
-            Export ▼
+            Export
           </button>
           
           {exportDropdownOpen && (

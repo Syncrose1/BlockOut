@@ -224,7 +224,7 @@ export const useStore = create<BlockOutState>((set, get) => ({
   activeBlockId: null,
   streak: { completionDates: [], currentStreak: 0, longestStreak: 0 },
 
-  viewMode: 'treemap',
+  viewMode: (localStorage.getItem('blockout-view-mode') as ViewMode) || 'treemap',
   selectedCategoryId: null,
   showTimelessPool: false,
   poolViewMode: 'all',
@@ -524,7 +524,10 @@ export const useStore = create<BlockOutState>((set, get) => ({
   setActiveBlock: (id) => set({ activeBlockId: id, showTimelessPool: false }),
 
   // UI
-  setViewMode: (mode) => set({ viewMode: mode }),
+  setViewMode: (mode) => {
+    localStorage.setItem('blockout-view-mode', mode);
+    set({ viewMode: mode });
+  },
   setSelectedCategory: (id) => set({ selectedCategoryId: id }),
   setShowTimelessPool: (show) => set({ showTimelessPool: show, activeBlockId: show ? null : get().activeBlockId }),
   setPoolViewMode: (mode: 'all' | 'unassigned') => set({ poolViewMode: mode }),

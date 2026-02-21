@@ -448,13 +448,37 @@ export function TaskChain() {
             })}
           </div>
         </div>
+      </div>
 
-        {/* Calendar Picker */}
+      {/* Template Actions */}
+      <div style={{ 
+        display: 'flex', 
+        gap: 12, 
+        marginBottom: 24,
+        flexShrink: 0,
+      }}>
+        <button 
+          className="btn btn-ghost btn-sm"
+          onClick={() => setShowTemplates(true)}
+          style={{ display: 'flex', alignItems: 'center', gap: 6 }}
+        >
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <rect x="8" y="2" width="8" height="4" rx="1" ry="1"/>
+            <path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/>
+            <path d="M12 11h4"/>
+            <path d="M12 16h4"/>
+            <path d="M8 11h.01"/>
+            <path d="M8 16h.01"/>
+          </svg>
+          Load Template
+        </button>
+        
+        {/* Calendar Picker - moved next to Save Template */}
         <div style={{ position: 'relative' }}>
           <button 
-            className="btn btn-ghost"
+            className="btn btn-ghost btn-sm"
             onClick={() => setShowCalendar(!showCalendar)}
-            style={{ display: 'flex', alignItems: 'center', gap: 8 }}
+            style={{ display: 'flex', alignItems: 'center', gap: 6 }}
           >
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
               <rect x="3" y="4" width="18" height="18" rx="2" ry="2"/>
@@ -474,7 +498,7 @@ export function TaskChain() {
                 style={{
                   position: 'absolute',
                   top: '100%',
-                  right: 0,
+                  left: 0,
                   marginTop: 8,
                   background: 'var(--bg-secondary)',
                   padding: 16,
@@ -545,30 +569,7 @@ export function TaskChain() {
             )}
           </AnimatePresence>
         </div>
-      </div>
-
-      {/* Template Actions */}
-      <div style={{ 
-        display: 'flex', 
-        gap: 12, 
-        marginBottom: 24,
-        flexShrink: 0,
-      }}>
-        <button 
-          className="btn btn-ghost btn-sm"
-          onClick={() => setShowTemplates(true)}
-          style={{ display: 'flex', alignItems: 'center', gap: 6 }}
-        >
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-            <rect x="8" y="2" width="8" height="4" rx="1" ry="1"/>
-            <path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/>
-            <path d="M12 11h4"/>
-            <path d="M12 16h4"/>
-            <path d="M8 11h.01"/>
-            <path d="M8 16h.01"/>
-          </svg>
-          Load Template
-        </button>
+        
         {currentChain && currentChain.links.length > 0 && (
           <button 
             className="btn btn-ghost btn-sm"
