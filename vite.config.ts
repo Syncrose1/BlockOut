@@ -13,4 +13,8 @@ export default defineConfig(({ mode }) => ({
   },
   // Base URL for production - needed for correct asset paths
   base: mode === 'production' ? '/' : '/',
+  // Pre-bundle Firebase to avoid Vite issues
+  optimizeDeps: {
+    include: ['firebase/app', 'firebase/firestore', 'firebase/auth'],
+  },
 }));
