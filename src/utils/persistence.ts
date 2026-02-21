@@ -431,6 +431,7 @@ function applyData(data: AnyRecord): void {
   try {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     useStore.getState().loadData(data as any);
+    markDataLoaded();
   } catch (e) {
     console.warn('[BlockOut] Failed to apply state', e);
   }
@@ -463,7 +464,14 @@ export async function resolveConflict(choice: 'local' | 'remote'): Promise<void>
 // ─── Debounced local save ─────────────────────────────────────────────────────
 
 let localSaveTimeout: ReturnType<typeof setTimeout>;
+let _hasLoaded = false;
+
+export function markDataLoaded(): void {
+  _hasLoaded = true;
+}
+
 export function debouncedSave(): void {
+  if (!_hasLoaded) return; // Don't save before initial load completes
   clearTimeout(localSaveTimeout);
   localSaveTimeout = setTimeout(saveLocal, 800);
 }
