@@ -119,29 +119,23 @@ export function waitForAuth(timeout = 3000): Promise<User | null> {
       return;
     }
     
-    // Use a mutable object to hold the unsubscribe function
-    const state: { unsubscribe: (() => void) | null; timeoutId: ReturnType<typeof setTimeout> | null } = {
-      unsubscribe: null,
-      timeoutId: null
+    let cleanup: (() => void) | undefined;
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    
+    const done = (result: User | null) => {
+      if (timer) clearTimeout(timer);
+      if (cleanup) cleanup();
+      resolve(result);
     };
     
-    // Timeout after specified duration
-    state.timeoutId = setTimeout(() => {
-      if (state.unsubscribe) {
-        state.unsubscribe();
-      }
-      resolve(getCurrentUser());
+    // Set timeout
+    timer = setTimeout(() => {
+      done(getCurrentUser());
     }, timeout);
     
-    // Wait for auth state to change
-    state.unsubscribe = onAuthChange((newUser) => {
-      if (state.timeoutId) {
-        clearTimeout(state.timeoutId);
-      }
-      if (state.unsubscribe) {
-        state.unsubscribe();
-      }
-      resolve(newUser);
+    // Listen for auth changes
+    cleanup = onAuthChange((newUser) => {
+      done(newUser);
     });
   });
 }
@@ -167,13 +161,27 @@ export async function signOut(): Promise<void> {
   await firebaseSignOut(auth);
 }
 
+// Ensure Firebase is initialized
+async function ensureFirebase(): Promise<boolean> {
+  if (isInitialized) return true;
+  return initFirebase();
+}
+
 // Listen to auth state changes
 export function onAuthChange(callback: (user: User | null) => void): () => void {
-  if (!auth) {
+  // Initialize Firebase asynchronously
+  ensureFirebase().then(() => {
+    if (auth) {
+      onAuthStateChanged(auth, callback);
+    } else {
+      callback(null);
+    }
+  }).catch(() => {
     callback(null);
-    return () => {};
-  }
-  return onAuthStateChanged(auth, callback);
+  });
+  
+  // Return a dummy cleanup function for now
+  return () => {};
 }
 
 // Sync data to Firebase
