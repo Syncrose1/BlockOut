@@ -177,8 +177,7 @@ export function Sidebar() {
                 gap: 8,
                 padding: '6px 10px',
                 background: 'transparent',
-                border: '1px solid hsl(210, 80%, 55%)',
-                borderRadius: 'var(--radius-sm)',
+                border: 'none',
                 cursor: 'pointer',
                 transition: 'all 0.2s ease',
               }}
@@ -194,7 +193,7 @@ export function Sidebar() {
                 fontWeight: 500,
                 color: 'hsl(210, 80%, 60%)',
               }}>
-                {streak.currentStreak}d streak
+                Streak: Day {streak.currentStreak}
               </span>
             </button>
           </div>
