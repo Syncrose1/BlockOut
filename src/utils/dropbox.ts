@@ -725,6 +725,34 @@ export async function syncToDropbox(data: object): Promise<void> {
   }
 }
 
+// Force upload to Dropbox - bypasses conflict resolution, always uploads
+// Used when user explicitly chooses to keep local data over remote
+export async function forceUploadToDropbox(data: AnyRecord): Promise<void> {
+  const token = getDropboxToken();
+  if (!token) {
+    throw new Error('Not authenticated with Dropbox');
+  }
+
+  const dropbox = new DropboxAPI(token);
+  
+  // Download current remote to get the current version
+  const remoteResult = await dropbox.downloadFile(DROPBOX_FILE_PATH);
+  const currentVersion = remoteResult ? JSON.parse(remoteResult.content).version ?? 0 : 0;
+  
+  // Force upload with incremented version
+  const newVersion = currentVersion + 1;
+  const payload = { ...data, version: newVersion, lastModified: Date.now() };
+  
+  logAuthDebug('Force uploading local data to Dropbox', {
+    currentVersion,
+    newVersion,
+    taskChainsCount: Object.keys(data.taskChains || {}).length
+  });
+  
+  await dropbox.uploadFile(DROPBOX_FILE_PATH, JSON.stringify(payload, null, 2));
+  recordSuccessfulSync(newVersion);
+}
+
 // Get Dropbox config (for UI display)
 export function getDropboxConfig(): { isConfigured: boolean } {
   return {

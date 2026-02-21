@@ -1,5 +1,5 @@
 import { useStore } from '../store';
-import { syncToDropbox, syncFromDropbox, isDropboxConfigured, syncToDropboxWithResolution, getDropboxAuthInfo, type SyncResult, type AnyRecord } from './dropbox';
+import { syncToDropbox, syncFromDropbox, isDropboxConfigured, syncToDropboxWithResolution, getDropboxAuthInfo, forceUploadToDropbox, type SyncResult, type AnyRecord } from './dropbox';
 
 // ─── IndexedDB ───────────────────────────────────────────────────────────────
 
@@ -505,7 +505,14 @@ export async function resolveConflict(choice: 'local' | 'remote'): Promise<void>
 
   if (choice === 'local') {
     try {
-      await saveToCloud();
+      // Force upload local data to cloud (bypass conflict resolution)
+      if (isDropboxConfigured()) {
+        const data = useStore.getState().getSerializableState() as any;
+        console.log('[BlockOut] Force uploading local data to Dropbox');
+        await forceUploadToDropbox(data);
+      } else {
+        await saveToCloud();
+      }
     } catch (e) {
       console.warn('[BlockOut] Could not push manual resolution to cloud', e);
     }
