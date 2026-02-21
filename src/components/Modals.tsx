@@ -6,6 +6,7 @@ import {
   getCloudConfig,
   setCloudConfig,
   saveToCloud,
+  triggerCloudSync,
   getLastSyncedTime,
   resolveConflict,
 } from '../utils/persistence';

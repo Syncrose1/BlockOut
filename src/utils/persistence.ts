@@ -472,6 +472,12 @@ export async function resolveConflict(choice: 'local' | 'remote'): Promise<void>
 let localSaveTimeout: ReturnType<typeof setTimeout>;
 let _hasLoaded = false;
 
+// Flag-based cloud sync system
+// When any local change happens, this flag is set
+// A periodic checker (every 10s) looks for this flag and triggers cloud sync
+// If sync fails, flag stays raised for retry on next cycle
+let _cloudSavePending = false;
+
 export function markDataLoaded(): void {
   _hasLoaded = true;
 }
@@ -479,79 +485,61 @@ export function markDataLoaded(): void {
 export function debouncedSave(): void {
   if (!_hasLoaded) return; // Don't save before initial load completes
   clearTimeout(localSaveTimeout);
-  localSaveTimeout = setTimeout(saveLocal, 800);
+  localSaveTimeout = setTimeout(() => {
+    saveLocal().then(() => {
+      // After successful local save, flag that cloud sync is needed
+      _cloudSavePending = true;
+      console.log('[BlockOut] Local save complete, cloud sync flagged');
+    });
+  }, 800);
 }
 
-// ─── Progress sync ────────────────────────────────────────────────────────────
-// Sync immediately after user progress actions (task CRUD, timeblock changes, etc.)
-// This ensures cloud backup happens right away, not just on periodic sync
+// ─── Cloud sync checker ───────────────────────────────────────────────────────
+// Runs every 10 seconds to check if cloud sync is needed
+// Batches multiple changes into one sync operation
+// Retries on failure every 10 seconds
 
-let _progressSyncTimeout: ReturnType<typeof setTimeout> | null = null;
-let _progressSyncInProgress = false;
-
-export function syncProgress(action: string): void {
-  if (!_hasLoaded) return;
-  
-  // First, save locally immediately
-  saveLocal().catch(e => console.warn('[BlockOut] Local save failed:', e));
-  
-  // Debounce cloud sync to batch rapid actions
-  if (_progressSyncTimeout) {
-    clearTimeout(_progressSyncTimeout);
-  }
-  
-  _progressSyncTimeout = setTimeout(async () => {
-    if (_progressSyncInProgress) return;
-    
-    const hasDropbox = isDropboxConfigured();
-    const { url } = getCloudConfig();
-    
-    if (!hasDropbox && !url) {
-      console.log('[BlockOut] No cloud sync configured, skipping progress sync');
-      return;
-    }
-    
-    _progressSyncInProgress = true;
-    console.log('[BlockOut] Progress sync triggered by:', action);
-    
-    try {
-      useStore.getState().setSyncStatus('syncing');
-      await saveToCloud();
-      console.log('[BlockOut] Progress sync completed successfully');
-    } catch (e) {
-      console.warn('[BlockOut] Progress sync failed:', e);
-      useStore.getState().setSyncStatus('error');
-    } finally {
-      _progressSyncInProgress = false;
-    }
-  }, 1500); // 1.5s debounce for cloud sync
-}
-
-// ─── Periodic cloud push ─────────────────────────────────────────────────────
-
-const CLOUD_PUSH_INTERVAL_MS = 5 * 60 * 1000;
-
+const CLOUD_SYNC_CHECK_INTERVAL_MS = 10 * 1000; // 10 seconds
 let _syncInProgress = false;
 
 export function startPeriodicCloudSync(): () => void {
   const id = setInterval(async () => {
+    // Check if cloud sync is needed
+    if (!_cloudSavePending) return;
+    
     // Check if any cloud sync is configured (Dropbox or self-hosted)
     const { url } = getCloudConfig();
     const hasDropbox = isDropboxConfigured();
-    if (!url && !hasDropbox) return;
-    if (_syncInProgress) return; // prevent overlapping syncs
+    if (!url && !hasDropbox) {
+      // No cloud configured, clear the flag to prevent endless checking
+      _cloudSavePending = false;
+      return;
+    }
+    
+    // Prevent overlapping syncs
+    if (_syncInProgress) return;
 
+    // Lower the flag BEFORE attempting sync
+    // If sync fails, we'll raise it again
+    _cloudSavePending = false;
     _syncInProgress = true;
+    
+    console.log('[BlockOut] Cloud sync triggered by periodic check');
+    
     try {
       useStore.getState().setSyncStatus('syncing');
       await saveToCloud();
+      console.log('[BlockOut] Cloud sync completed successfully');
+      useStore.getState().setSyncStatus('synced');
     } catch (e) {
-      console.warn('[BlockOut] Periodic cloud sync failed', e);
+      console.warn('[BlockOut] Cloud sync failed, will retry in 10s:', e);
       useStore.getState().setSyncStatus('error');
+      // Re-raise the flag so we retry on next cycle
+      _cloudSavePending = true;
     } finally {
       _syncInProgress = false;
     }
-  }, CLOUD_PUSH_INTERVAL_MS);
+  }, CLOUD_SYNC_CHECK_INTERVAL_MS);
 
   const handleUnload = () => {
     const { url, token } = getCloudConfig();
@@ -584,6 +572,17 @@ export function startPeriodicCloudSync(): () => void {
     clearInterval(id);
     window.removeEventListener('beforeunload', handleUnload);
   };
+}
+
+// Manually trigger cloud sync (useful for "Sync Now" buttons)
+export function triggerCloudSync(): void {
+  _cloudSavePending = true;
+  console.log('[BlockOut] Cloud sync manually triggered');
+}
+
+// Check if cloud sync is pending (for debugging)
+export function isCloudSyncPending(): boolean {
+  return _cloudSavePending;
 }
 
 // Export Dropbox auth info for debugging
