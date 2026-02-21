@@ -20,15 +20,28 @@ export function Pomodoro() {
   const setPomodoroSettingsOpen = useStore((s) => s.setPomodoroSettingsOpen);
 
   // Drag offset from natural position (bottom-right corner)
-  const x = useMotionValue(0);
-  const y = useMotionValue(0);
+  const x = useMotionValue(pomodoro.widgetX || 0);
+  const y = useMotionValue(pomodoro.widgetY || 0);
   const widgetRef = useRef<HTMLDivElement>(null);
   const [dragConstraints, setDragConstraints] = useState({ top: -800, left: -1200, right: 0, bottom: 0 });
   
   // Resize state
-  const [scale, setScale] = useState(1);
+  const [scale, setScale] = useState(pomodoro.widgetScale || 1);
   const [isResizing, setIsResizing] = useState(false);
   const resizeStartRef = useRef({ x: 0, scale: 1 });
+  
+  // Save position and scale to store
+  const saveWidgetPosition = useCallback((newX: number, newY: number) => {
+    useStore.setState((state) => ({
+      pomodoro: { ...state.pomodoro, widgetX: newX, widgetY: newY },
+    }));
+  }, []);
+  
+  const saveWidgetScale = useCallback((newScale: number) => {
+    useStore.setState((state) => ({
+      pomodoro: { ...state.pomodoro, widgetScale: newScale },
+    }));
+  }, []);
 
   const updateConstraints = useCallback(() => {
     const el = widgetRef.current;
@@ -69,7 +82,13 @@ export function Pomodoro() {
   };
 
   useEffect(() => {
-    if (!isResizing) return;
+    if (!isResizing) {
+      // Save scale when resizing ends
+      if (scale !== pomodoro.widgetScale) {
+        saveWidgetScale(scale);
+      }
+      return;
+    }
 
     const handleMouseMove = (e: MouseEvent) => {
       const deltaX = e.clientX - resizeStartRef.current.x;
@@ -93,7 +112,7 @@ export function Pomodoro() {
       window.removeEventListener('mouseup', handleMouseUp);
       window.removeEventListener('blur', handleBlur);
     };
-  }, [isResizing, scale]);
+  }, [isResizing, scale, pomodoro.widgetScale, saveWidgetScale]);
 
   // Audio notification on timer end
   useEffect(() => {
@@ -158,6 +177,9 @@ export function Pomodoro() {
         dragElastic={0}
         dragConstraints={dragConstraints}
         onDragStart={updateConstraints}
+        onDragEnd={(_, info) => {
+          saveWidgetPosition(info.offset.x, info.offset.y);
+        }}
         style={{ 
           x, 
           y, 

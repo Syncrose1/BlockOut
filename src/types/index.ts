@@ -55,6 +55,10 @@ export interface PomodoroState {
   focusedCategoryId?: string;
   sessions: PomodoroSession[]; // session history for analytics
   currentSessionStart?: number; // timestamp when current session started
+  // Widget position and scale (persisted)
+  widgetX?: number;
+  widgetY?: number;
+  widgetScale?: number;
 }
 
 export interface StreakData {

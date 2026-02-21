@@ -271,6 +271,9 @@ export const useStore = create<BlockOutState>((set, get) => ({
     focusedCategoryId: undefined,
     sessions: [],
     currentSessionStart: undefined,
+    widgetX: 0,
+    widgetY: 0,
+    widgetScale: 1,
   },
 
   // Categories
@@ -1157,6 +1160,7 @@ export const useStore = create<BlockOutState>((set, get) => ({
   loadData: (data) => {
     const streak = data.streak || { completionDates: [], currentStreak: 0, longestStreak: 0 };
     const { currentStreak, longestStreak } = calcStreak(streak.completionDates);
+    const pomodoroData = (data as any).pomodoro;
     set((state) => ({
       tasks: data.tasks,
       categories: data.categories,
@@ -1166,6 +1170,21 @@ export const useStore = create<BlockOutState>((set, get) => ({
       pomodoro: {
         ...state.pomodoro,
         sessions: data.pomodoroSessions || [],
+        // Restore pomodoro timer state if available
+        ...(pomodoroData && {
+          isRunning: pomodoroData.isRunning ?? false,
+          mode: pomodoroData.mode ?? 'work',
+          timeRemaining: pomodoroData.timeRemaining ?? 25 * 60,
+          workDuration: pomodoroData.workDuration ?? 25 * 60,
+          breakDuration: pomodoroData.breakDuration ?? 5 * 60,
+          longBreakDuration: pomodoroData.longBreakDuration ?? 15 * 60,
+          sessionsCompleted: pomodoroData.sessionsCompleted ?? 0,
+          focusedTaskId: pomodoroData.focusedTaskId,
+          focusedCategoryId: pomodoroData.focusedCategoryId,
+          widgetX: pomodoroData.widgetX ?? 0,
+          widgetY: pomodoroData.widgetY ?? 0,
+          widgetScale: pomodoroData.widgetScale ?? 1,
+        }),
       },
       // Task chains - load if provided, otherwise keep existing
       ...(data as any).taskChains && { taskChains: (data as any).taskChains },
@@ -1184,6 +1203,20 @@ export const useStore = create<BlockOutState>((set, get) => ({
       activeBlockId: s.activeBlockId,
       streak: s.streak,
       pomodoroSessions: s.pomodoro.sessions,
+      pomodoro: {
+        isRunning: s.pomodoro.isRunning,
+        mode: s.pomodoro.mode,
+        timeRemaining: s.pomodoro.timeRemaining,
+        workDuration: s.pomodoro.workDuration,
+        breakDuration: s.pomodoro.breakDuration,
+        longBreakDuration: s.pomodoro.longBreakDuration,
+        sessionsCompleted: s.pomodoro.sessionsCompleted,
+        focusedTaskId: s.pomodoro.focusedTaskId,
+        focusedCategoryId: s.pomodoro.focusedCategoryId,
+        widgetX: s.pomodoro.widgetX,
+        widgetY: s.pomodoro.widgetY,
+        widgetScale: s.pomodoro.widgetScale,
+      },
       taskChains: s.taskChains,
       chainTemplates: s.chainTemplates,
       chainTasks: s.chainTasks,
