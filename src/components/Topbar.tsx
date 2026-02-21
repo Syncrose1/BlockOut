@@ -198,28 +198,6 @@ export function Topbar() {
           ))}
         </div>
 
-        {/* Task Chain - separated as it's a function, not a view */}
-        <button
-          className={`btn btn-ghost btn-sm ${viewMode === 'taskchain' ? 'active' : ''}`}
-          onClick={() => setViewMode('taskchain')}
-          style={{
-            marginLeft: '8px',
-            padding: '5px 14px',
-            fontSize: '13px',
-            fontWeight: 600,
-            border: 'none',
-            borderRadius: 'var(--radius-sm)',
-            background: viewMode === 'taskchain' ? 'var(--bg-hover)' : 'transparent',
-            color: viewMode === 'taskchain' ? 'var(--text-primary)' : '#22d3ee',
-            textShadow: '0 0 4px rgba(34, 211, 238, 0.3)',
-            height: '32px',
-            display: 'flex',
-            alignItems: 'center',
-          }}
-        >
-          Task Chain
-        </button>
-
         {/* Export dropdown - always show import, conditionally show PNG export */}
         <div ref={dropdownRef} style={{ position: 'relative' }}>
           <button
