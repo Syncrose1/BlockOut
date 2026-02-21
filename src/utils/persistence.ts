@@ -338,10 +338,9 @@ export async function loadData(): Promise<void> {
               break;
               
             case 'downloaded':
-              // Remote was newer, need to download and apply
-              remote = await syncFromDropbox();
-              if (remote) {
-                applyData(remote);
+              // Remote was newer, use the data that was already downloaded
+              if (result.data) {
+                applyData(result.data);
                 useStore.getState().setSyncStatus('synced');
               } else {
                 applyData(local);
@@ -349,20 +348,18 @@ export async function loadData(): Promise<void> {
               break;
               
             case 'merged':
-              // Conflict resolved by merging
-              remote = await syncFromDropbox();
-              if (result.mergeInfo && remote) {
-                useStore.getState().setConflictState({ 
-                  local, 
-                  remote, 
-                  merged: remote, // Merged state is now on Dropbox
-                  mergeInfo: result.mergeInfo 
-                });
-              }
-              // Re-download the merged state from Dropbox
-              if (remote) {
-                applyData(remote);
-                await idbWrite({ ...remote, lastModified: Date.now() });
+              // Conflict resolved by merging, use the merged data
+              if (result.data) {
+                applyData(result.data);
+                await idbWrite({ ...result.data, lastModified: Date.now() });
+                if (result.mergeInfo) {
+                  useStore.getState().setConflictState({ 
+                    local, 
+                    remote: result.data, 
+                    merged: result.data,
+                    mergeInfo: result.mergeInfo 
+                  });
+                }
               }
               useStore.getState().setSyncStatus('synced');
               break;

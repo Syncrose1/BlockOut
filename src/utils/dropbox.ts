@@ -388,6 +388,7 @@ export interface SyncResult {
     categoriesFromLocal: number;
     blocksFromLocal: number;
   };
+  data?: AnyRecord; // The remote/merged data (avoid double download)
   error?: string;
 }
 
@@ -609,7 +610,8 @@ export async function syncToDropboxWithResolution(localData: AnyRecord, source: 
           success: true, 
           action: 'downloaded', 
           remoteVersion,
-          localVersion: 0
+          localVersion: 0,
+          data: remoteData  // Return the already-downloaded data
         };
       }
     }
@@ -631,6 +633,7 @@ export async function syncToDropboxWithResolution(localData: AnyRecord, source: 
         remoteVersion: newVersion,
         localVersion: lastSyncedVersion,
         mergeInfo: info,
+        data: payload  // Return the merged data that was uploaded
       };
     }
 
@@ -643,6 +646,7 @@ export async function syncToDropboxWithResolution(localData: AnyRecord, source: 
         action: 'downloaded',
         remoteVersion,
         localVersion: lastSyncedVersion,
+        data: remoteData  // Return the already-downloaded data
       };
     }
 
@@ -672,6 +676,7 @@ export async function syncToDropboxWithResolution(localData: AnyRecord, source: 
       action: 'downloaded',
       remoteVersion,
       localVersion: lastSyncedVersion,
+      data: remoteData  // Return the already-downloaded data
     };
 
   } catch (error) {
