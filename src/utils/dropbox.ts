@@ -62,7 +62,18 @@ export function clearDropboxConfig(): void {
   localStorage.removeItem(DROPBOX_PKCE_VERIFIER_KEY);
   localStorage.removeItem(DROPBOX_LAST_SYNC_VERSION_KEY);
   localStorage.removeItem(DROPBOX_LAST_SYNC_AT_KEY);
-  console.log('[BlockOut] Dropbox config cleared');
+  console.log('[BlockOut] Dropbox config cleared for domain:', window.location.origin);
+}
+
+// Force complete re-authentication
+export function forceReauth(): void {
+  clearDropboxConfig();
+  // Also clear any cached data
+  localStorage.removeItem('blockout-last-synced-version');
+  localStorage.removeItem('blockout-last-synced-at');
+  console.log('[BlockOut] Force reauth - all Dropbox data cleared');
+  // Redirect to auth
+  startDropboxAuth();
 }
 
 // Version tracking for conflict resolution

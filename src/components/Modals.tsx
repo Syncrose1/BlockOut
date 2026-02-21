@@ -16,6 +16,7 @@ import {
   isDropboxConfigured,
   clearDropboxConfig,
   startDropboxAuth,
+  forceReauth,
 } from '../utils/dropbox';
 
 // ─── Calendar Date Picker ────────────────────────────────────────────────────
@@ -1773,6 +1774,14 @@ export function SyncSettingsModal() {
             </div>
           )}
 
+          {syncProvider === 'dropbox' && syncStatus === 'error' && isDropboxConfigured() && (
+            <div style={{ fontSize: 13, color: 'hsl(35, 92%, 50%)', marginBottom: 12, padding: 12, background: 'hsla(35, 92%, 50%, 0.1)', borderRadius: 6 }}>
+              <strong>Domain mismatch detected!</strong><br/>
+              Your Dropbox token may have been created for a different domain (localhost vs production).<br/>
+              Try clicking "Complete reset & reconnect" below.
+            </div>
+          )}
+
           <div style={{ fontSize: 12, color: 'var(--text-tertiary)', marginBottom: 16 }}>
             Data syncs automatically every 5 minutes and on page close.
             Local (IndexedDB) is always the primary store — cloud is a backup.
@@ -1820,6 +1829,18 @@ export function SyncSettingsModal() {
                 >
                   Disconnect
                 </button>
+                {syncProvider === 'dropbox' && syncStatus === 'error' && (
+                  <button 
+                    className="btn btn-danger" 
+                    onClick={() => {
+                      if (confirm('This will clear your Dropbox connection and redirect you to re-authenticate. Continue?')) {
+                        forceReauth();
+                      }
+                    }}
+                  >
+                    Complete reset & reconnect
+                  </button>
+                )}
               </>
             )}
             <button className="btn btn-primary" onClick={handleSave}>Save</button>
