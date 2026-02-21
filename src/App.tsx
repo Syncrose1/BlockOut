@@ -57,7 +57,19 @@ export function App() {
 
   // Load data on mount (IndexedDB first, then merge from cloud if configured)
   useEffect(() => {
-    loadData();
+    const initializeApp = async () => {
+      await loadData();
+      
+      // After data loads, check if no view is selected
+      // If nothing cached, default to "All Tasks" view
+      const state = useStore.getState();
+      if (!state.activeBlockId && !state.showTimelessPool) {
+        console.log('[BlockOut] No cached view found, defaulting to All Tasks');
+        useStore.getState().setShowTimelessPool(true);
+      }
+    };
+    
+    initializeApp();
   }, []);
 
   // Debounced local save on every state change
