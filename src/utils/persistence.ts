@@ -187,6 +187,43 @@ function mergeSnapshots(
   const remoteDates: string[] = remote.streak?.completionDates ?? [];
   const mergedDates = [...new Set([...localDates, ...remoteDates])];
 
+  // ── Task Chains ────────────────────────────────────────────────────────────
+  // Union approach - preserve both local and remote task chains
+  const localTaskChains: AnyRecord = local.taskChains ?? {};
+  const remoteTaskChains: AnyRecord = remote.taskChains ?? {};
+  const mergedTaskChains: AnyRecord = { ...remoteTaskChains };
+  
+  // Add local task chains that don't exist in remote
+  for (const [date, chain] of Object.entries(localTaskChains)) {
+    if (!remoteTaskChains[date]) {
+      mergedTaskChains[date] = chain;
+    }
+  }
+  
+  // ── Chain Templates ────────────────────────────────────────────────────────
+  const localTemplates: AnyRecord = local.chainTemplates ?? {};
+  const remoteTemplates: AnyRecord = remote.chainTemplates ?? {};
+  const mergedTemplates: AnyRecord = { ...remoteTemplates };
+  
+  // Add local templates that don't exist in remote
+  for (const [id, template] of Object.entries(localTemplates)) {
+    if (!remoteTemplates[id]) {
+      mergedTemplates[id] = template;
+    }
+  }
+  
+  // ── Chain Tasks ─────────────────────────────────────────────────────────────
+  const localChainTasks: AnyRecord = local.chainTasks ?? {};
+  const remoteChainTasks: AnyRecord = remote.chainTasks ?? {};
+  const mergedChainTasks: AnyRecord = { ...remoteChainTasks };
+  
+  // Add local chain tasks that don't exist in remote
+  for (const [id, task] of Object.entries(localChainTasks)) {
+    if (!remoteChainTasks[id]) {
+      mergedChainTasks[id] = task;
+    }
+  }
+
   const merged: AnyRecord = {
     tasks: mergedTasks,
     categories: mergedCats,
@@ -204,6 +241,9 @@ function mergeSnapshots(
         remote.streak?.longestStreak ?? 0
       ),
     },
+    taskChains: mergedTaskChains,
+    chainTemplates: mergedTemplates,
+    chainTasks: mergedChainTasks,
     lastModified: Date.now(),
   };
 

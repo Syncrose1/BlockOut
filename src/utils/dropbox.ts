@@ -483,6 +483,36 @@ function mergeSnapshots(
   const remoteDates: string[] = remote.streak?.completionDates ?? [];
   const mergedDates = [...new Set([...localDates, ...remoteDates])];
 
+  // Task Chains - union approach
+  const localTaskChains: AnyRecord = local.taskChains ?? {};
+  const remoteTaskChains: AnyRecord = remote.taskChains ?? {};
+  const mergedTaskChains: AnyRecord = { ...remoteTaskChains };
+  for (const [date, chain] of Object.entries(localTaskChains)) {
+    if (!remoteTaskChains[date]) {
+      mergedTaskChains[date] = chain;
+    }
+  }
+
+  // Chain Templates - union approach
+  const localTemplates: AnyRecord = local.chainTemplates ?? {};
+  const remoteTemplates: AnyRecord = remote.chainTemplates ?? {};
+  const mergedTemplates: AnyRecord = { ...remoteTemplates };
+  for (const [id, template] of Object.entries(localTemplates)) {
+    if (!remoteTemplates[id]) {
+      mergedTemplates[id] = template;
+    }
+  }
+
+  // Chain Tasks - union approach
+  const localChainTasks: AnyRecord = local.chainTasks ?? {};
+  const remoteChainTasks: AnyRecord = remote.chainTasks ?? {};
+  const mergedChainTasks: AnyRecord = { ...remoteChainTasks };
+  for (const [id, task] of Object.entries(localChainTasks)) {
+    if (!remoteChainTasks[id]) {
+      mergedChainTasks[id] = task;
+    }
+  }
+
   const merged: AnyRecord = {
     tasks: mergedTasks,
     categories: mergedCats,
@@ -500,6 +530,9 @@ function mergeSnapshots(
         remote.streak?.longestStreak ?? 0
       ),
     },
+    taskChains: mergedTaskChains,
+    chainTemplates: mergedTemplates,
+    chainTasks: mergedChainTasks,
     lastModified: Date.now(),
   };
 
