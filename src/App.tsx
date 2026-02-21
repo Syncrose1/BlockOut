@@ -43,11 +43,11 @@ export function App() {
         // Clear the code from URL immediately to prevent reuse
         window.history.replaceState({}, '', '/');
         
-        const success = await handleDropboxCallback(code);
-        if (success) {
+        const result = await handleDropboxCallback(code);
+        if (result.success) {
           setOauthError(null);
         } else {
-          setOauthError('Failed to connect to Dropbox. Please try again.');
+          setOauthError(result.error || 'Failed to connect to Dropbox. Please try again.');
         }
       }
     };

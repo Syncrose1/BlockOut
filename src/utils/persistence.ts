@@ -1,6 +1,5 @@
 import { useStore } from '../store';
 import { syncToDropbox, syncFromDropbox, isDropboxConfigured, syncToDropboxWithResolution, type SyncResult, type AnyRecord } from './dropbox';
-import { syncToFirebase, syncFromFirebase, isFirebaseConfigured } from './firebase';
 
 // ─── IndexedDB ───────────────────────────────────────────────────────────────
 
@@ -220,18 +219,6 @@ export async function saveLocal(): Promise<void> {
 }
 
 export async function saveToCloud(): Promise<void> {
-  // Check if Firebase is configured (new, simpler option)
-  if (isFirebaseConfigured()) {
-    const data = useStore.getState().getSerializableState() as any;
-    console.log('[BlockOut] Syncing to Firebase:', {
-      hasTaskChains: !!data.taskChains,
-      taskChainCount: Object.keys(data.taskChains || {}).length,
-    });
-    await syncToFirebase(data);
-    useStore.getState().setSyncStatus('synced');
-    return;
-  }
-
   // Check if Dropbox is configured
   if (isDropboxConfigured()) {
     const data = useStore.getState().getSerializableState() as any;
@@ -294,65 +281,6 @@ export async function loadData(): Promise<void> {
   }
 
   const { url, token } = getCloudConfig();
-  
-  // Try Firebase first if configured (easiest option)
-  if (isFirebaseConfigured()) {
-    try {
-      console.log('[BlockOut] Loading from Firebase...');
-      
-      // Check if user is authenticated first (wait up to 5 seconds for auth to restore session)
-      const { waitForAuth } = await import('./firebase');
-      console.log('[BlockOut] Waiting for Firebase auth...');
-      const user = await waitForAuth(5000);
-      console.log('[BlockOut] Firebase auth result:', user ? `User: ${user.email}` : 'No user');
-      
-      if (!user) {
-        console.log('[BlockOut] Firebase configured but user not signed in yet');
-        // Just apply local data for now
-        if (local) {
-          applyData(local);
-          useStore.getState().setSyncStatus('idle');
-          return;
-        }
-      }
-      
-      remote = await syncFromFirebase();
-      
-      if (remote && local) {
-        // Compare timestamps
-        const remoteTime = remote.lastModified || 0;
-        const localTime = (local as any).lastModified || 0;
-        
-        if (remoteTime > localTime) {
-          console.log('[BlockOut] Firebase data is newer, applying');
-          applyData(remote);
-          useStore.getState().setSyncStatus('synced');
-          return;
-        } else {
-          console.log('[BlockOut] Local data is newer or equal');
-          // Upload local to Firebase
-          await syncToFirebase(local);
-          applyData(local);
-          useStore.getState().setSyncStatus('synced');
-          return;
-        }
-      } else if (remote) {
-        console.log('[BlockOut] Only Firebase data exists');
-        applyData(remote);
-        useStore.getState().setSyncStatus('synced');
-        return;
-      } else if (local) {
-        console.log('[BlockOut] Only local data exists, uploading to Firebase');
-        await syncToFirebase(local);
-        applyData(local);
-        useStore.getState().setSyncStatus('synced');
-        return;
-      }
-    } catch (e) {
-      console.warn('[BlockOut] Firebase load failed, falling back:', e);
-      // Fall through to other options
-    }
-  }
   
   // Try Dropbox if configured
   if (isDropboxConfigured()) {

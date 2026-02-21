@@ -14,12 +14,21 @@ interface DropboxFileMetadata {
   server_modified: string;
 }
 
-// Storage keys
-const DROPBOX_TOKEN_KEY = 'blockout-dropbox-token';
-const DROPBOX_PKCE_VERIFIER_KEY = 'blockout-dropbox-pkce-verifier';
+// Domain-specific storage to prevent localhost vs production conflicts
+// Each domain gets its own isolated storage namespace
+function getDomainPrefix(): string {
+  const domain = window.location.hostname.replace(/[^a-zA-Z0-9]/g, '_');
+  return `blockout-${domain}`;
+}
+
+// Storage keys - now domain-specific
+const getStorageKey = (key: string) => `${getDomainPrefix()}-${key}`;
+const DROPBOX_TOKEN_KEY = getStorageKey('dropbox-token');
+const DROPBOX_PKCE_VERIFIER_KEY = getStorageKey('dropbox-pkce-verifier');
+const DROPBOX_PKCE_DOMAIN_KEY = getStorageKey('dropbox-pkce-domain'); // Track which domain initiated auth
 const DROPBOX_FILE_PATH = '/blockout-data.json';
-const DROPBOX_LAST_SYNC_VERSION_KEY = 'blockout-dropbox-last-version';
-const DROPBOX_LAST_SYNC_AT_KEY = 'blockout-dropbox-last-sync-at';
+const DROPBOX_LAST_SYNC_VERSION_KEY = getStorageKey('dropbox-last-version');
+const DROPBOX_LAST_SYNC_AT_KEY = getStorageKey('dropbox-last-sync-at');
 
 // Check if Dropbox is configured (user has authenticated)
 export function isDropboxConfigured(): boolean {
@@ -60,6 +69,7 @@ function setDropboxToken(accessToken: string, expiresIn?: number): void {
 export function clearDropboxConfig(): void {
   localStorage.removeItem(DROPBOX_TOKEN_KEY);
   localStorage.removeItem(DROPBOX_PKCE_VERIFIER_KEY);
+  localStorage.removeItem(DROPBOX_PKCE_DOMAIN_KEY);
   localStorage.removeItem(DROPBOX_LAST_SYNC_VERSION_KEY);
   localStorage.removeItem(DROPBOX_LAST_SYNC_AT_KEY);
   console.log('[BlockOut] Dropbox config cleared for domain:', window.location.origin);
@@ -111,12 +121,17 @@ export function startDropboxAuth(): void {
   }
 
   const redirectUri = `${window.location.origin}/`;
+  const currentDomain = window.location.hostname;
+  
   console.log('[BlockOut] Starting Dropbox auth with redirect:', redirectUri);
+  console.log('[BlockOut] Current domain:', currentDomain);
+  
   const { verifier, challenge } = generatePKCE();
   
-  // Store verifier for callback (use localStorage as it persists through redirects)
+  // Store verifier AND domain for callback (use localStorage as it persists through redirects)
   localStorage.setItem(DROPBOX_PKCE_VERIFIER_KEY, verifier);
-  console.log('[BlockOut] PKCE verifier stored');
+  localStorage.setItem(DROPBOX_PKCE_DOMAIN_KEY, currentDomain);
+  console.log('[BlockOut] PKCE verifier stored for domain:', currentDomain);
   
   const params = new URLSearchParams({
     client_id: DROPBOX_APP_KEY,
@@ -133,12 +148,28 @@ export function startDropboxAuth(): void {
 }
 
 // Handle OAuth callback
-export async function handleDropboxCallback(code: string): Promise<boolean> {
+export async function handleDropboxCallback(code: string): Promise<{ success: boolean; error?: string }> {
   const verifier = localStorage.getItem(DROPBOX_PKCE_VERIFIER_KEY);
-  console.log('[BlockOut] Handling Dropbox callback, verifier exists:', !!verifier);
+  const storedDomain = localStorage.getItem(DROPBOX_PKCE_DOMAIN_KEY);
+  const currentDomain = window.location.hostname;
+  
+  console.log('[BlockOut] Handling Dropbox callback on domain:', currentDomain);
+  console.log('[BlockOut] Stored domain:', storedDomain);
+  console.log('[BlockOut] Verifier exists:', !!verifier);
+  
+  // Check if verifier exists
   if (!verifier) {
     console.error('PKCE verifier not found in localStorage');
-    return false;
+    return { 
+      success: false, 
+      error: 'Authentication session expired. Please try connecting Dropbox again.' 
+    };
+  }
+  
+  // Verify domain matches (helpful for debugging)
+  if (storedDomain && storedDomain !== currentDomain) {
+    console.warn(`[BlockOut] Domain mismatch: started on ${storedDomain}, now on ${currentDomain}`);
+    // Don't fail here - just warn, as the domain-specific keys should handle this
   }
 
   try {
@@ -160,9 +191,29 @@ export async function handleDropboxCallback(code: string): Promise<boolean> {
     });
 
     if (!response.ok) {
-      const errorText = await response.text();
+      const errorData = await response.json().catch(() => ({}));
+      const errorText = JSON.stringify(errorData);
       console.error('OAuth error response:', errorText);
-      throw new Error(`OAuth error: ${response.status} - ${errorText}`);
+      
+      // Check for specific error types
+      if (errorData.error === 'invalid_redirect_uri' || errorText.includes('redirect_uri')) {
+        return { 
+          success: false, 
+          error: `Redirect URI mismatch. Your current domain (${window.location.origin}) is not authorized in your Dropbox app settings. Please add "${redirectUri}" to your Dropbox app's redirect URIs.` 
+        };
+      }
+      
+      if (errorData.error === 'invalid_grant') {
+        return { 
+          success: false, 
+          error: 'Authorization code expired or already used. Please try connecting Dropbox again.' 
+        };
+      }
+      
+      return { 
+        success: false, 
+        error: `Authentication failed: ${errorData.error_description || errorData.error || 'Unknown error'}` 
+      };
     }
 
     const data = await response.json();
@@ -171,11 +222,15 @@ export async function handleDropboxCallback(code: string): Promise<boolean> {
     
     // Clean up
     localStorage.removeItem(DROPBOX_PKCE_VERIFIER_KEY);
+    localStorage.removeItem(DROPBOX_PKCE_DOMAIN_KEY);
     
-    return true;
+    return { success: true };
   } catch (error) {
     console.error('Failed to complete Dropbox OAuth:', error);
-    return false;
+    return { 
+      success: false, 
+      error: error instanceof Error ? error.message : 'Unknown error during authentication' 
+    };
   }
 }
 

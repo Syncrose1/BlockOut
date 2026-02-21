@@ -18,14 +18,6 @@ import {
   startDropboxAuth,
   forceReauth,
 } from '../utils/dropbox';
-import {
-  isFirebaseConfigured,
-  syncFromFirebase,
-  onAuthChange,
-  signInWithGoogle,
-  signOut,
-  type User,
-} from '../utils/firebase';
 
 // ─── Calendar Date Picker ────────────────────────────────────────────────────
 
@@ -1533,76 +1525,6 @@ export function ArchivedTaskWarningModal({ taskId, onConfirm, onCancel }: { task
   );
 }
 
-// ─── Firebase Auth Section ────────────────────────────────────────────────────
-
-function FirebaseAuthSection() {
-  const [user, setUser] = useState<User | null>(null);
-  const [loading, setLoading] = useState(true);
-  const setSyncStatus = useStore((s) => s.setSyncStatus);
-
-  useEffect(() => {
-    const unsubscribe = onAuthChange((u) => {
-      setUser(u);
-      setLoading(false);
-      if (u) {
-        setSyncStatus('synced');
-      }
-    });
-    return unsubscribe;
-  }, []);
-
-  const handleSignIn = async () => {
-    try {
-      await signInWithGoogle();
-    } catch (err) {
-      console.error('Sign in failed:', err);
-      alert('Sign in failed: ' + (err as Error).message);
-    }
-  };
-
-  const handleSignOut = async () => {
-    try {
-      await signOut();
-    } catch (err) {
-      console.error('Sign out failed:', err);
-    }
-  };
-
-  if (loading) {
-    return <div style={{ padding: 16, textAlign: 'center' }}>Loading...</div>;
-  }
-
-  if (user) {
-    return (
-      <div style={{ padding: 16, background: 'var(--bg-tertiary)', borderRadius: 'var(--radius-sm)', marginBottom: 16 }}>
-        <div style={{ fontSize: 14, marginBottom: 8, textAlign: 'center' }}>
-          ✅ Signed in as {user.email || user.displayName || 'User'}
-        </div>
-        <div style={{ fontSize: 12, color: 'var(--text-secondary)', textAlign: 'center', marginBottom: 12 }}>
-          Your data syncs automatically to the cloud
-        </div>
-        <button className="btn btn-ghost" onClick={handleSignOut} style={{ width: '100%' }}>
-          Sign Out
-        </button>
-      </div>
-    );
-  }
-
-  return (
-    <div style={{ padding: 16, background: 'var(--bg-tertiary)', borderRadius: 'var(--radius-sm)', marginBottom: 16 }}>
-      <div style={{ fontSize: 14, marginBottom: 12, textAlign: 'center' }}>
-        Sign in to sync across devices
-      </div>
-      <button className="btn btn-primary" onClick={handleSignIn} style={{ width: '100%' }}>
-        Sign in with Google
-      </button>
-      <div style={{ fontSize: 11, color: 'var(--text-tertiary)', marginTop: 8, textAlign: 'center' }}>
-        Your data will be linked to your Google account
-      </div>
-    </div>
-  );
-}
-
 // ─── Sync Settings Modal ──────────────────────────────────────────────────────
 
 function formatRelativeTime(ts: number): string {
@@ -1619,12 +1541,12 @@ export function SyncSettingsModal() {
   const syncStatus = useStore((s) => s.syncStatus);
   const setSyncStatus = useStore((s) => s.setSyncStatus);
 
-  const [syncProvider, setSyncProvider] = useState<'self-hosted' | 'dropbox' | 'firebase'>(() => {
+  const [syncProvider, setSyncProvider] = useState<'self-hosted' | 'dropbox'>(() => {
     // Check what's configured
     const cfg = getCloudConfig();
     if (cfg.url) return 'self-hosted';
-    if (isFirebaseConfigured()) return 'firebase';
-    return 'firebase'; // Default to Firebase (easiest for hobbyists)
+    if (isDropboxConfigured()) return 'dropbox';
+    return 'self-hosted'; // Default to self-hosted
   });
 
   // Self-hosted state
@@ -1653,9 +1575,8 @@ export function SyncSettingsModal() {
       setCloudConfig(url, token);
       clearDropboxConfig();
     } else {
-      // Firebase or Dropbox
+      // Dropbox
       setCloudConfig('', '');
-      clearDropboxConfig();
     }
     setSyncSettingsOpen(false);
   };
@@ -1699,8 +1620,6 @@ export function SyncSettingsModal() {
 
   const isConfigured = syncProvider === 'self-hosted' 
     ? url.trim().length > 0 
-    : syncProvider === 'firebase'
-    ? true // Firebase always available with embedded config
     : isDropboxConfigured();
 
   const statusDot: Record<string, string> = {
@@ -1752,10 +1671,10 @@ export function SyncSettingsModal() {
           {/* Provider Selection */}
           <div style={{ display: 'flex', gap: 8, marginBottom: 20 }}>
             <button
-              className={`btn ${syncProvider === 'firebase' ? 'btn-primary' : 'btn-ghost'}`}
-              onClick={() => setSyncProvider('firebase')}
+              className={`btn ${syncProvider === 'dropbox' ? 'btn-primary' : 'btn-ghost'}`}
+              onClick={() => setSyncProvider('dropbox')}
             >
-              Cloud Sync
+              Dropbox
             </button>
             <button
               className={`btn ${syncProvider === 'self-hosted' ? 'btn-primary' : 'btn-ghost'}`}
@@ -1765,37 +1684,7 @@ export function SyncSettingsModal() {
             </button>
           </div>
 
-          {syncProvider === 'firebase' ? (
-            <FirebaseAuthSection />
-          ) : syncProvider === 'self-hosted' ? (
-            <>
-              <div className="modal-field">
-                <label>Remote server URL</label>
-                <input
-                  value={url}
-                  onChange={(e) => setUrl(e.target.value)}
-                  placeholder="https://blockout.yourdomain.com"
-                  autoFocus
-                />
-                <div style={{ fontSize: 11, color: 'var(--text-tertiary)', marginTop: 4 }}>
-                  Your self-hosted BlockOut server. Leave blank to disable cloud sync.
-                </div>
-              </div>
-
-              <div className="modal-field">
-                <label>Token (optional)</label>
-                <input
-                  value={token}
-                  onChange={(e) => setToken(e.target.value)}
-                  type="password"
-                  placeholder="Set via BLOCKOUT_TOKEN on the server"
-                />
-                <div style={{ fontSize: 11, color: 'var(--text-tertiary)', marginTop: 4 }}>
-                  Must match the <code>BLOCKOUT_TOKEN</code> env variable on your server.
-                </div>
-              </div>
-            </>
-          ) : (
+          {syncProvider === 'dropbox' ? (
             <>
               {isDropboxConfigured() ? (
                 <div style={{ 
@@ -1873,6 +1762,34 @@ export function SyncSettingsModal() {
                   </div>
                 </>
               )}
+            </>
+          ) : (
+            <>
+              <div className="modal-field">
+                <label>Remote server URL</label>
+                <input
+                  value={url}
+                  onChange={(e) => setUrl(e.target.value)}
+                  placeholder="https://blockout.yourdomain.com"
+                  autoFocus
+                />
+                <div style={{ fontSize: 11, color: 'var(--text-tertiary)', marginTop: 4 }}>
+                  Your self-hosted BlockOut server. Leave blank to disable cloud sync.
+                </div>
+              </div>
+
+              <div className="modal-field">
+                <label>Token (optional)</label>
+                <input
+                  value={token}
+                  onChange={(e) => setToken(e.target.value)}
+                  type="password"
+                  placeholder="Set via BLOCKOUT_TOKEN on the server"
+                />
+                <div style={{ fontSize: 11, color: 'var(--text-tertiary)', marginTop: 4 }}>
+                  Must match the <code>BLOCKOUT_TOKEN</code> env variable on your server.
+                </div>
+              </div>
             </>
           )}
 
