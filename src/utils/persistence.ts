@@ -299,6 +299,21 @@ export async function loadData(): Promise<void> {
   if (isFirebaseConfigured()) {
     try {
       console.log('[BlockOut] Loading from Firebase...');
+      
+      // Check if user is authenticated first (wait up to 2 seconds for auth to init)
+      const { waitForAuth } = await import('./firebase');
+      const user = await waitForAuth(2000);
+      
+      if (!user) {
+        console.log('[BlockOut] Firebase configured but user not signed in yet');
+        // Just apply local data for now
+        if (local) {
+          applyData(local);
+          useStore.getState().setSyncStatus('idle');
+          return;
+        }
+      }
+      
       remote = await syncFromFirebase();
       
       if (remote && local) {

@@ -105,9 +105,32 @@ async function initFirebase(): Promise<boolean> {
   }
 }
 
-// Get current user
+// Get current user (may be null during initial load)
 export function getCurrentUser(): User | null {
   return auth?.currentUser || null;
+}
+
+// Wait for auth state to be determined
+export function waitForAuth(timeout = 3000): Promise<User | null> {
+  return new Promise((resolve) => {
+    const user = getCurrentUser();
+    if (user) {
+      resolve(user);
+      return;
+    }
+    
+    // Wait for auth state to change
+    const unsubscribe = onAuthChange((newUser) => {
+      unsubscribe();
+      resolve(newUser);
+    });
+    
+    // Timeout after specified duration
+    setTimeout(() => {
+      unsubscribe();
+      resolve(getCurrentUser());
+    }, timeout);
+  });
 }
 
 // Sign in with Google
