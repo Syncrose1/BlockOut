@@ -30,15 +30,19 @@ export function isDropboxConfigured(): boolean {
 function getDropboxToken(): string | null {
   try {
     const stored = localStorage.getItem(DROPBOX_TOKEN_KEY);
+    console.log('[BlockOut] Getting Dropbox token, exists:', !!stored);
     if (!stored) return null;
     const token: DropboxToken = JSON.parse(stored);
+    console.log('[BlockOut] Token expires at:', token.expires_at, 'now:', Date.now());
     // Check if token is expired
     if (token.expires_at && Date.now() > token.expires_at) {
+      console.log('[BlockOut] Token expired, clearing');
       clearDropboxConfig();
       return null;
     }
     return token.access_token;
-  } catch {
+  } catch (e) {
+    console.error('[BlockOut] Error reading token:', e);
     return null;
   }
 }
@@ -55,8 +59,10 @@ function setDropboxToken(accessToken: string, expiresIn?: number): void {
 // Clear token and sync metadata
 export function clearDropboxConfig(): void {
   localStorage.removeItem(DROPBOX_TOKEN_KEY);
+  localStorage.removeItem(DROPBOX_PKCE_VERIFIER_KEY);
   localStorage.removeItem(DROPBOX_LAST_SYNC_VERSION_KEY);
   localStorage.removeItem(DROPBOX_LAST_SYNC_AT_KEY);
+  console.log('[BlockOut] Dropbox config cleared');
 }
 
 // Version tracking for conflict resolution
@@ -94,10 +100,12 @@ export function startDropboxAuth(): void {
   }
 
   const redirectUri = `${window.location.origin}/`;
+  console.log('[BlockOut] Starting Dropbox auth with redirect:', redirectUri);
   const { verifier, challenge } = generatePKCE();
   
   // Store verifier for callback (use localStorage as it persists through redirects)
   localStorage.setItem(DROPBOX_PKCE_VERIFIER_KEY, verifier);
+  console.log('[BlockOut] PKCE verifier stored');
   
   const params = new URLSearchParams({
     client_id: DROPBOX_APP_KEY,
@@ -108,12 +116,15 @@ export function startDropboxAuth(): void {
     token_access_type: 'offline',
   });
 
-  window.location.href = `https://www.dropbox.com/oauth2/authorize?${params.toString()}`;
+  const authUrl = `https://www.dropbox.com/oauth2/authorize?${params.toString()}`;
+  console.log('[BlockOut] Redirecting to:', authUrl);
+  window.location.href = authUrl;
 }
 
 // Handle OAuth callback
 export async function handleDropboxCallback(code: string): Promise<boolean> {
   const verifier = localStorage.getItem(DROPBOX_PKCE_VERIFIER_KEY);
+  console.log('[BlockOut] Handling Dropbox callback, verifier exists:', !!verifier);
   if (!verifier) {
     console.error('PKCE verifier not found in localStorage');
     return false;
@@ -121,6 +132,7 @@ export async function handleDropboxCallback(code: string): Promise<boolean> {
 
   try {
     const redirectUri = `${window.location.origin}/`;
+    console.log('[BlockOut] Exchanging code for token with redirect:', redirectUri);
     
     const response = await fetch('https://api.dropboxapi.com/oauth2/token', {
       method: 'POST',
@@ -143,6 +155,7 @@ export async function handleDropboxCallback(code: string): Promise<boolean> {
     }
 
     const data = await response.json();
+    console.log('[BlockOut] Token received, expires in:', data.expires_in);
     setDropboxToken(data.access_token, data.expires_in);
     
     // Clean up
