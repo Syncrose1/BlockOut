@@ -160,14 +160,14 @@ export function Sidebar() {
 
   return (
     <div className="sidebar">
-      <div className="sidebar-header" style={{ textAlign: 'center' }}>
-        <div className="sidebar-logo" style={{ justifyContent: 'center' }}>
+      <div className="sidebar-header" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', textAlign: 'center' }}>
+        <div className="sidebar-logo" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}>
           <img src="/bo-logo-v3.png" alt="" height="24" style={{ imageRendering: 'pixelated' }} />
           BlockOut
         </div>
         {/* Streak display */}
         {streak.currentStreak > 0 && (
-          <div style={{ display: 'flex', justifyContent: 'center', marginTop: 8 }}>
+          <div style={{ display: 'flex', justifyContent: 'center', marginTop: 2 }}>
             <button
               onClick={() => setShowAnalyticsModal(true)}
               style={{
