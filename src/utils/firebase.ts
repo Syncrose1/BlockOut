@@ -10,10 +10,21 @@ import {
   enableIndexedDbPersistence,
   type Firestore
 } from 'firebase/firestore';
-import { getAuth, signInAnonymously, type Auth } from 'firebase/auth';
+import { 
+  getAuth, 
+  GoogleAuthProvider, 
+  signInWithPopup, 
+  signOut as firebaseSignOut,
+  onAuthStateChanged,
+  type Auth,
+  type User
+} from 'firebase/auth';
 
 // Type for the data we sync
 type AnyRecord = Record<string, any>;
+
+// Re-export User type
+export type { User } from 'firebase/auth';
 
 // Default Firebase config (embedded in app - safe to be public)
 // Users can override this by setting their own config in localStorage
@@ -86,15 +97,47 @@ async function initFirebase(): Promise<boolean> {
       console.log('[BlockOut] Firestore persistence:', e);
     }
     
-    // Sign in anonymously
-    await signInAnonymously(auth);
-    
     isInitialized = true;
     return true;
   } catch (e) {
     console.error('[BlockOut] Firebase init failed:', e);
     return false;
   }
+}
+
+// Get current user
+export function getCurrentUser(): User | null {
+  return auth?.currentUser || null;
+}
+
+// Sign in with Google
+export async function signInWithGoogle(): Promise<User | null> {
+  if (!await initFirebase()) {
+    throw new Error('Firebase not initialized');
+  }
+  
+  if (!auth) {
+    throw new Error('Auth not initialized');
+  }
+  
+  const provider = new GoogleAuthProvider();
+  const result = await signInWithPopup(auth, provider);
+  return result.user;
+}
+
+// Sign out
+export async function signOut(): Promise<void> {
+  if (!auth) return;
+  await firebaseSignOut(auth);
+}
+
+// Listen to auth state changes
+export function onAuthChange(callback: (user: User | null) => void): () => void {
+  if (!auth) {
+    callback(null);
+    return () => {};
+  }
+  return onAuthStateChanged(auth, callback);
 }
 
 // Sync data to Firebase

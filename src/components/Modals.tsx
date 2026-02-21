@@ -21,6 +21,10 @@ import {
 import {
   isFirebaseConfigured,
   syncFromFirebase,
+  onAuthChange,
+  signInWithGoogle,
+  signOut,
+  type User,
 } from '../utils/firebase';
 
 // ─── Calendar Date Picker ────────────────────────────────────────────────────
@@ -1529,6 +1533,76 @@ export function ArchivedTaskWarningModal({ taskId, onConfirm, onCancel }: { task
   );
 }
 
+// ─── Firebase Auth Section ────────────────────────────────────────────────────
+
+function FirebaseAuthSection() {
+  const [user, setUser] = useState<User | null>(null);
+  const [loading, setLoading] = useState(true);
+  const setSyncStatus = useStore((s) => s.setSyncStatus);
+
+  useEffect(() => {
+    const unsubscribe = onAuthChange((u) => {
+      setUser(u);
+      setLoading(false);
+      if (u) {
+        setSyncStatus('synced');
+      }
+    });
+    return unsubscribe;
+  }, []);
+
+  const handleSignIn = async () => {
+    try {
+      await signInWithGoogle();
+    } catch (err) {
+      console.error('Sign in failed:', err);
+      alert('Sign in failed: ' + (err as Error).message);
+    }
+  };
+
+  const handleSignOut = async () => {
+    try {
+      await signOut();
+    } catch (err) {
+      console.error('Sign out failed:', err);
+    }
+  };
+
+  if (loading) {
+    return <div style={{ padding: 16, textAlign: 'center' }}>Loading...</div>;
+  }
+
+  if (user) {
+    return (
+      <div style={{ padding: 16, background: 'var(--bg-tertiary)', borderRadius: 'var(--radius-sm)', marginBottom: 16 }}>
+        <div style={{ fontSize: 14, marginBottom: 8, textAlign: 'center' }}>
+          ✅ Signed in as {user.email || user.displayName || 'User'}
+        </div>
+        <div style={{ fontSize: 12, color: 'var(--text-secondary)', textAlign: 'center', marginBottom: 12 }}>
+          Your data syncs automatically to the cloud
+        </div>
+        <button className="btn btn-ghost" onClick={handleSignOut} style={{ width: '100%' }}>
+          Sign Out
+        </button>
+      </div>
+    );
+  }
+
+  return (
+    <div style={{ padding: 16, background: 'var(--bg-tertiary)', borderRadius: 'var(--radius-sm)', marginBottom: 16 }}>
+      <div style={{ fontSize: 14, marginBottom: 12, textAlign: 'center' }}>
+        Sign in to sync across devices
+      </div>
+      <button className="btn btn-primary" onClick={handleSignIn} style={{ width: '100%' }}>
+        Sign in with Google
+      </button>
+      <div style={{ fontSize: 11, color: 'var(--text-tertiary)', marginTop: 8, textAlign: 'center' }}>
+        Your data will be linked to your Google account
+      </div>
+    </div>
+  );
+}
+
 // ─── Sync Settings Modal ──────────────────────────────────────────────────────
 
 function formatRelativeTime(ts: number): string {
@@ -1680,15 +1754,8 @@ export function SyncSettingsModal() {
             <button
               className={`btn ${syncProvider === 'firebase' ? 'btn-primary' : 'btn-ghost'}`}
               onClick={() => setSyncProvider('firebase')}
-              title="Recommended for hobby projects - easiest setup"
             >
-              Firebase (Recommended)
-            </button>
-            <button
-              className={`btn ${syncProvider === 'dropbox' ? 'btn-primary' : 'btn-ghost'}`}
-              onClick={() => setSyncProvider('dropbox')}
-            >
-              Dropbox
+              Cloud Sync
             </button>
             <button
               className={`btn ${syncProvider === 'self-hosted' ? 'btn-primary' : 'btn-ghost'}`}
@@ -1699,23 +1766,7 @@ export function SyncSettingsModal() {
           </div>
 
           {syncProvider === 'firebase' ? (
-            <div style={{ 
-              padding: 16, 
-              background: 'var(--bg-tertiary)', 
-              borderRadius: 'var(--radius-sm)',
-              textAlign: 'center',
-              marginBottom: 16
-            }}>
-              <div style={{ fontSize: 14, marginBottom: 8 }}>
-                ✅ Firebase sync is enabled
-              </div>
-              <div style={{ fontSize: 12, color: 'var(--text-secondary)', marginBottom: 12 }}>
-                Your data syncs automatically across all devices using Google Firebase
-              </div>
-              <div style={{ fontSize: 11, color: 'var(--text-tertiary)' }}>
-                Free tier: 1GB storage, 50K reads/day • No setup required
-              </div>
-            </div>
+            <FirebaseAuthSection />
           ) : syncProvider === 'self-hosted' ? (
             <>
               <div className="modal-field">
