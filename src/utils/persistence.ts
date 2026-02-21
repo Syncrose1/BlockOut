@@ -478,6 +478,10 @@ let _hasLoaded = false;
 // If sync fails, flag stays raised for retry on next cycle
 let _cloudSavePending = false;
 
+// Flag to prevent cloud save flag during sync operations
+// Prevents infinite sync loops
+let _skipCloudSaveFlag = false;
+
 export function markDataLoaded(): void {
   _hasLoaded = true;
 }
@@ -488,8 +492,13 @@ export function debouncedSave(): void {
   localSaveTimeout = setTimeout(() => {
     saveLocal().then(() => {
       // After successful local save, flag that cloud sync is needed
-      _cloudSavePending = true;
-      console.log('[BlockOut] Local save complete, cloud sync flagged');
+      // But skip if we're currently syncing (prevents infinite loops)
+      if (!_skipCloudSaveFlag) {
+        _cloudSavePending = true;
+        console.log('[BlockOut] Local save complete, cloud sync flagged');
+      } else {
+        console.log('[BlockOut] Local save complete, skipped cloud flag (sync in progress)');
+      }
     });
   }, 800);
 }
@@ -526,6 +535,9 @@ export function startPeriodicCloudSync(): () => void {
     
     console.log('[BlockOut] Cloud sync triggered by periodic check');
     
+    // Set flag to prevent debouncedSave from re-triggering cloud sync
+    _skipCloudSaveFlag = true;
+    
     try {
       useStore.getState().setSyncStatus('syncing');
       await saveToCloud();
@@ -538,6 +550,11 @@ export function startPeriodicCloudSync(): () => void {
       _cloudSavePending = true;
     } finally {
       _syncInProgress = false;
+      // Clear the skip flag after a short delay to allow any pending local saves to complete
+      setTimeout(() => {
+        _skipCloudSaveFlag = false;
+        console.log('[BlockOut] Cloud save skip flag cleared');
+      }, 2000);
     }
   }, CLOUD_SYNC_CHECK_INTERVAL_MS);
 
