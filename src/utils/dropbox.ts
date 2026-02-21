@@ -669,7 +669,13 @@ export async function syncToDropboxWithResolution(localData: AnyRecord, source: 
     }
 
     // Remote is newer despite version check - download it
-    logAuthDebug('Remote is newer - downloading');
+    logAuthDebug('Remote is newer - downloading', {
+      remoteVersion,
+      localVersion: lastSyncedVersion,
+      hasRemoteData: !!remoteData,
+      remoteDataKeys: remoteData ? Object.keys(remoteData) : [],
+      taskChainsCount: Object.keys(remoteData?.taskChains || {}).length
+    });
     recordSuccessfulSync(remoteVersion);
     return {
       success: true,

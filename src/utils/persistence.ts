@@ -334,23 +334,25 @@ export async function loadData(): Promise<void> {
             case 'uploaded':
               // Local was newer, uploaded successfully
               useStore.getState().setSyncStatus('synced');
-              applyData(local);
+              applyData(local, 'dropbox-uploaded');
               break;
               
             case 'downloaded':
               // Remote was newer, use the data that was already downloaded
+              console.log('[BlockOut] Downloaded case, has data:', !!result.data);
               if (result.data) {
-                applyData(result.data);
+                applyData(result.data, 'dropbox-downloaded');
                 useStore.getState().setSyncStatus('synced');
               } else {
-                applyData(local);
+                console.warn('[BlockOut] No data in download result, using local');
+                applyData(local, 'dropbox-download-fallback');
               }
               break;
               
             case 'merged':
               // Conflict resolved by merging, use the merged data
               if (result.data) {
-                applyData(result.data);
+                applyData(result.data, 'dropbox-merged');
                 await idbWrite({ ...result.data, lastModified: Date.now() });
                 if (result.mergeInfo) {
                   useStore.getState().setConflictState({ 
@@ -365,7 +367,7 @@ export async function loadData(): Promise<void> {
               break;
               
             case 'unchanged':
-              applyData(local);
+              applyData(local, 'dropbox-unchanged');
               useStore.getState().setSyncStatus('synced');
               break;
           }
@@ -470,11 +472,22 @@ export async function loadData(): Promise<void> {
   }
 }
 
-function applyData(data: AnyRecord): void {
+function applyData(data: AnyRecord, source: string = 'unknown'): void {
   try {
+    console.log('[BlockOut] Applying data', {
+      source,
+      hasTasks: Object.keys(data.tasks || {}).length,
+      hasCategories: Object.keys(data.categories || {}).length,
+      hasTimeBlocks: Object.keys(data.timeBlocks || {}).length,
+      hasTaskChains: Object.keys(data.taskChains || {}).length,
+      taskChainCount: Object.keys(data.taskChains || {}).length,
+      hasChainTemplates: Object.keys(data.chainTemplates || {}).length,
+      hasChainTasks: Object.keys(data.chainTasks || {}).length,
+    });
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     useStore.getState().loadData(data as any);
     markDataLoaded();
+    console.log('[BlockOut] Data applied successfully');
   } catch (e) {
     console.warn('[BlockOut] Failed to apply state', e);
   }
