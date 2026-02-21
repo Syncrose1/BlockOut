@@ -78,31 +78,45 @@ export function isFirebaseConfigured(): boolean {
 }
 
 // Initialize Firebase
+let initPromise: Promise<boolean> | null = null;
+
 async function initFirebase(): Promise<boolean> {
   if (isInitialized) return true;
+  if (initPromise) return initPromise;
   
   const config = getFirebaseConfig();
   if (!config) return false;
   
-  try {
-    app = initializeApp(config);
-    db = getFirestore(app);
-    auth = getAuth(app);
-    
-    // Enable offline persistence
+  initPromise = (async () => {
     try {
-      await enableIndexedDbPersistence(db);
+      app = initializeApp(config);
+      db = getFirestore(app);
+      auth = getAuth(app);
+      
+      // Enable offline persistence (only once)
+      try {
+        await enableIndexedDbPersistence(db);
+      } catch (e) {
+        // Persistence might already be enabled or failed
+        // This is fine, just log it
+        if ((e as Error).message?.includes('already been started')) {
+          // Already enabled, ignore
+        } else {
+          console.log('[BlockOut] Firestore persistence:', e);
+        }
+      }
+      
+      isInitialized = true;
+      return true;
     } catch (e) {
-      // Persistence might already be enabled
-      console.log('[BlockOut] Firestore persistence:', e);
+      console.error('[BlockOut] Firebase init failed:', e);
+      return false;
+    } finally {
+      initPromise = null;
     }
-    
-    isInitialized = true;
-    return true;
-  } catch (e) {
-    console.error('[BlockOut] Firebase init failed:', e);
-    return false;
-  }
+  })();
+  
+  return initPromise;
 }
 
 // Get current user (may be null during initial load)
