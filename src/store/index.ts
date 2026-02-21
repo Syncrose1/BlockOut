@@ -81,6 +81,7 @@ interface BlockOutState {
   // Sync
   syncStatus: 'idle' | 'syncing' | 'synced' | 'error';
   syncSettingsOpen: boolean;
+  lastModified?: number; // Timestamp for cloud sync tracking
   conflictState: {
     local: Record<string, unknown>;
     remote: Record<string, unknown>;
@@ -1167,6 +1168,8 @@ export const useStore = create<BlockOutState>((set, get) => ({
       ...(data as any).taskChains && { taskChains: (data as any).taskChains },
       ...(data as any).chainTemplates && { chainTemplates: (data as any).chainTemplates },
       ...(data as any).chainTasks && { chainTasks: (data as any).chainTasks },
+      // Track lastModified for cloud sync
+      lastModified: (data as any).lastModified || Date.now(),
     }));
   },
   getSerializableState: () => {
@@ -1181,6 +1184,7 @@ export const useStore = create<BlockOutState>((set, get) => ({
       taskChains: s.taskChains,
       chainTemplates: s.chainTemplates,
       chainTasks: s.chainTasks,
+      lastModified: s.lastModified || Date.now(),
     };
   },
 }));
