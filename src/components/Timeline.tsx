@@ -47,6 +47,23 @@ export function Timeline() {
 
   return (
     <div className="timeline-container">
+      {/* Under construction notice */}
+      <div style={{
+        background: 'hsl(45, 90%, 50%, 0.15)',
+        border: '1px solid hsl(45, 90%, 50%, 0.3)',
+        borderRadius: 'var(--radius-md)',
+        padding: '12px 16px',
+        margin: '16px 16px 0',
+        color: 'hsl(45, 90%, 60%)',
+        fontSize: '14px',
+        display: 'flex',
+        alignItems: 'center',
+        gap: '8px',
+      }}>
+        <span style={{ fontSize: '18px' }}>🚧</span>
+        <span>Timeline is still under construction. Treemap is fully functional in the meantime.</span>
+      </div>
+      
       {/* Week headers */}
       {block && (
         <div style={{ display: 'flex', marginBottom: 12, paddingLeft: 140 }}>
