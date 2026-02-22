@@ -3,6 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { clearTutorialData } from '../utils/tutorial';
 
 const WELCOME_MODAL_KEY = 'blockout-welcome-shown';
+const ONBOARDING_KEY = 'blockout-onboarding';
 
 export function useWelcomeModal() {
   const [isOpen, setIsOpen] = useState(false);
@@ -10,15 +11,33 @@ export function useWelcomeModal() {
 
   useEffect(() => {
     const shown = localStorage.getItem(WELCOME_MODAL_KEY);
-    if (!shown) {
-      // Show after a delay to let the app fully load
-      const timer = setTimeout(() => {
-        setIsOpen(true);
-      }, 2000);
-      return () => clearTimeout(timer);
-    } else {
+    if (shown) {
       setHasSeenModal(true);
+      return;
     }
+
+    // Check every 500ms if onboarding is complete
+    const checkInterval = setInterval(() => {
+      const onboardingData = localStorage.getItem(ONBOARDING_KEY);
+      if (onboardingData) {
+        const parsed = JSON.parse(onboardingData);
+        if (parsed.hasCompletedTour) {
+          clearInterval(checkInterval);
+          setIsOpen(true);
+        }
+      }
+    }, 500);
+
+    // Fallback: show after 30 seconds if tour somehow didn't complete
+    const fallbackTimer = setTimeout(() => {
+      clearInterval(checkInterval);
+      setIsOpen(true);
+    }, 30000);
+
+    return () => {
+      clearInterval(checkInterval);
+      clearTimeout(fallbackTimer);
+    };
   }, []);
 
   const closeModal = (keepData: boolean) => {
@@ -77,7 +96,7 @@ export function WelcomeModal() {
             boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.5)',
           }}
         >
-          {/* Left side - Screenshot placeholder */}
+          {/* Left side - Screenshot */}
           <div
             style={{
               width: '50%',
@@ -86,7 +105,7 @@ export function WelcomeModal() {
               flexDirection: 'column',
               alignItems: 'center',
               justifyContent: 'center',
-              padding: 40,
+              padding: 32,
               borderRight: '1px solid var(--border)',
             }}
           >
@@ -96,41 +115,21 @@ export function WelcomeModal() {
                 height: '100%',
                 background: 'var(--bg-primary)',
                 borderRadius: 'var(--radius-md)',
+                overflow: 'hidden',
                 display: 'flex',
-                flexDirection: 'column',
                 alignItems: 'center',
                 justifyContent: 'center',
-                gap: 16,
               }}
             >
-              <div
+              <img
+                src="/examples/BlockOut_screenshot"
+                alt="BlockOut Screenshot"
                 style={{
-                  fontSize: 48,
-                  color: 'var(--accent)',
+                  width: '100%',
+                  height: '100%',
+                  objectFit: 'cover',
                 }}
-              >
-                <svg
-                  width="64"
-                  height="64"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="1.5"
-                >
-                  <rect x="2" y="3" width="20" height="14" rx="2" />
-                  <line x1="8" y1="21" x2="16" y2="21" />
-                  <line x1="12" y1="17" x2="12" y2="21" />
-                </svg>
-              </div>
-              <div
-                style={{
-                  color: 'var(--text-secondary)',
-                  fontSize: 14,
-                  textAlign: 'center',
-                }}
-              >
-                Video tutorial coming soon
-              </div>
+              />
             </div>
           </div>
 
@@ -139,6 +138,7 @@ export function WelcomeModal() {
             style={{
               width: '50%',
               padding: 40,
+              paddingBottom: 48,
               display: 'flex',
               flexDirection: 'column',
               justifyContent: 'space-between',
@@ -153,7 +153,7 @@ export function WelcomeModal() {
                   color: 'var(--text-primary)',
                 }}
               >
-                Welcome to BlockOut
+                Welcome to BlockOut! 🎊
               </h2>
 
               <div
@@ -165,10 +165,10 @@ export function WelcomeModal() {
                 }}
               >
                 <p style={{ margin: '0 0 12px 0' }}>
-                  BlockOut is a visual task manager designed for focused productivity. 
+                  BlockOut is a visual task manager designed for medium-term planning and focused productivity.
                 </p>
                 <p style={{ margin: '0 0 12px 0' }}>
-                  <strong>Key Features:</strong>
+                  <strong>Inspired by:</strong>
                 </p>
                 
                 <ul
@@ -178,8 +178,9 @@ export function WelcomeModal() {
                     color: 'var(--text-secondary)',
                   }}
                 >
+                  <li style={{ marginBottom: 8 }}>Clean WinDirStat-like treemap visualisation</li>
+                  <li style={{ marginBottom: 8 }}>Timeblocks with countdowns to focus around goals</li>
                   <li style={{ marginBottom: 8 }}>Visual treemap prioritization</li>
-                  <li style={{ marginBottom: 8 }}>Time blocks with countdowns</li>
                   <li style={{ marginBottom: 8 }}>Task chains for daily workflows</li>
                   <li style={{ marginBottom: 8 }}>Built-in Pomodoro timer</li>
                   <li>Dropbox sync across devices</li>
