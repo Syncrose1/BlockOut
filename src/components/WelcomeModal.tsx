@@ -16,39 +16,48 @@ export function useWelcomeModal() {
       return;
     }
 
-    // Check every 500ms if onboarding is complete
-    const checkInterval = setInterval(() => {
-      const onboardingData = localStorage.getItem(ONBOARDING_KEY);
-      if (onboardingData) {
-        const parsed = JSON.parse(onboardingData);
-        if (parsed.hasCompletedTour) {
-          clearInterval(checkInterval);
-          setIsOpen(true);
+    // Wait 3 seconds initially, then check if onboarding is complete
+    const initialDelay = setTimeout(() => {
+      // Check every 500ms if onboarding is complete
+      const checkInterval = setInterval(() => {
+        const onboardingData = localStorage.getItem(ONBOARDING_KEY);
+        if (onboardingData) {
+          const parsed = JSON.parse(onboardingData);
+          if (parsed.hasCompletedTour) {
+            clearInterval(checkInterval);
+            setIsOpen(true);
+          }
         }
-      }
-    }, 500);
+      }, 500);
 
-    // Fallback: show after 30 seconds if tour somehow didn't complete
-    const fallbackTimer = setTimeout(() => {
-      clearInterval(checkInterval);
-      setIsOpen(true);
-    }, 30000);
+      // Fallback: show after 25 seconds if tour somehow didn't complete
+      const fallbackTimer = setTimeout(() => {
+        clearInterval(checkInterval);
+        setIsOpen(true);
+      }, 25000);
 
-    return () => {
-      clearInterval(checkInterval);
-      clearTimeout(fallbackTimer);
-    };
+      return () => {
+        clearInterval(checkInterval);
+        clearTimeout(fallbackTimer);
+      };
+    }, 3000);
+
+    return () => clearTimeout(initialDelay);
   }, []);
 
   const closeModal = (keepData: boolean) => {
+    // Always mark welcome modal as shown so it doesn't show again
+    localStorage.setItem(WELCOME_MODAL_KEY, 'true');
+    
     if (!keepData) {
       clearTutorialData();
+      // Also clear the onboarding data so tour shows again for truly fresh start
+      localStorage.removeItem(ONBOARDING_KEY);
       // Reload the page to start fresh
       window.location.reload();
       return;
     }
     
-    localStorage.setItem(WELCOME_MODAL_KEY, 'true');
     setIsOpen(false);
     setHasSeenModal(true);
   };
@@ -86,7 +95,7 @@ export function WelcomeModal() {
           style={{
             width: 1200,
             maxWidth: '95vw',
-            height: 650,
+            height: 520,
             maxHeight: '90vh',
             background: 'var(--bg-secondary)',
             borderRadius: 'var(--radius-lg)',
@@ -105,7 +114,7 @@ export function WelcomeModal() {
               flexDirection: 'column',
               alignItems: 'center',
               justifyContent: 'center',
-              padding: 32,
+              padding: 24,
               borderRight: '1px solid var(--border)',
             }}
           >
@@ -137,8 +146,7 @@ export function WelcomeModal() {
           <div
             style={{
               width: '50%',
-              padding: 40,
-              paddingBottom: 48,
+              padding: '32px 36px',
               display: 'flex',
               flexDirection: 'column',
               justifyContent: 'space-between',
