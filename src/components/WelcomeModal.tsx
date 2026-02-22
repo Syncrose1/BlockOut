@@ -16,33 +16,19 @@ export function useWelcomeModal() {
       return;
     }
 
-    // Wait 3 seconds initially, then check if onboarding is complete
-    const initialDelay = setTimeout(() => {
-      // Check every 500ms if onboarding is complete
-      const checkInterval = setInterval(() => {
-        const onboardingData = localStorage.getItem(ONBOARDING_KEY);
-        if (onboardingData) {
-          const parsed = JSON.parse(onboardingData);
-          if (parsed.hasCompletedTour) {
-            clearInterval(checkInterval);
-            setIsOpen(true);
-          }
+    // Check immediately and then periodically if onboarding is complete
+    const checkInterval = setInterval(() => {
+      const onboardingData = localStorage.getItem(ONBOARDING_KEY);
+      if (onboardingData) {
+        const parsed = JSON.parse(onboardingData);
+        if (parsed.hasCompletedTour) {
+          clearInterval(checkInterval);
+          setIsOpen(true);
         }
-      }, 500);
+      }
+    }, 100); // Check frequently but not too aggressively
 
-      // Fallback: show after 25 seconds if tour somehow didn't complete
-      const fallbackTimer = setTimeout(() => {
-        clearInterval(checkInterval);
-        setIsOpen(true);
-      }, 25000);
-
-      return () => {
-        clearInterval(checkInterval);
-        clearTimeout(fallbackTimer);
-      };
-    }, 3000);
-
-    return () => clearTimeout(initialDelay);
+    return () => clearInterval(checkInterval);
   }, []);
 
   const closeModal = (keepData: boolean) => {
