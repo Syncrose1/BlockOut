@@ -546,14 +546,6 @@ export function Treemap() {
         ctx.textAlign = 'left';
       }
 
-      // ── Completion checkmark (only after dissolve finishes) ─────────────────
-      if (taskNode.completed && !dissolve && tw > 20 && th > 20) {
-        ctx.fillStyle = 'rgba(255,255,255,0.3)';
-        ctx.font = '12px sans-serif';
-        ctx.textBaseline = 'top';
-        ctx.fillText('\u2713', tx + tw - 16, ty + 4);
-      }
-
       // ── Idle sparkle on completed tiles ─────────────────────────────────────
       if (taskNode.completed && !dissolve && tw > 15 && th > 15) {
         const sparkleHash = (taskNode.id.charCodeAt(0) + taskNode.id.charCodeAt(1)) % 5;

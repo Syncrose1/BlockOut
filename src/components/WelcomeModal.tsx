@@ -84,9 +84,9 @@ export function WelcomeModal() {
           exit={{ scale: 0.9, opacity: 0 }}
           transition={{ type: 'spring', damping: 25, stiffness: 300 }}
           style={{
-            width: 800,
+            width: 1200,
             maxWidth: '95vw',
-            height: 500,
+            height: 650,
             maxHeight: '90vh',
             background: 'var(--bg-secondary)',
             borderRadius: 'var(--radius-lg)',
@@ -122,12 +122,12 @@ export function WelcomeModal() {
               }}
             >
               <img
-                src="/examples/BlockOut_screenshot"
+                src="/BlockOut_screenshot.png"
                 alt="BlockOut Screenshot"
                 style={{
                   width: '100%',
                   height: '100%',
-                  objectFit: 'cover',
+                  objectFit: 'contain',
                 }}
               />
             </div>
