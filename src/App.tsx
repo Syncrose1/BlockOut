@@ -2,6 +2,7 @@ import { useEffect, useState, useRef } from 'react';
 import { useStore } from './store';
 import { loadData, debouncedSave, startPeriodicCloudSync } from './utils/persistence';
 import { handleDropboxCallback } from './utils/dropbox';
+import { loadTutorialData, hasShownTutorial } from './utils/tutorial';
 import { Sidebar } from './components/Sidebar';
 import { Topbar } from './components/Topbar';
 import { Treemap } from './components/Treemap';
@@ -10,6 +11,7 @@ import { Timeline } from './components/Timeline';
 import { TaskChain } from './components/TaskChain';
 import { Pomodoro } from './components/Pomodoro';
 import { OnboardingTour } from './components/Onboarding';
+import { WelcomeModal } from './components/WelcomeModal';
 import {
   NewBlockModal,
   NewCategoryModal,
@@ -61,6 +63,11 @@ export function App() {
   useEffect(() => {
     const initializeApp = async () => {
       await loadData();
+      
+      // Load tutorial data if first time user
+      if (!hasShownTutorial()) {
+        loadTutorialData();
+      }
       
       // After data loads, check if no view is selected
       // If nothing cached, default to "All Tasks" view
@@ -281,6 +288,7 @@ export function App() {
         <SyncSettingsModal />
         <ConflictResolutionModal />
         <OnboardingTour />
+        <WelcomeModal />
       </div>
     </div>
   );

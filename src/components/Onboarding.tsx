@@ -3,82 +3,71 @@ import { motion, AnimatePresence } from 'framer-motion';
 
 interface TourStep {
   id: string;
-  target: string;
   title: string;
   content: string;
-  position: 'top' | 'bottom' | 'left' | 'right';
+  getPosition: () => { top: string; left: string };
 }
 
 const TOUR_STEPS: TourStep[] = [
   {
     id: 'welcome',
-    target: '.sidebar',
     title: 'Welcome to BlockOut!',
-    content: 'A visual task manager for time-blocked productivity. Let\'s get you started!',
-    position: 'right',
+    content: 'A visual task manager for time-blocked productivity. Let\'s explore your sample data and get you started!',
+    getPosition: () => ({ top: '50%', left: '120px' }), // Center of sidebar
   },
   {
-    id: 'create-category',
-    target: '.sidebar-section:nth-child(3)',
-    title: 'Step 1: Create Categories',
-    content: 'Categories organize your tasks by type (e.g., "Study", "Clinical", "Personal"). Click "+ New Category" below!',
-    position: 'right',
+    id: 'categories',
+    title: 'Your Categories',
+    content: 'Tasks are organized into categories. You have three: Revision (for study topics), ANKI Flashcards (for spaced repetition), and Sign Offs (for clinical skills).',
+    getPosition: () => ({ top: '40%', left: '280px' }), // Right of categories, lowered
   },
   {
-    id: 'create-task',
-    target: '.topbar .btn-primary',
-    title: 'Step 2: Create Tasks',
-    content: 'Click the "+ Task" button to add tasks. Assign them to categories and set importance - larger tiles = more important!',
-    position: 'bottom',
+    id: 'timeblock',
+    title: 'Time Block: Exam in 4 weeks',
+    content: 'This is your active time block. It contains all your exam preparation tasks with a countdown. Tasks in blocks are visually prioritized on the treemap.',
+    getPosition: () => ({ top: '60%', left: '280px' }), // Right of Active Blocks, lowered
   },
   {
     id: 'pool',
-    target: '.sidebar-item',
     title: 'The Task Pool',
-    content: 'New tasks start here in the Task Pool. Drag them to time blocks to organize them into specific time periods.',
-    position: 'right',
-  },
-  {
-    id: 'create-block',
-    target: '.sidebar-section-title',
-    title: 'Step 3: Time Blocks',
-    content: 'Create time blocks for periods like "Exam Season" or "Project Week". Drag tasks from the pool into blocks!',
-    position: 'right',
+    content: 'All unassigned tasks live here. You can see All Tasks or filter to just Unassigned ones. Drag tasks from here into time blocks to organize them!',
+    getPosition: () => ({ top: '45%', left: '280px' }), // Right of Pool section
   },
   {
     id: 'treemap',
-    target: '.treemap-container',
     title: 'The Treemap',
-    content: 'Visualize your tasks! Larger tiles = higher importance. Drag to rearrange, double-click to complete, right-click to edit or delete.',
-    position: 'left',
+    content: 'This is your visual task board! Larger tiles = higher importance (weight). The sample tasks show different sizes based on priority. Double-click to complete, right-click to edit.',
+    getPosition: () => ({ top: '50%', left: '60%' }), // Center-left of treemap area
   },
   {
     id: 'taskchain',
-    target: '.view-switcher',
     title: 'Task Chains',
-    content: 'Click "Task Chain" (the glowing cyan button) to build ordered daily workflows. Create templates, set sequences, and track daily progress!',
-    position: 'bottom',
+    content: 'Click "Task Chain" in the sidebar to build ordered daily workflows. Create templates for your morning routine or study sessions, then track daily progress!',
+    getPosition: () => ({ top: '35%', left: '280px' }), // Above the Workflow section
+  },
+  {
+    id: 'create-task',
+    title: 'Creating Tasks',
+    content: 'Click the "+ Task" button in the top bar to add new tasks. Assign them to categories, add notes, and set importance (weight) to control their size on the treemap.',
+    getPosition: () => ({ top: '80px', left: '50%' }), // Below top bar
   },
   {
     id: 'pomodoro',
-    target: '.pomodoro-widget',
     title: 'Pomodoro Timer',
-    content: 'This draggable timer tracks your work sessions. Click it to start/pause, drag it anywhere on screen. Customize durations in settings.',
-    position: 'top',
+    content: 'This draggable timer tracks your work sessions. Click to start/pause, drag it anywhere. Perfect for focused study sessions! Customize durations in settings.',
+    getPosition: () => ({ top: '75%', left: '75%' }), // Above the timer
   },
   {
     id: 'sync',
-    target: '.topbar',
     title: 'Cloud Sync',
-    content: 'Connect Dropbox to sync across devices. Click "Sync" in the top bar to set up. Your data stays private in your own Dropbox!',
-    position: 'bottom',
+    content: 'Connect Dropbox to sync across devices. Your data stays private in your own Dropbox. Click "Sync" in the top bar to set up.',
+    getPosition: () => ({ top: '100px', left: '75%' }), // Top right area
   },
   {
     id: 'export',
-    target: '.topbar .btn-ghost',
     title: 'Export & Backup',
-    content: 'Export your treemap as PNG or backup all data as JSON. Regular backups recommended!',
-    position: 'bottom',
+    content: 'Export your treemap as PNG or backup all data as JSON. Regular backups are recommended!',
+    getPosition: () => ({ top: '80px', left: '85%' }), // Near export button
   },
 ];
 
@@ -96,7 +85,7 @@ export function useOnboarding() {
       setHasCompleted(parsed.hasCompletedTour || false);
     } else {
       // First time user - show tour after a short delay
-      setTimeout(() => setIsOpen(true), 1000);
+      setTimeout(() => setIsOpen(true), 1500);
     }
   }, []);
 
@@ -153,47 +142,7 @@ export function OnboardingTour() {
   if (!tour.isOpen) return null;
 
   const step = tour.step;
-  
-  // Calculate position based on target element
-  const getPosition = () => {
-    const target = document.querySelector(step.target);
-    if (!target) return { top: '50%', left: '50%' };
-    
-    const rect = target.getBoundingClientRect();
-    const tooltipWidth = 320;
-    const tooltipHeight = 200;
-    const padding = 16;
-
-    let top = 0;
-    let left = 0;
-
-    switch (step.position) {
-      case 'right':
-        top = rect.top + rect.height / 2 - tooltipHeight / 2;
-        left = rect.right + padding;
-        break;
-      case 'left':
-        top = rect.top + rect.height / 2 - tooltipHeight / 2;
-        left = rect.left - tooltipWidth - padding;
-        break;
-      case 'bottom':
-        top = rect.bottom + padding;
-        left = rect.left + rect.width / 2 - tooltipWidth / 2;
-        break;
-      case 'top':
-        top = rect.top - tooltipHeight - padding;
-        left = rect.left + rect.width / 2 - tooltipWidth / 2;
-        break;
-    }
-
-    // Keep on screen
-    top = Math.max(10, Math.min(top, window.innerHeight - tooltipHeight - 10));
-    left = Math.max(10, Math.min(left, window.innerWidth - tooltipWidth - 10));
-
-    return { top: `${top}px`, left: `${left}px` };
-  };
-
-  const position = getPosition();
+  const position = step.getPosition();
 
   return (
     <AnimatePresence>
@@ -208,12 +157,12 @@ export function OnboardingTour() {
           pointerEvents: 'none',
         }}
       >
-        {/* Spotlight overlay - blocks clicks outside tooltip but doesn't dismiss */}
+        {/* Spotlight overlay */}
         <div
           style={{
             position: 'absolute',
             inset: 0,
-            background: 'rgba(0, 0, 0, 0.5)',
+            background: 'rgba(0, 0, 0, 0.6)',
             pointerEvents: 'auto',
           }}
           onClick={(e) => e.stopPropagation()}
@@ -226,17 +175,20 @@ export function OnboardingTour() {
           exit={{ scale: 0.9, opacity: 0 }}
           style={{
             position: 'absolute',
-            ...position,
-            width: 320,
+            top: position.top,
+            left: position.left,
+            transform: 'translate(-50%, -50%)',
+            width: 340,
+            maxWidth: '90vw',
             background: 'var(--bg-secondary)',
             borderRadius: 'var(--radius-md)',
             border: '1px solid var(--border)',
-            padding: 20,
+            padding: 24,
             pointerEvents: 'auto',
             boxShadow: 'var(--shadow-lg)',
           }}
         >
-          <div style={{ marginBottom: 12 }}>
+          <div style={{ marginBottom: 16 }}>
             <h3 style={{ margin: 0, fontSize: 18, fontWeight: 600 }}>
               {step.title}
             </h3>
@@ -251,7 +203,7 @@ export function OnboardingTour() {
             </div>
           </div>
 
-          <p style={{ margin: '0 0 20px', fontSize: 14, lineHeight: 1.5 }}>
+          <p style={{ margin: '0 0 24px', fontSize: 14, lineHeight: 1.6 }}>
             {step.content}
           </p>
 
@@ -280,7 +232,7 @@ export function OnboardingTour() {
                 <button
                   onClick={tour.prevStep}
                   style={{
-                    padding: '8px 16px',
+                    padding: '10px 18px',
                     background: 'var(--bg-tertiary)',
                     border: '1px solid var(--border)',
                     borderRadius: 'var(--radius-sm)',
@@ -295,7 +247,7 @@ export function OnboardingTour() {
               <button
                 onClick={tour.nextStep}
                 style={{
-                  padding: '8px 16px',
+                  padding: '10px 18px',
                   background: 'var(--accent)',
                   border: 'none',
                   borderRadius: 'var(--radius-sm)',
