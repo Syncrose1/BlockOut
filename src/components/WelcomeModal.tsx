@@ -118,7 +118,7 @@ export function WelcomeModal() {
               }}
             >
               <img
-                src="/BlockOut_screenshot.png"
+                src="./BlockOut_screenshot.png"
                 alt="BlockOut Screenshot"
                 style={{
                   width: '100%',
