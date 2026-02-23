@@ -1,10 +1,10 @@
-use std::sync::Arc;
 use std::time::Duration;
 use axum::{extract::Query, response::Html, routing::get, Router};
 use serde::{Deserialize, Serialize};
 use std::net::SocketAddr;
-use tauri::{AppHandle, Manager};
+use tauri::{AppHandle, Emitter, Listener, Manager};
 use tokio::sync::{mpsc, Mutex};
+use std::sync::Arc;
 
 #[derive(Debug, Deserialize)]
 struct OAuthCallback {
@@ -16,7 +16,11 @@ struct OAuthCodeEvent {
     code: String,
 }
 
-static OAUTH_SENDER: tokio::sync::OnceCell<mpsc::Sender<String>> = tokio::sync::OnceCell::const_new();
+// Store the sender for communication between handler and main flow
+struct OAuthState {
+    sender: Mutex<Option<mpsc::Sender<String>>>,
+    app_handle: AppHandle,
+}
 
 // Start a temporary HTTP server to receive OAuth callback
 // Returns the port number immediately, emits 'oauth-code' event when code is received
@@ -35,13 +39,16 @@ async fn start_oauth_server(app_handle: AppHandle) -> Result<u16, String> {
     // Channel to receive the OAuth code
     let (tx, mut rx) = mpsc::channel::<String>(1);
     
-    // Store sender in global so handler can access it
-    let _ = OAUTH_SENDER.set(tx).await;
+    // Create state for the handler
+    let state = Arc::new(OAuthState {
+        sender: Mutex::new(Some(tx)),
+        app_handle: app_handle.clone(),
+    });
     
-    // Build the router with app_handle for emitting events
+    // Build the router
     let app = Router::new()
         .route("/", get(oauth_handler))
-        .layer(axum::extract::Extension(app_handle));
+        .with_state(state);
     
     println!("OAuth server started on http://{}", addr);
     
@@ -49,7 +56,7 @@ async fn start_oauth_server(app_handle: AppHandle) -> Result<u16, String> {
     tokio::spawn(async move {
         let result = axum::serve(listener, app)
             .with_graceful_shutdown(async move {
-                // Shut down after 60 seconds or when we receive a code
+                // Shut down after 60 seconds
                 let _ = tokio::time::sleep(Duration::from_secs(60)).await;
             })
             .await;
@@ -78,12 +85,17 @@ async fn start_oauth_server(app_handle: AppHandle) -> Result<u16, String> {
 // Handler for OAuth callback
 async fn oauth_handler(
     Query(params): Query<OAuthCallback>,
-    axum::extract::Extension(app_handle): axum::extract::Extension<AppHandle>,
+    axum::extract::State(state): axum::extract::State<Arc<OAuthState>>,
 ) -> Html<String> {
     println!("Received OAuth callback with code: {}", &params.code[..params.code.len().min(10)]);
     
-    // Emit the code event immediately
-    let _ = app_handle.emit("oauth-code", OAuthCodeEvent { code: params.code.clone() });
+    // Send code through channel
+    if let Some(sender) = state.sender.lock().await.take() {
+        let _ = sender.send(params.code.clone()).await;
+    }
+    
+    // Also emit event directly
+    let _ = state.app_handle.emit("oauth-code", OAuthCodeEvent { code: params.code.clone() });
     
     // Return success page
     Html(
@@ -155,7 +167,7 @@ pub fn run() {
                 app.deep_link().register_all()?;
 
                 // Listen for deep link events
-                app.listen("deep-link://new-url", |event| {
+                app.listen("deep-link://new-url", |event: tauri::Event| {
                     let url = event.payload();
                     println!("Deep link received: {}", url);
                 });
