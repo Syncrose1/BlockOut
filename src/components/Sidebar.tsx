@@ -159,7 +159,7 @@ export function Sidebar() {
     <div className="sidebar">
       <div className="sidebar-header" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', textAlign: 'center' }}>
         <div className="sidebar-logo" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}>
-          <img src="/bo-logo-v3.png" alt="" height="24" style={{ imageRendering: 'pixelated' }} />
+          <img src="./bo-logo-v3.png" alt="" height="24" style={{ imageRendering: 'pixelated' }} />
           BlockOut
         </div>
         {/* Streak display */}

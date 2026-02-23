@@ -173,37 +173,80 @@ export async function startDropboxAuth(): Promise<void> {
   localStorage.setItem(DROPBOX_PKCE_VERIFIER_KEY, verifier);
   if (DEBUG) console.log('[BlockOut] PKCE verifier stored');
 
-  // For Electron desktop app, open browser with localhost redirect
+  // For Electron desktop app, use local server for automatic OAuth
   if (isElectron) {
-    const redirectUri = 'http://localhost:8765/';
-    
-    const params = new URLSearchParams({
-      client_id: DROPBOX_APP_KEY,
-      response_type: 'code',
-      redirect_uri: redirectUri,
-      code_challenge: challenge,
-      code_challenge_method: 'plain',
-      token_access_type: 'offline',
-    });
-
-    const authUrl = `https://www.dropbox.com/oauth2/authorize?${params.toString()}`;
-    
-    if (DEBUG) {
-      console.log('[BlockOut] Electron OAuth - redirect_uri:', redirectUri);
-      console.log('[BlockOut] Auth URL:', authUrl);
-    }
-    
-    // Use Electron's shell.openExternal
     try {
-      await (window as Window & { electronAPI?: { openExternal?: (url: string) => Promise<void> } }).electronAPI?.openExternal?.(authUrl);
-      if (DEBUG) console.log('[BlockOut] Opened auth URL in external browser');
+      const electronAPI = (window as Window & { electronAPI?: {
+        openExternal?: (url: string) => Promise<void>;
+        startOAuthServer?: () => Promise<number>;
+        onOAuthCode?: (callback: (data: { code: string }) => void) => () => void;
+      } }).electronAPI;
+      
+      if (!electronAPI?.startOAuthServer) {
+        throw new Error('Electron API not available');
+      }
+      
+      // Start local OAuth server
+      console.log('[BlockOut] Starting OAuth server...');
+      const port = await electronAPI.startOAuthServer();
+      const redirectUri = `http://localhost:${port}/`;
+      
+      const params = new URLSearchParams({
+        client_id: DROPBOX_APP_KEY,
+        response_type: 'code',
+        redirect_uri: redirectUri,
+        code_challenge: challenge,
+        code_challenge_method: 'plain',
+        token_access_type: 'offline',
+      });
+
+      const authUrl = `https://www.dropbox.com/oauth2/authorize?${params.toString()}`;
+      
+      if (DEBUG) {
+        console.log('[BlockOut] Electron OAuth - redirect_uri:', redirectUri);
+        console.log('[BlockOut] Auth URL:', authUrl);
+      }
+      
+      // Open browser
+      await electronAPI.openExternal?.(authUrl);
+      console.log('[BlockOut] Opened auth URL in external browser');
+      
+      // Show loading message
+      alert('Dropbox authorization started. Please complete the authorization in your browser...');
+      
+      // Listen for OAuth code from main process
+      console.log('[BlockOut] Waiting for OAuth callback...');
+      const code = await new Promise<string | null>((resolve) => {
+        const cleanup = electronAPI.onOAuthCode?.((data) => {
+          console.log('[BlockOut] Received OAuth code:', data.code.substring(0, 10) + '...');
+          cleanup?.();
+          resolve(data.code);
+        });
+        
+        // Timeout after 60 seconds
+        setTimeout(() => {
+          cleanup?.();
+          resolve(null);
+        }, 60000);
+      });
+      
+      if (code) {
+        console.log('[BlockOut] Completing authentication...');
+        const result = await handleDropboxCallback(code);
+        
+        if (result.success) {
+          alert('Successfully connected to Dropbox!');
+          window.location.reload();
+        } else {
+          alert('Failed to connect to Dropbox: ' + (result.error || 'Unknown error'));
+        }
+      } else {
+        alert('Authorization timed out or was cancelled. Please try again.');
+      }
     } catch (e) {
-      console.error('[BlockOut] Failed to open external browser:', e);
-      window.open(authUrl, '_blank');
+      console.error('[BlockOut] Electron OAuth error:', e);
+      alert('Failed to start Dropbox authorization. Please try again.');
     }
-    
-    // Note: User will need to manually enter the code or we can implement a local server later
-    alert('Dropbox authorization opened in browser. After approving, copy the authorization code from the URL and paste it here.');
     return;
   }
   
