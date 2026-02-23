@@ -223,8 +223,14 @@ export async function handleDropboxCallback(code: string): Promise<{ success: bo
   }
 
   try {
-    const redirectUri = `${window.location.origin}/`;
+    // Use same Tauri detection as startDropboxAuth
+    const isTauri = window.location.protocol === 'tauri:' ||
+                    window.location.protocol === 'https:' && window.location.hostname.includes('tauri') ||
+                    (window as unknown as Record<string, unknown>).__TAURI__ !== undefined;
+    
+    const redirectUri = isTauri ? 'http://localhost:5173/' : `${window.location.origin}/`;
     if (DEBUG) console.log('[BlockOut] Exchanging code for token with redirect:', redirectUri);
+    if (DEBUG) console.log('[BlockOut] Is Tauri app:', isTauri);
     
     const response = await fetch('https://api.dropboxapi.com/oauth2/token', {
       method: 'POST',
@@ -243,26 +249,37 @@ export async function handleDropboxCallback(code: string): Promise<{ success: bo
     if (!response.ok) {
       const errorData = await response.json().catch(() => ({}));
       const errorText = JSON.stringify(errorData);
+      const statusText = response.statusText;
+      const statusCode = response.status;
       console.error('OAuth error response:', errorText);
+      console.error(`OAuth error status: ${statusCode} ${statusText}`);
+      console.error('Full error object:', { statusCode, statusText, errorData });
       
       // Check for specific error types
       if (errorData.error === 'invalid_redirect_uri' || errorText.includes('redirect_uri')) {
-        return { 
-          success: false, 
-          error: `Redirect URI mismatch. Your current domain (${window.location.origin}) is not authorized in your Dropbox app settings. Please add "${redirectUri}" to your Dropbox app's redirect URIs.` 
+        return {
+          success: false,
+          error: `Redirect URI mismatch. Your current domain (${window.location.origin}) is not authorized in your Dropbox app settings. Please add "${redirectUri}" to your Dropbox app's redirect URIs.`
         };
       }
-      
+
       if (errorData.error === 'invalid_grant') {
-        return { 
-          success: false, 
-          error: 'Authorization code expired or already used. Please try connecting Dropbox again.' 
+        return {
+          success: false,
+          error: 'Authorization code expired or already used. Please try connecting Dropbox again.'
         };
       }
-      
-      return { 
-        success: false, 
-        error: `Authentication failed: ${errorData.error_description || errorData.error || 'Unknown error'}` 
+
+      if (errorText.includes('user limit') || errorText.includes('rate_limit') || errorData.error === 'rate_limit') {
+        return {
+          success: false,
+          error: 'Dropbox API limit reached. This could be due to too many authentication attempts. Please wait a few minutes and try again, or check your Dropbox app settings at https://www.dropbox.com/developers/apps'
+        };
+      }
+
+      return {
+        success: false,
+        error: `Authentication failed: ${errorData.error_description || errorData.error || 'Unknown error'}`
       };
     }
 
