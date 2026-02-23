@@ -211,6 +211,19 @@ export async function startDropboxAuth(): Promise<void> {
 
       const authUrl = `https://www.dropbox.com/oauth2/authorize?${params.toString()}`;
       
+      // DEBUG: Show exactly what we're sending
+      console.log('[BlockOut] OAuth redirect_uri:', redirectUri);
+      console.log('[BlockOut] Full auth URL:', authUrl);
+      console.log('[BlockOut] params:', {
+        client_id: DROPBOX_APP_KEY,
+        response_type: 'code',
+        redirect_uri: redirectUri,
+        code_challenge: challenge,
+        code_challenge_method: 'plain',
+        token_access_type: 'offline',
+      });
+      alert(`DEBUG: Redirect URI being used: ${redirectUri}\n\nCheck browser console for full details.`);
+      
       // Open browser using Tauri shell API
       if (tauri.shell?.open) {
         await tauri.shell.open(authUrl);
