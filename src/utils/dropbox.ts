@@ -170,21 +170,81 @@ export async function startDropboxAuth(): Promise<void> {
                   (window as unknown as Record<string, unknown>).__TAURI__ !== undefined;
   
   // Use localhost for Tauri apps (dev mode), otherwise use current origin
-  // Note: In production Tauri builds, OAuth will need manual code entry or a local server
   const isTauriDev = isTauri && window.location.hostname === 'localhost';
-  const redirectUri = isTauriDev ? 'http://localhost:5173/' : `${window.location.origin}/`;
-  const currentDomain = window.location.hostname;
+  const isTauriProd = isTauri && !isTauriDev;
   
-  if (DEBUG) console.log('[BlockOut] Starting Dropbox auth with redirect:', redirectUri);
-  if (DEBUG) console.log('[BlockOut] Current domain:', currentDomain);
-  if (DEBUG) console.log('[BlockOut] Is Tauri app:', isTauri);
+  if (DEBUG) console.log('[BlockOut] Starting Dropbox auth');
+  if (DEBUG) console.log('[BlockOut] Is Tauri app:', isTauri, 'Prod:', isTauriProd);
   
   const { verifier, challenge } = generatePKCE();
   
-  // Store verifier AND domain for callback (use localStorage as it persists through redirects)
+  // Store verifier for callback
   localStorage.setItem(DROPBOX_PKCE_VERIFIER_KEY, verifier);
-  localStorage.setItem(DROPBOX_PKCE_DOMAIN_KEY, currentDomain);
-  if (DEBUG) console.log('[BlockOut] PKCE verifier stored for domain:', currentDomain);
+  if (DEBUG) console.log('[BlockOut] PKCE verifier stored');
+
+  // For production Tauri builds, use local server to receive OAuth callback
+  if (isTauriProd) {
+    try {
+      // @ts-expect-error - Tauri invoke not typed
+      const { invoke } = await import('@tauri-apps/api/core');
+      
+      // Start OAuth server and get the port
+      console.log('[BlockOut] Starting OAuth server for Tauri...');
+      const serverPromise: Promise<string | null> = invoke('start_oauth_server');
+      
+      // Wait a moment for server to start
+      await new Promise(resolve => setTimeout(resolve, 500));
+      
+      // For now, we'll use a hardcoded port range and try them
+      // The server will be on port 8765-8799
+      const redirectUri = 'http://localhost:8765/';
+      
+      const params = new URLSearchParams({
+        client_id: DROPBOX_APP_KEY,
+        response_type: 'code',
+        redirect_uri: redirectUri,
+        code_challenge: challenge,
+        code_challenge_method: 'plain',
+        token_access_type: 'offline',
+      });
+
+      const authUrl = `https://www.dropbox.com/oauth2/authorize?${params.toString()}`;
+      
+      // Open browser
+      // @ts-expect-error - Tauri types not available
+      const { open } = await import('@tauri-apps/plugin-shell');
+      await open(authUrl);
+      console.log('[BlockOut] Opened auth URL in external browser');
+      
+      // Show loading message
+      alert('Dropbox authorization started. Please complete the authorization in your browser. This window will automatically receive the authorization code.');
+      
+      // Wait for the server to receive the code
+      console.log('[BlockOut] Waiting for OAuth callback...');
+      const code = await serverPromise;
+      
+      if (code) {
+        console.log('[BlockOut] Received OAuth code, completing authentication...');
+        const result = await handleDropboxCallback(code);
+        
+        if (result.success) {
+          alert('Successfully connected to Dropbox!');
+          window.location.reload();
+        } else {
+          alert('Failed to connect to Dropbox: ' + (result.error || 'Unknown error'));
+        }
+      } else {
+        alert('Authorization timed out or was cancelled. Please try again.');
+      }
+    } catch (e) {
+      console.error('[BlockOut] Tauri OAuth error:', e);
+      alert('Failed to start Dropbox authorization. Please try again.');
+    }
+    return;
+  }
+  
+  // For web or Tauri dev builds, use standard redirect flow
+  const redirectUri = isTauriDev ? 'http://localhost:5173/' : `${window.location.origin}/`;
   
   const params = new URLSearchParams({
     client_id: DROPBOX_APP_KEY,
@@ -196,10 +256,9 @@ export async function startDropboxAuth(): Promise<void> {
   });
 
   const authUrl = `https://www.dropbox.com/oauth2/authorize?${params.toString()}`;
-  if (DEBUG) console.log('[BlockOut] Redirecting to:', authUrl);
   
-  // In Tauri, open external browser instead of webview
-  if (isTauri) {
+  // In Tauri dev, open external browser
+  if (isTauriDev) {
     try {
       // @ts-expect-error - Tauri types not available
       const { open } = await import('@tauri-apps/plugin-shell');
@@ -207,7 +266,6 @@ export async function startDropboxAuth(): Promise<void> {
       if (DEBUG) console.log('[BlockOut] Opened auth URL in external browser');
     } catch (e) {
       console.error('[BlockOut] Failed to open external browser:', e);
-      // Fallback to opening in webview
       window.location.href = authUrl;
     }
   } else {

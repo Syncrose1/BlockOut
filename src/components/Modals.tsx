@@ -1585,10 +1585,10 @@ export function SyncSettingsModal() {
   const handleTestAndSync = async () => {
     setTesting(true);
     setTestResult(null);
-    
+
     try {
       setSyncStatus('syncing');
-      
+
       if (syncProvider === 'self-hosted') {
         setCloudConfig(url, token);
         await saveToCloud();
@@ -1596,7 +1596,7 @@ export function SyncSettingsModal() {
         const data = useStore.getState().getSerializableState();
         await syncToDropbox(data);
       }
-      
+
       setTestResult('ok');
       setLastSynced(Date.now());
     } catch (err) {
