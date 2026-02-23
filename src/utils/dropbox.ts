@@ -169,8 +169,10 @@ export async function startDropboxAuth(): Promise<void> {
                   // Check for Tauri-specific properties
                   (window as unknown as Record<string, unknown>).__TAURI__ !== undefined;
   
-  // Use localhost for Tauri apps, otherwise use current origin
-  const redirectUri = isTauri ? 'http://localhost:5173/' : `${window.location.origin}/`;
+  // Use localhost for Tauri apps (dev mode), otherwise use current origin
+  // Note: In production Tauri builds, OAuth will need manual code entry or a local server
+  const isTauriDev = isTauri && window.location.hostname === 'localhost';
+  const redirectUri = isTauriDev ? 'http://localhost:5173/' : `${window.location.origin}/`;
   const currentDomain = window.location.hostname;
   
   if (DEBUG) console.log('[BlockOut] Starting Dropbox auth with redirect:', redirectUri);
