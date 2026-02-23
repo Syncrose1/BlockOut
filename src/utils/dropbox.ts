@@ -157,6 +157,8 @@ function generatePKCE(): { verifier: string; challenge: string } {
 
 // Start OAuth flow
 export async function startDropboxAuth(): Promise<void> {
+  alert('DEBUG: startDropboxAuth called');
+  
   if (!DROPBOX_APP_KEY) {
     alert('Dropbox App Key not configured. Please set VITE_DROPBOX_APP_KEY in your .env file');
     return;
