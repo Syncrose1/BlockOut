@@ -762,21 +762,21 @@ export async function syncToDropboxWithResolution(localData: AnyRecord, source: 
       };
     }
 
-    // Remote is newer despite version check - download it
-    logAuthDebug('Remote is newer - downloading', {
-      remoteVersion,
-      localVersion: lastSyncedVersion,
-      hasRemoteData: !!remoteData,
-      remoteDataKeys: remoteData ? Object.keys(remoteData) : [],
-      taskChainsCount: Object.keys(remoteData?.taskChains || {}).length
-    });
-    recordSuccessfulSync(remoteVersion);
+    // No remote changes detected, upload local state
+    // This handles the case where local was modified (e.g., deletions) but remote hasn't changed
+    logAuthDebug('No remote changes, uploading local state');
+    const newVersion = remoteVersion + 1;
+    const payload = { ...localData, version: newVersion, lastModified: Date.now() };
+    
+    await dropbox.uploadFile(DROPBOX_FILE_PATH, JSON.stringify(payload, null, 2));
+    recordSuccessfulSync(newVersion);
+    
+    logAuthDebug('Upload complete (no conflicts)', { newVersion });
     return {
       success: true,
-      action: 'downloaded',
-      remoteVersion,
+      action: 'uploaded',
+      remoteVersion: newVersion,
       localVersion: lastSyncedVersion,
-      data: remoteData  // Return the already-downloaded data
     };
 
   } catch (error) {
