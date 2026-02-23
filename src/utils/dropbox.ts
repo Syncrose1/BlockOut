@@ -185,22 +185,20 @@ export async function startDropboxAuth(): Promise<void> {
   // For production Tauri builds, use local server to receive OAuth callback
   if (isTauriProd) {
     try {
-      const invoke = (window as Window & { __TAURI__?: { core?: { invoke?: (cmd: string) => Promise<unknown> } } }).__TAURI__?.core?.invoke;
+      const tauri = (window as Window & { __TAURI__?: { 
+        core?: { invoke?: (cmd: string) => Promise<unknown> };
+        event?: { listen?: (event: string, handler: (event: { payload: { code: string } }) => void) => Promise<() => void> };
+        shell?: { open?: (url: string) => Promise<void> };
+      } }).__TAURI__;
       
-      if (!invoke) {
+      if (!tauri?.core?.invoke) {
         throw new Error('Tauri invoke not available');
       }
       
       // Start OAuth server and get the port
       console.log('[BlockOut] Starting OAuth server for Tauri...');
-      const serverPromise: Promise<string | null> = invoke('start_oauth_server') as Promise<string | null>;
-      
-      // Wait a moment for server to start
-      await new Promise(resolve => setTimeout(resolve, 500));
-      
-      // For now, we'll use a hardcoded port range and try them
-      // The server will be on port 8765-8799
-      const redirectUri = 'http://localhost:8765/';
+      const port = await tauri.core.invoke('start_oauth_server') as number;
+      const redirectUri = `http://localhost:${port}/`;
       
       const params = new URLSearchParams({
         client_id: DROPBOX_APP_KEY,
@@ -214,9 +212,8 @@ export async function startDropboxAuth(): Promise<void> {
       const authUrl = `https://www.dropbox.com/oauth2/authorize?${params.toString()}`;
       
       // Open browser using Tauri shell API
-      const tauriOpen = (window as Window & { __TAURI__?: { shell?: { open?: (url: string) => Promise<void> } } }).__TAURI__?.shell?.open;
-      if (tauriOpen) {
-        await tauriOpen(authUrl);
+      if (tauri.shell?.open) {
+        await tauri.shell.open(authUrl);
       } else {
         window.open(authUrl, '_blank');
       }
@@ -225,9 +222,23 @@ export async function startDropboxAuth(): Promise<void> {
       // Show loading message
       alert('Dropbox authorization started. Please complete the authorization in your browser. This window will automatically receive the authorization code.');
       
-      // Wait for the server to receive the code
+      // Listen for the oauth-code event
       console.log('[BlockOut] Waiting for OAuth callback...');
-      const code = await serverPromise;
+      const code = await new Promise<string | null>((resolve) => {
+        let timeoutId: ReturnType<typeof setTimeout>;
+        
+        const cleanup = tauri.event?.listen?.('oauth-code', (event) => {
+          console.log('[BlockOut] Received oauth-code event:', event.payload);
+          clearTimeout(timeoutId);
+          resolve(event.payload.code);
+        });
+        
+        // Timeout after 60 seconds
+        timeoutId = setTimeout(() => {
+          cleanup?.then((unlisten) => unlisten?.());
+          resolve(null);
+        }, 60000);
+      });
       
       if (code) {
         console.log('[BlockOut] Received OAuth code, completing authentication...');
