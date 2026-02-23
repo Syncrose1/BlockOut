@@ -185,12 +185,15 @@ export async function startDropboxAuth(): Promise<void> {
   // For production Tauri builds, use local server to receive OAuth callback
   if (isTauriProd) {
     try {
-      // @ts-expect-error - Tauri invoke not typed
-      const { invoke } = await import('@tauri-apps/api/core');
+      const invoke = (window as Window & { __TAURI__?: { core?: { invoke?: (cmd: string) => Promise<unknown> } } }).__TAURI__?.core?.invoke;
+      
+      if (!invoke) {
+        throw new Error('Tauri invoke not available');
+      }
       
       // Start OAuth server and get the port
       console.log('[BlockOut] Starting OAuth server for Tauri...');
-      const serverPromise: Promise<string | null> = invoke('start_oauth_server');
+      const serverPromise: Promise<string | null> = invoke('start_oauth_server') as Promise<string | null>;
       
       // Wait a moment for server to start
       await new Promise(resolve => setTimeout(resolve, 500));
@@ -210,10 +213,13 @@ export async function startDropboxAuth(): Promise<void> {
 
       const authUrl = `https://www.dropbox.com/oauth2/authorize?${params.toString()}`;
       
-      // Open browser
-      // @ts-expect-error - Tauri types not available
-      const { open } = await import('@tauri-apps/plugin-shell');
-      await open(authUrl);
+      // Open browser using Tauri shell API
+      const tauriOpen = (window as Window & { __TAURI__?: { shell?: { open?: (url: string) => Promise<void> } } }).__TAURI__?.shell?.open;
+      if (tauriOpen) {
+        await tauriOpen(authUrl);
+      } else {
+        window.open(authUrl, '_blank');
+      }
       console.log('[BlockOut] Opened auth URL in external browser');
       
       // Show loading message
@@ -260,10 +266,13 @@ export async function startDropboxAuth(): Promise<void> {
   // In Tauri dev, open external browser
   if (isTauriDev) {
     try {
-      // @ts-expect-error - Tauri types not available
-      const { open } = await import('@tauri-apps/plugin-shell');
-      await open(authUrl);
-      if (DEBUG) console.log('[BlockOut] Opened auth URL in external browser');
+      const tauriOpen = (window as Window & { __TAURI__?: { shell?: { open?: (url: string) => Promise<void> } } }).__TAURI__?.shell?.open;
+      if (tauriOpen) {
+        await tauriOpen(authUrl);
+        if (DEBUG) console.log('[BlockOut] Opened auth URL in external browser');
+      } else {
+        window.open(authUrl, '_blank');
+      }
     } catch (e) {
       console.error('[BlockOut] Failed to open external browser:', e);
       window.location.href = authUrl;
