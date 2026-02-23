@@ -144,13 +144,41 @@ async fn oauth_handler(
     )
 }
 
+// Open URL using xdg-open for Linux AppImage compatibility
+#[tauri::command]
+fn open_url(url: String) -> Result<(), String> {
+    #[cfg(target_os = "linux")]
+    {
+        // For AppImage, use xdg-open with the binary's parent directory as working dir
+        // This fixes the issue where AppImage runs from a temp directory
+        use std::process::Command;
+        
+        let output = Command::new("xdg-open")
+            .arg(&url)
+            .output()
+            .map_err(|e| format!("Failed to open URL: {}", e))?;
+        
+        if !output.status.success() {
+            return Err(format!("xdg-open failed: {}", String::from_utf8_lossy(&output.stderr)));
+        }
+    }
+    
+    #[cfg(not(target_os = "linux"))]
+    {
+        // On non-Linux platforms, use the shell plugin
+        return Err("Use shell::open on non-Linux platforms".to_string());
+    }
+    
+    Ok(())
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_updater::Builder::new().build())
         .plugin(tauri_plugin_shell::init())
         .plugin(tauri_plugin_deep_link::init())
-        .invoke_handler(tauri::generate_handler![start_oauth_server])
+        .invoke_handler(tauri::generate_handler![start_oauth_server, open_url])
         .setup(|app| {
             if cfg!(debug_assertions) {
                 app.handle().plugin(
