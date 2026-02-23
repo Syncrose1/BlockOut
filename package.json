@@ -47,6 +47,7 @@
   "build": {
     "appId": "com.syncrose.blockout",
     "productName": "BlockOut",
+    "icon": "public/bo-logo-v3.png",
     "directories": {
       "output": "dist-electron"
     },
