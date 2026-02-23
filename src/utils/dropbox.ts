@@ -157,9 +157,6 @@ function generatePKCE(): { verifier: string; challenge: string } {
 
 // Start OAuth flow
 export function startDropboxAuth(): void {
-  console.log('[BlockOut] Starting Dropbox auth, APP_KEY present:', !!DROPBOX_APP_KEY);
-  console.log('[BlockOut] APP_KEY length:', DROPBOX_APP_KEY?.length || 0);
-  
   if (!DROPBOX_APP_KEY) {
     alert('Dropbox App Key not configured. Please set VITE_DROPBOX_APP_KEY in your .env file');
     return;
@@ -235,15 +232,6 @@ export async function handleDropboxCallback(code: string): Promise<{ success: bo
     if (DEBUG) console.log('[BlockOut] Exchanging code for token with redirect:', redirectUri);
     if (DEBUG) console.log('[BlockOut] Is Tauri app:', isTauri);
     
-    // Debug: Log request parameters
-    if (DEBUG) console.log('[BlockOut] OAuth request params:', {
-      grant_type: 'authorization_code',
-      client_id: DROPBOX_APP_KEY ? `${DROPBOX_APP_KEY.substring(0, 8)}...` : 'MISSING',
-      redirect_uri: redirectUri,
-      code_verifier_length: verifier.length,
-      code_length: code.length
-    });
-    
     const response = await fetch('https://api.dropboxapi.com/oauth2/token', {
       method: 'POST',
       headers: {
@@ -266,9 +254,6 @@ export async function handleDropboxCallback(code: string): Promise<{ success: bo
       console.error('OAuth error response:', errorText);
       console.error(`OAuth error status: ${statusCode} ${statusText}`);
       console.error('Full error object:', { statusCode, statusText, errorData });
-      
-      // Show error in UI for debugging
-      alert(`OAuth Error Debug:\nStatus: ${statusCode} ${statusText}\nError: ${errorData.error || 'N/A'}\nDescription: ${errorData.error_description || errorText || 'No description'}\n\nCheck browser console (F12) for details.`);
       
       // Check for specific error types
       if (errorData.error === 'invalid_redirect_uri' || errorText.includes('redirect_uri')) {
