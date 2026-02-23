@@ -21,6 +21,7 @@ A visual task management app built for people juggling tasks across different ti
 - **Onboarding tour** — guided introduction for new users
 - **Cloud sync** — self-hosted sync across devices via your own server
 - **PWA support** — installable on mobile with offline caching
+- **Desktop apps** — native Windows and Linux builds with auto-updates
 - **Self-hosted** — runs on your own machine, accessible across a Tailnet
 
 ## Prerequisites
