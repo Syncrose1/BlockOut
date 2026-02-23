@@ -157,23 +157,21 @@ function generatePKCE(): { verifier: string; challenge: string } {
 
 // Start OAuth flow
 export async function startDropboxAuth(): Promise<void> {
-  alert('DEBUG: startDropboxAuth called');
-  
   if (!DROPBOX_APP_KEY) {
     alert('Dropbox App Key not configured. Please set VITE_DROPBOX_APP_KEY in your .env file');
     return;
   }
 
   // Detect if we're in a Tauri desktop app
-  // Tauri uses non-http protocols like 'tauri://' or custom localhost variants
-  const isTauri = window.location.protocol === 'tauri:' ||
-                  window.location.protocol === 'https:' && window.location.hostname.includes('tauri') ||
-                  // Check for Tauri-specific properties
-                  (window as unknown as Record<string, unknown>).__TAURI__ !== undefined;
+  // Check for __TAURI__ global which exists in all Tauri builds
+  const tauriGlobal = (window as unknown as Record<string, unknown>).__TAURI__;
+  const isTauri = tauriGlobal !== undefined;
   
-  // Use localhost for Tauri apps (dev mode), otherwise use current origin
-  const isTauriDev = isTauri && window.location.hostname === 'localhost';
+  // Detect dev vs production: dev runs on localhost:5173, prod uses tauri:// or other protocols
+  const isTauriDev = isTauri && window.location.protocol === 'http:' && window.location.port === '5173';
   const isTauriProd = isTauri && !isTauriDev;
+  
+  console.log('[DEBUG] Tauri detection:', { isTauri, isTauriDev, isTauriProd, protocol: window.location.protocol, hostname: window.location.hostname, port: window.location.port });
   
   if (DEBUG) console.log('[BlockOut] Starting Dropbox auth');
   if (DEBUG) console.log('[BlockOut] Is Tauri app:', isTauri, 'Prod:', isTauriProd);
