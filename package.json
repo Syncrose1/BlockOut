@@ -18,7 +18,7 @@
     "url": "http://local_proxy@127.0.0.1:28989/git/Syncrose1/BlockOut"
   },
   "keywords": [],
-  "author": "",
+  "author": "Syncrose <raahat.shah@gmail.com>",
   "license": "ISC",
   "dependencies": {
     "@uiw/react-heat-map": "^2.3.3",
@@ -57,6 +57,7 @@
       "electron/**/*"
     ],
     "mac": {
+      "icon": "public/bo-logo-512.png",
       "target": [
         {
           "target": "dmg",
