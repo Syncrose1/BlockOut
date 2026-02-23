@@ -1703,38 +1703,9 @@ export function SyncSettingsModal() {
                 </div>
               ) : (
                 <>
-                  {/* Personal Access Token Option */}
-                  <div className="modal-field" style={{ marginBottom: 16 }}>
-                    <label>Personal Access Token (Easiest for hobbyists)</label>
-                    <input
-                      type="password"
-                      placeholder="Paste your Dropbox access token here"
-                      onChange={(e) => {
-                        const token = e.target.value.trim();
-                        if (token.length > 20) {
-                          // Store as if it came from OAuth
-                          localStorage.setItem('blockout-dropbox-token', JSON.stringify({
-                            access_token: token,
-                            expires_at: undefined  // Personal tokens don't expire
-                          }));
-                          setSyncStatus('synced');
-                          alert('Access token saved! You can now sync.');
-                        }
-                      }}
-                    />
-                    <div style={{ fontSize: 11, color: 'var(--text-tertiary)', marginTop: 4 }}>
-                      Get this from your Dropbox App Console → Settings → Generated access token
-                    </div>
-                  </div>
-
-                  <div style={{ textAlign: 'center', margin: '16px 0', color: 'var(--text-tertiary)', fontSize: 12 }}>
-                    — OR —
-                  </div>
-
-                  {/* OAuth Option */}
                   <div className="modal-field">
                     <div style={{ fontSize: 12, color: 'var(--text-secondary)', marginBottom: 16 }}>
-                      <strong>Connect with OAuth (Requires app approval):</strong>
+                      <strong>Connect with OAuth:</strong>
                       <ol style={{ margin: '8px 0', paddingLeft: 20 }}>
                         <li>You'll be redirected to Dropbox to authorize this app</li>
                         <li>We only access a single folder (/Apps/BlockOut)</li>

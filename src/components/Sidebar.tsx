@@ -255,7 +255,7 @@ export function Sidebar() {
 
         {/* Active Blocks */}
         <div className="sidebar-section">
-          <div className="sidebar-section-title">Active Blocks</div>
+          <div className="sidebar-section-title">Active Time Blocks</div>
           {activeBlocks.length === 0 && (
             <div style={{ padding: '4px 16px', fontSize: 12, color: 'var(--text-tertiary)' }}>
               No active blocks
@@ -314,7 +314,7 @@ export function Sidebar() {
             onClick={() => setShowNewBlockModal(true)}
             style={{ color: 'var(--accent)' }}
           >
-            + New Block
+            +New Timeblock
           </button>
         </div>
 
