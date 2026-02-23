@@ -2,16 +2,16 @@
   "name": "blockout",
   "version": "1.1.0",
   "description": "Visual task management with treemap visualization, time blocks, and Pomodoro timer",
-  "main": "server/index.js",
+  "main": "electron/main.js",
+  "homepage": ".",
   "scripts": {
     "dev": "vite",
     "build": "vite build",
     "preview": "vite preview",
-    "server": "node server/index.js",
-    "start": "npm run build && node server/index.js",
-    "tauri": "tauri",
-    "tauri:dev": "tauri dev",
-    "tauri:build": "tauri build"
+    "electron": "electron .",
+    "electron:dev": "npm run build && electron .",
+    "electron:pack": "electron-builder",
+    "dist": "npm run build && electron-builder"
   },
   "repository": {
     "type": "git",
@@ -32,7 +32,6 @@
     "zustand": "^5.0.11"
   },
   "devDependencies": {
-    "@tauri-apps/cli": "^2.10.0",
     "@types/cors": "^2.8.19",
     "@types/express": "^5.0.6",
     "@types/react": "^19.2.14",
@@ -40,7 +39,59 @@
     "@types/uuid": "^10.0.0",
     "@vercel/node": "^5.1.2",
     "@vitejs/plugin-react": "^5.1.4",
+    "electron": "^34.0.0",
+    "electron-builder": "^25.0.0",
     "typescript": "^5.9.3",
     "vite": "^7.3.1"
+  },
+  "build": {
+    "appId": "com.syncrose.blockout",
+    "productName": "BlockOut",
+    "directories": {
+      "output": "dist-electron"
+    },
+    "files": [
+      "dist/**/*",
+      "electron/**/*"
+    ],
+    "mac": {
+      "target": [
+        {
+          "target": "dmg",
+          "arch": [
+            "x64",
+            "arm64"
+          ]
+        }
+      ],
+      "category": "public.app-category.productivity"
+    },
+    "win": {
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        }
+      ]
+    },
+    "linux": {
+      "target": [
+        {
+          "target": "AppImage",
+          "arch": [
+            "x64"
+          ]
+        },
+        {
+          "target": "deb",
+          "arch": [
+            "x64"
+          ]
+        }
+      ],
+      "category": "Office"
+    }
   }
 }

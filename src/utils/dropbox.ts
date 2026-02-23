@@ -162,19 +162,10 @@ export async function startDropboxAuth(): Promise<void> {
     return;
   }
 
-  // Detect if we're in a Tauri desktop app
-  // Check for __TAURI__ global which exists in all Tauri builds
-  const tauriGlobal = (window as unknown as Record<string, unknown>).__TAURI__;
-  const isTauri = tauriGlobal !== undefined;
+  // Check if running in Electron
+  const isElectron = (window as Window & { electronAPI?: { isElectron?: boolean } }).electronAPI?.isElectron === true;
   
-  // Detect dev vs production: dev runs on localhost:5173, prod uses tauri:// or other protocols
-  const isTauriDev = isTauri && window.location.protocol === 'http:' && window.location.port === '5173';
-  const isTauriProd = isTauri && !isTauriDev;
-  
-  console.log('[DEBUG] Tauri detection:', { isTauri, isTauriDev, isTauriProd, protocol: window.location.protocol, hostname: window.location.hostname, port: window.location.port });
-  
-  if (DEBUG) console.log('[BlockOut] Starting Dropbox auth');
-  if (DEBUG) console.log('[BlockOut] Is Tauri app:', isTauri, 'Prod:', isTauriProd);
+  if (DEBUG) console.log('[BlockOut] Starting Dropbox auth, Electron:', isElectron);
   
   const { verifier, challenge } = generatePKCE();
   
@@ -182,99 +173,42 @@ export async function startDropboxAuth(): Promise<void> {
   localStorage.setItem(DROPBOX_PKCE_VERIFIER_KEY, verifier);
   if (DEBUG) console.log('[BlockOut] PKCE verifier stored');
 
-  // For production Tauri builds, use local server to receive OAuth callback
-  if (isTauriProd) {
-    try {
-      const tauri = (window as Window & { __TAURI__?: { 
-        core?: { invoke?: (cmd: string) => Promise<unknown> };
-        event?: { listen?: (event: string, handler: (event: { payload: { code: string } }) => void) => Promise<() => void> };
-        shell?: { open?: (url: string) => Promise<void> };
-      } }).__TAURI__;
-      
-      if (!tauri?.core?.invoke) {
-        throw new Error('Tauri invoke not available');
-      }
-      
-      // Start OAuth server and get the port
-      console.log('[BlockOut] Starting OAuth server for Tauri...');
-      const port = await tauri.core.invoke('start_oauth_server') as number;
-      const redirectUri = `http://localhost:${port}/`;
-      
-      const params = new URLSearchParams({
-        client_id: DROPBOX_APP_KEY,
-        response_type: 'code',
-        redirect_uri: redirectUri,
-        code_challenge: challenge,
-        code_challenge_method: 'plain',
-        token_access_type: 'offline',
-      });
+  // For Electron desktop app, open browser with localhost redirect
+  if (isElectron) {
+    const redirectUri = 'http://localhost:8765/';
+    
+    const params = new URLSearchParams({
+      client_id: DROPBOX_APP_KEY,
+      response_type: 'code',
+      redirect_uri: redirectUri,
+      code_challenge: challenge,
+      code_challenge_method: 'plain',
+      token_access_type: 'offline',
+    });
 
-      const authUrl = `https://www.dropbox.com/oauth2/authorize?${params.toString()}`;
-      
-      // DEBUG: Show exactly what we're sending
-      console.log('[BlockOut] OAuth redirect_uri:', redirectUri);
-      console.log('[BlockOut] Full auth URL:', authUrl);
-      console.log('[BlockOut] params:', {
-        client_id: DROPBOX_APP_KEY,
-        response_type: 'code',
-        redirect_uri: redirectUri,
-        code_challenge: challenge,
-        code_challenge_method: 'plain',
-        token_access_type: 'offline',
-      });
-      alert(`DEBUG: Redirect URI being used: ${redirectUri}\n\nCheck browser console for full details.`);
-      
-      // Open browser using Tauri shell API
-      if (tauri.shell?.open) {
-        await tauri.shell.open(authUrl);
-      } else {
-        window.open(authUrl, '_blank');
-      }
-      console.log('[BlockOut] Opened auth URL in external browser');
-      
-      // Show loading message
-      alert('Dropbox authorization started. Please complete the authorization in your browser. This window will automatically receive the authorization code.');
-      
-      // Listen for the oauth-code event
-      console.log('[BlockOut] Waiting for OAuth callback...');
-      const code = await new Promise<string | null>((resolve) => {
-        let timeoutId: ReturnType<typeof setTimeout>;
-        
-        const cleanup = tauri.event?.listen?.('oauth-code', (event) => {
-          console.log('[BlockOut] Received oauth-code event:', event.payload);
-          clearTimeout(timeoutId);
-          resolve(event.payload.code);
-        });
-        
-        // Timeout after 60 seconds
-        timeoutId = setTimeout(() => {
-          cleanup?.then((unlisten) => unlisten?.());
-          resolve(null);
-        }, 60000);
-      });
-      
-      if (code) {
-        console.log('[BlockOut] Received OAuth code, completing authentication...');
-        const result = await handleDropboxCallback(code);
-        
-        if (result.success) {
-          alert('Successfully connected to Dropbox!');
-          window.location.reload();
-        } else {
-          alert('Failed to connect to Dropbox: ' + (result.error || 'Unknown error'));
-        }
-      } else {
-        alert('Authorization timed out or was cancelled. Please try again.');
-      }
-    } catch (e) {
-      console.error('[BlockOut] Tauri OAuth error:', e);
-      alert('Failed to start Dropbox authorization. Please try again.');
+    const authUrl = `https://www.dropbox.com/oauth2/authorize?${params.toString()}`;
+    
+    if (DEBUG) {
+      console.log('[BlockOut] Electron OAuth - redirect_uri:', redirectUri);
+      console.log('[BlockOut] Auth URL:', authUrl);
     }
+    
+    // Use Electron's shell.openExternal
+    try {
+      await (window as Window & { electronAPI?: { openExternal?: (url: string) => Promise<void> } }).electronAPI?.openExternal?.(authUrl);
+      if (DEBUG) console.log('[BlockOut] Opened auth URL in external browser');
+    } catch (e) {
+      console.error('[BlockOut] Failed to open external browser:', e);
+      window.open(authUrl, '_blank');
+    }
+    
+    // Note: User will need to manually enter the code or we can implement a local server later
+    alert('Dropbox authorization opened in browser. After approving, copy the authorization code from the URL and paste it here.');
     return;
   }
   
-  // For web or Tauri dev builds, use standard redirect flow
-  const redirectUri = isTauriDev ? 'http://localhost:5173/' : `${window.location.origin}/`;
+  // For web builds, use standard redirect flow
+  const redirectUri = `${window.location.origin}/`;
   
   const params = new URLSearchParams({
     client_id: DROPBOX_APP_KEY,
@@ -286,24 +220,7 @@ export async function startDropboxAuth(): Promise<void> {
   });
 
   const authUrl = `https://www.dropbox.com/oauth2/authorize?${params.toString()}`;
-  
-  // In Tauri dev, open external browser
-  if (isTauriDev) {
-    try {
-      const tauriOpen = (window as Window & { __TAURI__?: { shell?: { open?: (url: string) => Promise<void> } } }).__TAURI__?.shell?.open;
-      if (tauriOpen) {
-        await tauriOpen(authUrl);
-        if (DEBUG) console.log('[BlockOut] Opened auth URL in external browser');
-      } else {
-        window.open(authUrl, '_blank');
-      }
-    } catch (e) {
-      console.error('[BlockOut] Failed to open external browser:', e);
-      window.location.href = authUrl;
-    }
-  } else {
-    window.location.href = authUrl;
-  }
+  window.location.href = authUrl;
 }
 
 // Handle OAuth callback
@@ -332,14 +249,12 @@ export async function handleDropboxCallback(code: string): Promise<{ success: bo
   }
 
   try {
-    // Use same Tauri detection as startDropboxAuth
-    const isTauri = window.location.protocol === 'tauri:' ||
-                    window.location.protocol === 'https:' && window.location.hostname.includes('tauri') ||
-                    (window as unknown as Record<string, unknown>).__TAURI__ !== undefined;
+    // Check if running in Electron
+    const isElectron = (window as Window & { electronAPI?: { isElectron?: boolean } }).electronAPI?.isElectron === true;
     
-    const redirectUri = isTauri ? 'http://localhost:5173/' : `${window.location.origin}/`;
+    const redirectUri = isElectron ? 'http://localhost:8765/' : `${window.location.origin}/`;
     if (DEBUG) console.log('[BlockOut] Exchanging code for token with redirect:', redirectUri);
-    if (DEBUG) console.log('[BlockOut] Is Tauri app:', isTauri);
+    if (DEBUG) console.log('[BlockOut] Is Electron app:', isElectron);
     
     const response = await fetch('https://api.dropboxapi.com/oauth2/token', {
       method: 'POST',
