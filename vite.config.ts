@@ -11,5 +11,5 @@ export default defineConfig(() => ({
   build: {
     outDir: 'dist',
   },
-  base: '/',
+  base: './', // Use relative paths for Electron compatibility
 }));

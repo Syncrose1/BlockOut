@@ -13,19 +13,29 @@ function createWindow() {
       nodeIntegration: false,
       contextIsolation: true,
       preload: path.join(__dirname, 'preload.js'),
-      webSecurity: false // Allow local storage access
+      webSecurity: false
     },
     show: false,
     center: true
   });
 
+  // Remove menu bar
+  mainWindow.setMenu(null);
+
   // Load the built app
   const indexPath = path.join(__dirname, '..', 'dist', 'index.html');
+  console.log('Loading app from:', indexPath);
+  
   mainWindow.loadFile(indexPath);
 
   // Show window when ready
   mainWindow.once('ready-to-show', () => {
     mainWindow.show();
+  });
+
+  // Handle load failures
+  mainWindow.webContents.on('did-fail-load', (event, errorCode, errorDescription) => {
+    console.error('Page failed to load:', errorCode, errorDescription);
   });
 
   // Open external links in browser
