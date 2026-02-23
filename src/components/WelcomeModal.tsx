@@ -31,12 +31,12 @@ export function useWelcomeModal() {
     return () => clearInterval(checkInterval);
   }, []);
 
-  const closeModal = (keepData: boolean) => {
+  const closeModal = async (keepData: boolean) => {
     // Always mark welcome modal as shown so it doesn't show again
     localStorage.setItem(WELCOME_MODAL_KEY, 'true');
     
     if (!keepData) {
-      clearTutorialData();
+      await clearTutorialData();
       // Also clear the onboarding data so tour shows again for truly fresh start
       localStorage.removeItem(ONBOARDING_KEY);
       // Reload the page to start fresh

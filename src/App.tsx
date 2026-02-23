@@ -50,6 +50,8 @@ export function App() {
         const result = await handleDropboxCallback(code);
         if (result.success) {
           setOauthError(null);
+          // Refresh the page to ensure Dropbox sync is properly initialized
+          window.location.reload();
         } else {
           setOauthError(result.error || 'Failed to connect to Dropbox. Please try again.');
         }

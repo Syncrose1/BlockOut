@@ -1,4 +1,5 @@
 import { useStore } from '../store';
+import { idbClear } from './persistence';
 
 const TUTORIAL_STORAGE_KEY = 'blockout-tutorial-shown';
 
@@ -110,6 +111,21 @@ export function loadTutorialData(): void {
   markTutorialShown();
 }
 
-export function clearTutorialData(): void {
+export async function clearTutorialData(): Promise<void> {
+  // Clear the tutorial flag
   localStorage.removeItem(TUTORIAL_STORAGE_KEY);
+  
+  // Clear all data from IndexedDB
+  await idbClear();
+  
+  // Reset the store to initial state
+  const store = useStore.getState();
+  store.loadData({
+    tasks: {},
+    categories: {},
+    timeBlocks: {},
+    activeBlockId: null,
+    streak: { completionDates: [], currentStreak: 0, longestStreak: 0 },
+    pomodoroSessions: [],
+  });
 }
