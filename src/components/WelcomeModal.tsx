@@ -37,8 +37,9 @@ export function useWelcomeModal() {
     
     if (!keepData) {
       await clearTutorialData();
-      // Also clear the onboarding data so tour shows again for truly fresh start
-      localStorage.removeItem(ONBOARDING_KEY);
+      // Note: We intentionally do NOT remove ONBOARDING_KEY here
+      // The user has already seen the tour during onboarding
+      // and we don't want to show it again after "Start Fresh"
       // Reload the page to start fresh
       window.location.reload();
       return;

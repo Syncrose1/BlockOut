@@ -1,5 +1,5 @@
 import { useStore } from '../store';
-import { idbClear } from './persistence';
+import { idbClear, saveLocal } from './persistence';
 
 const TUTORIAL_STORAGE_KEY = 'blockout-tutorial-shown';
 
@@ -128,4 +128,7 @@ export async function clearTutorialData(): Promise<void> {
     streak: { completionDates: [], currentStreak: 0, longestStreak: 0 },
     pomodoroSessions: [],
   });
+  
+  // Trigger a save to persist the empty state
+  await saveLocal();
 }
