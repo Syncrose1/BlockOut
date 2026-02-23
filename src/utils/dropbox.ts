@@ -156,7 +156,7 @@ function generatePKCE(): { verifier: string; challenge: string } {
 }
 
 // Start OAuth flow
-export function startDropboxAuth(): void {
+export async function startDropboxAuth(): Promise<void> {
   if (!DROPBOX_APP_KEY) {
     alert('Dropbox App Key not configured. Please set VITE_DROPBOX_APP_KEY in your .env file');
     return;
@@ -175,6 +175,7 @@ export function startDropboxAuth(): void {
   
   if (DEBUG) console.log('[BlockOut] Starting Dropbox auth with redirect:', redirectUri);
   if (DEBUG) console.log('[BlockOut] Current domain:', currentDomain);
+  if (DEBUG) console.log('[BlockOut] Is Tauri app:', isTauri);
   
   const { verifier, challenge } = generatePKCE();
   
@@ -194,7 +195,22 @@ export function startDropboxAuth(): void {
 
   const authUrl = `https://www.dropbox.com/oauth2/authorize?${params.toString()}`;
   if (DEBUG) console.log('[BlockOut] Redirecting to:', authUrl);
-  window.location.href = authUrl;
+  
+  // In Tauri, open external browser instead of webview
+  if (isTauri) {
+    try {
+      // @ts-expect-error - Tauri types not available
+      const { open } = await import('@tauri-apps/plugin-shell');
+      await open(authUrl);
+      if (DEBUG) console.log('[BlockOut] Opened auth URL in external browser');
+    } catch (e) {
+      console.error('[BlockOut] Failed to open external browser:', e);
+      // Fallback to opening in webview
+      window.location.href = authUrl;
+    }
+  } else {
+    window.location.href = authUrl;
+  }
 }
 
 // Handle OAuth callback
