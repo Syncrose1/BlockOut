@@ -1793,13 +1793,6 @@ export function SyncSettingsModal() {
             <button className="btn btn-ghost" onClick={() => setSyncSettingsOpen(false)}>Cancel</button>
             {isConfigured && (
               <>
-                <button
-                  className="btn btn-ghost"
-                  onClick={handleTestAndSync}
-                  disabled={testing}
-                >
-                  {testing ? 'Testing…' : 'Test & sync now'}
-                </button>
                 {syncProvider === 'dropbox' && isDropboxConfigured() && (
                   <button
                     className="btn btn-ghost"
