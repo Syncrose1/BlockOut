@@ -107,6 +107,11 @@ export function loadTutorialData(): void {
     store.assignTaskToBlock(taskId, blockId);
   });
 
+  // Mark some tasks as completed to show visual feedback
+  store.toggleTask(ankingCardioId);
+  store.toggleTask(venepunctureId);
+  store.toggleTask(abgId);
+
   // Mark tutorial as shown
   markTutorialShown();
 }
