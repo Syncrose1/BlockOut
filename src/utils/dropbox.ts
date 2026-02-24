@@ -699,7 +699,9 @@ export async function syncToDropboxWithResolution(localData: AnyRecord, source: 
         Object.keys(remoteData.categories ?? {}).length > 0;
       
       if (remoteHasContent) {
-        logAuthDebug('First-time sync with existing remote content');
+        logAuthDebug('First-time sync with existing remote content - treating as same device');
+        // Record the sync so we don't download again
+        recordSuccessfulSync(remoteVersion);
         return { 
           success: true, 
           action: 'downloaded', 
