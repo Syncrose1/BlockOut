@@ -168,6 +168,7 @@ interface BlockOutState {
   startPomodoro: () => void;
   pausePomodoro: () => void;
   resetPomodoro: () => void;
+  skipPomodoro: () => void;
   tickPomodoro: () => void;
   setPomodoroDurations: (work: number, brk: number, longBrk: number) => void;
   setFocusedTask: (taskId: string | undefined) => void;
@@ -706,12 +707,49 @@ export const useStore = create<BlockOutState>((set, get) => ({
           : state.pomodoro.longBreakDuration,
       },
     })),
+  skipPomodoro: () =>
+    set((state) => {
+      const p = state.pomodoro;
+      // Skip without recording a session
+      if (p.mode === 'work') {
+        const nextMode = p.sessionsCompleted % 4 === 0 ? 'longBreak' : 'break';
+        return {
+          pomodoro: {
+            ...p,
+            isRunning: false,
+            mode: nextMode,
+            timeRemaining: nextMode === 'longBreak' ? p.longBreakDuration : p.breakDuration,
+            currentSessionStart: undefined,
+          },
+        };
+      } else {
+        return {
+          pomodoro: {
+            ...p,
+            isRunning: false,
+            mode: 'work',
+            timeRemaining: p.workDuration,
+            currentSessionStart: undefined,
+          },
+        };
+      }
+    }),
   tickPomodoro: () =>
     set((state) => {
       const p = state.pomodoro;
       if (!p.isRunning) return state;
       const next = p.timeRemaining - 1;
       if (next <= 0) {
+        // Timer completed - play sound and send notification
+        import('../utils/pomodoroNotifications').then(({ playCompletionSound, sendPomodoroNotification }) => {
+          playCompletionSound();
+          // Determine next mode for notification
+          const nextMode = p.mode === 'work' 
+            ? (p.sessionsCompleted + 1) % 4 === 0 ? 'longBreak' : 'break'
+            : 'work';
+          sendPomodoroNotification(nextMode);
+        });
+
         // Record the completed session
         const completedSession: PomodoroSession = {
           id: uuid(),

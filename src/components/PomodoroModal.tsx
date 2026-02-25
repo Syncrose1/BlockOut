@@ -1,7 +1,8 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { useStore } from '../store';
 import { motion, AnimatePresence } from 'framer-motion';
 import type { PomodoroSession } from '../types';
+import { requestNotificationPermission, sendPomodoroNotification, playCompletionSound } from '../utils/pomodoroNotifications';
 
 interface PomodoroModalProps {
   isOpen: boolean;
@@ -24,8 +25,14 @@ function formatTime(seconds: number): string {
 export function PomodoroModal({ isOpen, onClose }: PomodoroModalProps) {
   const pomodoro = useStore((s) => s.pomodoro);
   const categories = useStore((s) => s.categories);
+  const skipPomodoro = useStore((s) => s.skipPomodoro);
   const sessions = pomodoro.sessions;
   const [selectedView, setSelectedView] = useState<'overview' | 'history' | 'stats'>('overview');
+
+  // Request notification permission on mount
+  useEffect(() => {
+    requestNotificationPermission();
+  }, []);
 
   const analytics = useMemo(() => {
     const now = Date.now();
@@ -238,6 +245,36 @@ export function PomodoroModal({ isOpen, onClose }: PomodoroModalProps) {
                     </span>
                   </div>
                 )}
+                
+                {/* Skip button - subtle but accessible */}
+                <button
+                  onClick={() => {
+                    skipPomodoro();
+                  }}
+                  style={{
+                    marginTop: 16,
+                    padding: '8px 16px',
+                    background: 'rgba(255, 255, 255, 0.15)',
+                    border: '1px solid rgba(255, 255, 255, 0.3)',
+                    borderRadius: 'var(--radius-md)',
+                    color: 'white',
+                    fontSize: 13,
+                    cursor: 'pointer',
+                    opacity: 0.8,
+                    transition: 'all 0.2s',
+                  }}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.opacity = '1';
+                    e.currentTarget.style.background = 'rgba(255, 255, 255, 0.25)';
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.opacity = '0.8';
+                    e.currentTarget.style.background = 'rgba(255, 255, 255, 0.15)';
+                  }}
+                  title="Skip current session (not counted)"
+                >
+                  Skip {currentMode === 'work' ? 'Focus' : currentMode === 'break' ? 'Break' : 'Long Break'} →
+                </button>
               </div>
 
               <div style={{
