@@ -819,7 +819,16 @@ export const useStore = create<BlockOutState>((set, get) => ({
     if (existingChain) {
       newLinks = [...existingChain.links];
       if (afterIndex !== undefined && afterIndex >= 0 && afterIndex < newLinks.length) {
-        newLinks.splice(afterIndex + 1, 0, newLink);
+        // Find the actual index in the raw links array and skip past any subtasks
+        let insertIndex = afterIndex + 1;
+        const parentLinkId = newLinks[afterIndex]?.id;
+        
+        // Skip all subtasks that belong to this parent
+        while (insertIndex < newLinks.length && newLinks[insertIndex].parentId === parentLinkId) {
+          insertIndex++;
+        }
+        
+        newLinks.splice(insertIndex, 0, newLink);
       } else {
         newLinks.push(newLink);
       }
@@ -844,19 +853,28 @@ export const useStore = create<BlockOutState>((set, get) => ({
   addRealTaskToChain: (chainDate, taskId, afterIndex) => set((state) => {
     const existingChain = state.taskChains[chainDate];
     const newLink = { id: uuid(), type: 'realtask' as const, taskId };
-    
+
     let newLinks;
     if (existingChain) {
       newLinks = [...existingChain.links];
       if (afterIndex !== undefined && afterIndex >= 0 && afterIndex < newLinks.length) {
-        newLinks.splice(afterIndex + 1, 0, newLink);
+        // Find the actual index in the raw links array and skip past any subtasks
+        let insertIndex = afterIndex + 1;
+        const parentLinkId = newLinks[afterIndex]?.id;
+
+        // Skip all subtasks that belong to this parent
+        while (insertIndex < newLinks.length && newLinks[insertIndex].parentId === parentLinkId) {
+          insertIndex++;
+        }
+
+        newLinks.splice(insertIndex, 0, newLink);
       } else {
         newLinks.push(newLink);
       }
     } else {
       newLinks = [newLink];
     }
-    
+
     return {
       taskChains: {
         ...state.taskChains,
