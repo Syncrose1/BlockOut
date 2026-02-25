@@ -713,13 +713,13 @@ export const useStore = create<BlockOutState>((set, get) => ({
       const p = state.pomodoro;
       // Skip without recording a session
       if (p.mode === 'work') {
-        const nextMode = p.sessionsCompleted % 4 === 0 ? 'longBreak' : 'break';
+        // Always go to short break when skipping (long break is earned by completing 4 sessions)
         return {
           pomodoro: {
             ...p,
             isRunning: false,
-            mode: nextMode,
-            timeRemaining: nextMode === 'longBreak' ? p.longBreakDuration : p.breakDuration,
+            mode: 'break',
+            timeRemaining: p.breakDuration,
             currentSessionStart: undefined,
           },
         };
