@@ -26,6 +26,7 @@ export function PomodoroModal({ isOpen, onClose }: PomodoroModalProps) {
   const pomodoro = useStore((s) => s.pomodoro);
   const categories = useStore((s) => s.categories);
   const skipPomodoro = useStore((s) => s.skipPomodoro);
+  const resetAllPomodoro = useStore((s) => s.resetAllPomodoro);
   const sessions = pomodoro.sessions;
   const [selectedView, setSelectedView] = useState<'overview' | 'history' | 'stats'>('overview');
 
@@ -247,34 +248,66 @@ export function PomodoroModal({ isOpen, onClose }: PomodoroModalProps) {
                 )}
                 
                 {/* Skip button - subtle but accessible */}
-                <button
-                  onClick={() => {
-                    skipPomodoro();
-                  }}
-                  style={{
-                    marginTop: 16,
-                    padding: '8px 16px',
-                    background: 'rgba(255, 255, 255, 0.15)',
-                    border: '1px solid rgba(255, 255, 255, 0.3)',
-                    borderRadius: 'var(--radius-md)',
-                    color: 'white',
-                    fontSize: 13,
-                    cursor: 'pointer',
-                    opacity: 0.8,
-                    transition: 'all 0.2s',
-                  }}
-                  onMouseEnter={(e) => {
-                    e.currentTarget.style.opacity = '1';
-                    e.currentTarget.style.background = 'rgba(255, 255, 255, 0.25)';
-                  }}
-                  onMouseLeave={(e) => {
-                    e.currentTarget.style.opacity = '0.8';
-                    e.currentTarget.style.background = 'rgba(255, 255, 255, 0.15)';
-                  }}
-                  title="Skip current session (not counted)"
-                >
-                  Skip {currentMode === 'work' ? 'Focus' : currentMode === 'break' ? 'Break' : 'Long Break'} →
-                </button>
+                {/* Action buttons row */}
+                <div style={{ display: 'flex', gap: 12, marginTop: 16 }}>
+                  <button
+                    onClick={() => {
+                      skipPomodoro();
+                    }}
+                    style={{
+                      padding: '8px 16px',
+                      background: 'rgba(255, 255, 255, 0.15)',
+                      border: '1px solid rgba(255, 255, 255, 0.3)',
+                      borderRadius: 'var(--radius-md)',
+                      color: 'white',
+                      fontSize: 13,
+                      cursor: 'pointer',
+                      opacity: 0.8,
+                      transition: 'all 0.2s',
+                    }}
+                    onMouseEnter={(e) => {
+                      e.currentTarget.style.opacity = '1';
+                      e.currentTarget.style.background = 'rgba(255, 255, 255, 0.25)';
+                    }}
+                    onMouseLeave={(e) => {
+                      e.currentTarget.style.opacity = '0.8';
+                      e.currentTarget.style.background = 'rgba(255, 255, 255, 0.15)';
+                    }}
+                    title="Skip current session (not counted)"
+                  >
+                    Skip {currentMode === 'work' ? 'Focus' : currentMode === 'break' ? 'Break' : 'Long Break'} →
+                  </button>
+
+                  <button
+                    onClick={() => {
+                      if (confirm('Reset Pomodoro to beginning? This will clear the current cycle.')) {
+                        resetAllPomodoro();
+                      }
+                    }}
+                    style={{
+                      padding: '8px 16px',
+                      background: 'rgba(255, 255, 255, 0.1)',
+                      border: '1px solid rgba(255, 255, 255, 0.2)',
+                      borderRadius: 'var(--radius-md)',
+                      color: 'white',
+                      fontSize: 13,
+                      cursor: 'pointer',
+                      opacity: 0.7,
+                      transition: 'all 0.2s',
+                    }}
+                    onMouseEnter={(e) => {
+                      e.currentTarget.style.opacity = '0.9';
+                      e.currentTarget.style.background = 'rgba(255, 255, 255, 0.2)';
+                    }}
+                    onMouseLeave={(e) => {
+                      e.currentTarget.style.opacity = '0.7';
+                      e.currentTarget.style.background = 'rgba(255, 255, 255, 0.1)';
+                    }}
+                    title="Reset entire Pomodoro session to beginning"
+                  >
+                    ↺ Reset All
+                  </button>
+                </div>
               </div>
 
               <div style={{

@@ -169,6 +169,7 @@ interface BlockOutState {
   pausePomodoro: () => void;
   resetPomodoro: () => void;
   skipPomodoro: () => void;
+  resetAllPomodoro: () => void;
   tickPomodoro: () => void;
   setPomodoroDurations: (work: number, brk: number, longBrk: number) => void;
   setFocusedTask: (taskId: string | undefined) => void;
@@ -734,6 +735,19 @@ export const useStore = create<BlockOutState>((set, get) => ({
         };
       }
     }),
+  resetAllPomodoro: () =>
+    set((state) => ({
+      pomodoro: {
+        ...state.pomodoro,
+        isRunning: false,
+        mode: 'work',
+        timeRemaining: state.pomodoro.workDuration,
+        sessionsCompleted: 0,
+        currentSessionStart: undefined,
+        focusedTaskId: undefined,
+        focusedCategoryId: undefined,
+      },
+    })),
   tickPomodoro: () =>
     set((state) => {
       const p = state.pomodoro;
