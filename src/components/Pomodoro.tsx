@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState, useCallback } from 'react';
 import { useStore } from '../store';
 import { motion, AnimatePresence, useMotionValue } from 'framer-motion';
+import { PomodoroModal } from './PomodoroModal';
 
 function formatTime(seconds: number): string {
   const m = Math.floor(seconds / 60);
@@ -18,6 +19,9 @@ export function Pomodoro() {
   const tickPomodoro = useStore((s) => s.tickPomodoro);
   const exitFocusMode = useStore((s) => s.exitFocusMode);
   const setPomodoroSettingsOpen = useStore((s) => s.setPomodoroSettingsOpen);
+
+  // Modal state
+  const [isModalOpen, setIsModalOpen] = useState(false);
 
   // Drag offset from natural position (bottom-right corner)
   const x = useMotionValue(pomodoro.widgetX || 0);
@@ -196,21 +200,25 @@ export function Pomodoro() {
         whileDrag={{ cursor: 'grabbing' }}
         transition={{ type: 'spring', damping: 20, stiffness: 300 }}
       >
-        {/* Drag handle strip — a visual hint on the left edge */}
+        {/* Burger menu — opens Pomodoro analytics modal */}
         <div
           className="pomodoro-grip"
-          title="Drag to move"
+          title="View Pomodoro analytics"
+          onClick={() => setIsModalOpen(true)}
           style={{
             display: 'flex',
             flexDirection: 'column',
             gap: 3,
             padding: '2px 4px',
             marginRight: -4,
-            opacity: 0.3,
+            opacity: 0.5,
             flexShrink: 0,
             userSelect: 'none',
-            pointerEvents: 'none',
+            cursor: 'pointer',
+            transition: 'opacity 0.2s',
           }}
+          onMouseEnter={(e) => (e.currentTarget.style.opacity = '0.8')}
+          onMouseLeave={(e) => (e.currentTarget.style.opacity = '0.5')}
         >
           {[0, 1, 2].map((i) => (
             <div
@@ -347,6 +355,9 @@ export function Pomodoro() {
           </svg>
         </div>
       </motion.div>
+      
+      {/* Pomodoro Analytics Modal */}
+      <PomodoroModal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} />
     </AnimatePresence>
   );
 }
