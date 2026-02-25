@@ -23,6 +23,7 @@ function formatTime(seconds: number): string {
 
 export function PomodoroModal({ isOpen, onClose }: PomodoroModalProps) {
   const pomodoro = useStore((s) => s.pomodoro);
+  const categories = useStore((s) => s.categories);
   const sessions = pomodoro.sessions;
   const [selectedView, setSelectedView] = useState<'overview' | 'history' | 'stats'>('overview');
 
@@ -45,7 +46,21 @@ export function PomodoroModal({ isOpen, onClose }: PomodoroModalProps) {
     const workSessions = sessions.filter(s => s.mode === 'work').length;
     const breakSessions = sessions.filter(s => s.mode === 'break').length;
     const longBreakSessions = sessions.filter(s => s.mode === 'longBreak').length;
-    
+
+    // Category breakdown
+    const categoryStats: Record<string, { count: number; minutes: number; color: string; name: string }> = {};
+    sessions.forEach(s => {
+      if (s.categoryId && categories[s.categoryId]) {
+        const cat = categories[s.categoryId];
+        const duration = (s.endTime - s.startTime) / 60000;
+        if (!categoryStats[s.categoryId]) {
+          categoryStats[s.categoryId] = { count: 0, minutes: 0, color: cat.color, name: cat.name };
+        }
+        categoryStats[s.categoryId].count++;
+        categoryStats[s.categoryId].minutes += duration;
+      }
+    });
+
     const dailyStats = [];
     for (let i = 6; i >= 0; i--) {
       const date = new Date(now - (i * 24 * 60 * 60 * 1000));
@@ -69,9 +84,10 @@ export function PomodoroModal({ isOpen, onClose }: PomodoroModalProps) {
       workSessions,
       breakSessions,
       longBreakSessions,
+      categoryStats: Object.values(categoryStats).sort((a, b) => b.minutes - a.minutes),
       dailyStats
     };
-  }, [sessions]);
+  }, [sessions, categories]);
 
   const recentSessions = useMemo(() => {
     return [...sessions]
@@ -353,7 +369,7 @@ export function PomodoroModal({ isOpen, onClose }: PomodoroModalProps) {
                       </div>
                     ) : (
                       recentSessions.map((session) => (
-                        <SessionRow key={session.id} session={session} />
+                        <SessionRow key={session.id} session={session} categories={categories} />
                       ))
                     )}
                   </div>
@@ -408,6 +424,53 @@ export function PomodoroModal({ isOpen, onClose }: PomodoroModalProps) {
                         </div>
                       </div>
                     </div>
+
+                    {/* Category Breakdown */}
+                    {analytics.categoryStats.length > 0 && (
+                      <div style={{
+                        background: 'var(--bg-tertiary)',
+                        borderRadius: 'var(--radius-md)',
+                        padding: 24,
+                        border: '1px solid var(--border)',
+                      }}>
+                        <h3 style={{ margin: '0 0 20px 0', fontSize: 18, color: 'var(--text-primary)' }}>
+                          Focus by Category
+                        </h3>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+                          {analytics.categoryStats.map((cat) => (
+                            <div key={cat.name} style={{
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'space-between',
+                              padding: '12px 16px',
+                              background: 'var(--bg-secondary)',
+                              borderRadius: 'var(--radius-md)',
+                              border: '1px solid var(--border)',
+                            }}>
+                              <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                                <div style={{
+                                  width: 12,
+                                  height: 12,
+                                  borderRadius: '50%',
+                                  background: cat.color,
+                                }} />
+                                <span style={{ fontSize: 14, fontWeight: 600, color: 'var(--text-primary)' }}>
+                                  {cat.name}
+                                </span>
+                              </div>
+                              <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
+                                <span style={{ fontSize: 13, color: 'var(--text-secondary)' }}>
+                                  {cat.count} sessions
+                                </span>
+                                <span style={{ fontSize: 14, fontWeight: 600, color: 'var(--text-primary)', minWidth: 60, textAlign: 'right' }}>
+                                  {formatDuration(Math.round(cat.minutes))}
+                                </span>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
                   </div>
                 )}
               </div>
@@ -458,7 +521,9 @@ function ModeBadge({ count, label, color }: { count: number; label: string; colo
   );
 }
 
-function SessionRow({ session }: { session: PomodoroSession }) {
+import type { Category } from '../types';
+
+function SessionRow({ session, categories }: { session: PomodoroSession; categories: Record<string, Category> }) {
   const duration = Math.round((session.endTime - session.startTime) / 60000);
   const date = new Date(session.startTime);
   const dateStr = date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
@@ -475,6 +540,8 @@ function SessionRow({ session }: { session: PomodoroSession }) {
     break: 'Break',
     longBreak: 'Long Break',
   };
+
+  const category = session.categoryId ? categories[session.categoryId] : null;
 
   return (
     <div style={{
@@ -494,8 +561,21 @@ function SessionRow({ session }: { session: PomodoroSession }) {
           background: modeColors[session.mode],
         }} />
         <div>
-          <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--text-primary)' }}>
-            {modeLabels[session.mode]}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <span style={{ fontSize: 14, fontWeight: 600, color: 'var(--text-primary)' }}>
+              {modeLabels[session.mode]}
+            </span>
+            {category && (
+              <span style={{
+                fontSize: 11,
+                color: category.color,
+                background: `${category.color}20`,
+                padding: '2px 6px',
+                borderRadius: '4px',
+              }}>
+                {category.name}
+              </span>
+            )}
           </div>
           <div style={{ fontSize: 12, color: 'var(--text-secondary)' }}>
             {dateStr} at {timeStr}
