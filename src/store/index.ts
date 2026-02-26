@@ -987,8 +987,33 @@ export const useStore = create<BlockOutState>((set, get) => ({
     const chain = state.taskChains[chainDate];
     if (!chain) return state;
     
+    // Build a map of link IDs to their index for parent lookup
+    const linkIdToIndex = new Map(chain.links.map((link, index) => [link.id, index]));
+    
     const templateLinks = chain.links.map((link) => {
-      if (link.type === 'ct') {
+      if (link.type === 'subtask') {
+        // For subtasks, store parent index and subtype info
+        const parentIndex = link.parentId ? linkIdToIndex.get(link.parentId) : undefined;
+        const parentLink = link.parentId ? chain.links.find(l => l.id === link.parentId) : null;
+        
+        if (link.subType === 'ct') {
+          const ct = state.chainTasks[link.taskId];
+          return { 
+            type: 'subtask' as const, 
+            subType: 'ct' as const,
+            ctTitle: ct?.title || 'Subtask',
+            parentIndex 
+          };
+        } else {
+          const task = state.tasks[link.taskId];
+          return { 
+            type: 'subtask' as const, 
+            subType: 'realtask' as const,
+            realTaskPlaceholder: task?.title || 'Insert Real Task',
+            parentIndex 
+          };
+        }
+      } else if (link.type === 'ct') {
         const ct = state.chainTasks[link.taskId];
         return { type: 'ct' as const, ctTitle: ct?.title || 'Chain Task' };
       } else {
@@ -1014,21 +1039,57 @@ export const useStore = create<BlockOutState>((set, get) => ({
     if (!template) return state;
     
     const newChainTasks: Record<string, ChainTask> = {};
-    const newLinks = template.links.map((link) => {
+    const parentIdMap: Record<number, string> = {}; // Map template link index to new link ID
+    
+    // First pass: create all links and track parent IDs
+    const newLinks = template.links.map((link, index) => {
+      const newLinkId = uuid();
+      
       if (link.type === 'ct') {
         const ctId = uuid();
         newChainTasks[ctId] = { id: ctId, title: link.ctTitle || 'Chain Task', type: 'ct', completed: false };
-        return { id: uuid(), type: 'ct' as const, taskId: ctId };
-      } else {
+        const linkObj = { id: newLinkId, type: 'ct' as const, taskId: ctId };
+        parentIdMap[index] = newLinkId;
+        return linkObj;
+      } else if (link.type === 'realtask') {
         // For real task placeholders, we create an empty slot with placeholder text
-        // User will need to fill in the actual task later
-        return { 
-          id: uuid(), 
+        const linkObj = { 
+          id: newLinkId, 
           type: 'realtask' as const, 
           taskId: '',
           placeholder: link.realTaskPlaceholder || 'Insert Real Task'
         };
+        parentIdMap[index] = newLinkId;
+        return linkObj;
+      } else if (link.type === 'subtask') {
+        // Subtask - find its parent
+        const parentTemplateIndex = link.parentIndex;
+        const parentId = parentTemplateIndex !== undefined ? parentIdMap[parentTemplateIndex] : undefined;
+        
+        if (link.subType === 'ct') {
+          const ctId = uuid();
+          newChainTasks[ctId] = { id: ctId, title: link.ctTitle || 'Subtask', type: 'ct', completed: false };
+          return { 
+            id: newLinkId, 
+            type: 'subtask' as const, 
+            taskId: ctId,
+            parentId,
+            subType: 'ct' as const
+          };
+        } else {
+          // Real task placeholder subtask
+          return { 
+            id: newLinkId, 
+            type: 'subtask' as const, 
+            taskId: '',
+            parentId,
+            subType: 'realtask' as const,
+            placeholder: link.realTaskPlaceholder || 'Insert Real Task'
+          };
+        }
       }
+      
+      return { id: newLinkId, type: 'ct' as const, taskId: '' };
     });
     
     const chain: TaskChain = {

@@ -117,9 +117,11 @@ export interface ChainTemplate {
   id: string;
   name: string;
   links: Array<{
-    type: 'ct' | 'realtask';
+    type: 'ct' | 'realtask' | 'subtask';
     ctTitle?: string; // For CT: the title
     realTaskPlaceholder?: string; // For realtask: example task name
+    parentIndex?: number; // For subtasks: index of parent link
+    subType?: 'ct' | 'realtask'; // For subtasks: type of subtask
   }>;
   createdAt: number;
   updatedAt?: number;
