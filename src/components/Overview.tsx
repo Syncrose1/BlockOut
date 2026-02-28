@@ -280,12 +280,12 @@ export function Overview() {
                   }}
                 >
                   {/* Header row with title and label */}
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 4 }}>
-                    <div style={{ fontWeight: 600, fontSize: 14, lineHeight: 1.2, flex: 1 }}>{block.name}</div>
-                    <div style={{ fontSize: 10, opacity: 0.7, marginLeft: 4 }}>{getBlockLabel(block)}</div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 6 }}>
+                    <div style={{ fontWeight: 600, fontSize: 21, lineHeight: 1.2, flex: 1 }}>{block.name}</div>
+                    <div style={{ fontSize: 15, opacity: 0.7, marginLeft: 4 }}>{getBlockLabel(block)}</div>
                   </div>
                   {/* Time range */}
-                  <div style={{ fontSize: 12, opacity: 0.9 }}>{TIME_SLOTS[block.startSlot]?.label} - {TIME_SLOTS[block.endSlot]?.label}</div>
+                  <div style={{ fontSize: 18, opacity: 0.9 }}>{TIME_SLOTS[block.startSlot]?.label} - {TIME_SLOTS[block.endSlot]?.label}</div>
                 </div>
               ))}
             </div>
