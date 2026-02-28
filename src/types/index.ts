@@ -80,7 +80,7 @@ export interface SelectionState {
   lastSelectedTaskId: string | null; // For SHIFT+click range selection
 }
 
-export type ViewMode = 'treemap' | 'timeline' | 'taskchain';
+export type ViewMode = 'treemap' | 'timeline' | 'taskchain' | 'overview';
 
 export type PoolViewMode = 'all' | 'unassigned'; // For filtering the task pool
 
