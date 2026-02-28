@@ -242,6 +242,24 @@ export function Overview() {
                 />
               ))}
               
+              {/* Half-hourly gridlines */}
+              {TIME_SLOTS.map((_, slotIndex) => (
+                slotIndex > 0 && (
+                  <div
+                    key={`grid-${slotIndex}`}
+                    style={{
+                      position: 'absolute',
+                      top: slotIndex * 40,
+                      left: 0,
+                      right: 0,
+                      height: 1,
+                      background: 'rgba(255,255,255,0.1)',
+                      pointerEvents: 'none',
+                    }}
+                  />
+                )
+              ))}
+              
               {blocks.filter(b => b.dayIndex === dayIndex).map(block => (
                 <div
                   key={block.id}
@@ -253,16 +271,21 @@ export function Overview() {
                     height: (block.endSlot - block.startSlot) * 40 - 4,
                     background: getBlockColor(block),
                     borderRadius: 'var(--radius-sm)',
-                    padding: '6px 8px',
-                    fontSize: 12,
+                    padding: '8px 10px',
                     color: 'white',
                     overflow: 'hidden',
                     zIndex: 1,
+                    display: 'flex',
+                    flexDirection: 'column',
                   }}
                 >
-                  <div style={{ fontWeight: 600, lineHeight: 1.2 }}>{getBlockLabel(block)}</div>
-                  <div style={{ fontSize: 10, opacity: 0.9 }}>{TIME_SLOTS[block.startSlot]?.label} - {TIME_SLOTS[block.endSlot]?.label}</div>
-                  <div style={{ fontSize: 10, marginTop: 4, fontStyle: 'italic', opacity: 0.8 }}>{block.name}</div>
+                  {/* Header row with title and label */}
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 4 }}>
+                    <div style={{ fontWeight: 600, fontSize: 14, lineHeight: 1.2, flex: 1 }}>{block.name}</div>
+                    <div style={{ fontSize: 10, opacity: 0.7, marginLeft: 4 }}>{getBlockLabel(block)}</div>
+                  </div>
+                  {/* Time range */}
+                  <div style={{ fontSize: 12, opacity: 0.9 }}>{TIME_SLOTS[block.startSlot]?.label} - {TIME_SLOTS[block.endSlot]?.label}</div>
                 </div>
               ))}
             </div>
