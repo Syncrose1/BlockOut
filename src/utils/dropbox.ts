@@ -2,6 +2,8 @@
 // Uses Dropbox OAuth 2.0 PKCE flow for secure authentication
 // NO TOKENS ARE STORED IN CODE - each user authenticates with their own account
 
+import type { ScheduleBlock } from '../types';
+
 const DROPBOX_APP_KEY = import.meta.env.VITE_DROPBOX_APP_KEY || '';
 const DEBUG = import.meta.env.DEV;
 
@@ -481,6 +483,9 @@ export interface SyncResult {
     completionsFromLocal: number;
     categoriesFromLocal: number;
     blocksFromLocal: number;
+    overviewBlocksFromLocal: number;
+    overviewBlocksUpdatedFromLocal: number;
+    overviewBlocksDeleted: number;
   };
   data?: AnyRecord; // The remote/merged data (avoid double download)
   error?: string;
@@ -496,6 +501,9 @@ interface MergeInfo {
   completionsFromLocal: number;
   categoriesFromLocal: number;
   blocksFromLocal: number;
+  overviewBlocksFromLocal: number;
+  overviewBlocksUpdatedFromLocal: number;
+  overviewBlocksDeleted: number;
 }
 
 function mergeSnapshots(
@@ -608,6 +616,57 @@ function mergeSnapshots(
     }
   }
 
+  // Overview Blocks - last-write-wins merge strategy with deletion support
+  const localOverviewBlocks: ScheduleBlock[] = local.overviewBlocks ?? [];
+  const remoteOverviewBlocks: ScheduleBlock[] = remote.overviewBlocks ?? [];
+  const remoteOverviewMap = new Map(remoteOverviewBlocks.map(b => [b.id, b]));
+  const localOverviewMap = new Map(localOverviewBlocks.map(b => [b.id, b]));
+  
+  // Start with all remote blocks
+  const mergedOverviewBlocks: ScheduleBlock[] = [...remoteOverviewBlocks];
+  const allBlockIds = new Set([...remoteOverviewMap.keys(), ...localOverviewMap.keys()]);
+  
+  let overviewBlocksFromLocal = 0;
+  let overviewBlocksUpdatedFromLocal = 0;
+  let overviewBlocksDeleted = 0;
+  
+  for (const blockId of allBlockIds) {
+    const localBlock = localOverviewMap.get(blockId);
+    const remoteBlock = remoteOverviewMap.get(blockId);
+    
+    if (localBlock && !remoteBlock) {
+      // Local-only block - add if created after last sync
+      if (localBlock.createdAt > lastSyncedAt) {
+        mergedOverviewBlocks.push(localBlock);
+        overviewBlocksFromLocal++;
+      }
+    } else if (localBlock && remoteBlock) {
+      // Block exists in both - use last-write-wins
+      const localTime = localBlock.updatedAt || localBlock.createdAt;
+      const remoteTime = remoteBlock.updatedAt || remoteBlock.createdAt;
+      
+      if (localTime > remoteTime && localTime > lastSyncedAt) {
+        // Local was modified more recently - replace remote version
+        const index = mergedOverviewBlocks.findIndex(b => b.id === blockId);
+        if (index !== -1) {
+          mergedOverviewBlocks[index] = localBlock;
+          overviewBlocksUpdatedFromLocal++;
+        }
+      }
+    } else if (!localBlock && remoteBlock) {
+      // Block exists in remote but NOT in local - it was deleted locally
+      // Only delete if local has been modified since last sync (indicating intentional deletion)
+      const localLastModified = (local.lastModified as number) ?? 0;
+      if (localLastModified > lastSyncedAt) {
+        const index = mergedOverviewBlocks.findIndex(b => b.id === blockId);
+        if (index !== -1) {
+          mergedOverviewBlocks.splice(index, 1);
+          overviewBlocksDeleted++;
+        }
+      }
+    }
+  }
+
   const merged: AnyRecord = {
     tasks: mergedTasks,
     categories: mergedCats,
@@ -628,10 +687,11 @@ function mergeSnapshots(
     taskChains: mergedTaskChains,
     chainTemplates: mergedTemplates,
     chainTasks: mergedChainTasks,
+    overviewBlocks: mergedOverviewBlocks,
     lastModified: Date.now(),
   };
 
-  return { merged, info: { localTasksAdded, cloudTasksAdded, completionsFromLocal, categoriesFromLocal, blocksFromLocal } };
+  return { merged, info: { localTasksAdded, cloudTasksAdded, completionsFromLocal, categoriesFromLocal, blocksFromLocal, overviewBlocksFromLocal, overviewBlocksUpdatedFromLocal, overviewBlocksDeleted } };
 }
 
 // Smart sync with conflict resolution (mirrors self-hosted architecture)

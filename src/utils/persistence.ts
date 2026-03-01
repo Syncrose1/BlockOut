@@ -105,6 +105,8 @@ export async function saveToCloud(): Promise<void> {
       taskChainCount: Object.keys(data.taskChains || {}).length,
       hasChainTemplates: !!data.chainTemplates,
       chainTemplateCount: Object.keys(data.chainTemplates || {}).length,
+      hasOverviewBlocks: !!(data.overviewBlocks && data.overviewBlocks.length > 0),
+      overviewBlocksCount: (data.overviewBlocks || []).length,
     });
     
     const result = await syncToDropboxWithResolution(data, 'saveToCloud');
@@ -256,7 +258,11 @@ export async function loadData(): Promise<void> {
   }
 
   if (!remote) {
-    if (local) applyData(local);
+    if (local) {
+      applyData(local, 'local-only');
+    } else {
+      markDataLoaded(); // Allow saving even when starting fresh
+    }
     return;
   }
 
@@ -335,6 +341,7 @@ function applyData(data: AnyRecord, source: string = 'unknown'): void {
       taskChains: Object.keys(data.taskChains || {}).length,
       chainTemplates: Object.keys(data.chainTemplates || {}).length,
       chainTasks: Object.keys(data.chainTasks || {}).length,
+      overviewBlocks: (data.overviewBlocks || []).length,
     });
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     useStore.getState().loadData(data as any);

@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import { v4 as uuid } from 'uuid';
-import type { Task, Category, TimeBlock, PomodoroState, PomodoroSession, ViewMode, StreakData, DragState, TaskChain, ChainTask, ChainTemplate } from '../types';
+import type { Task, Category, TimeBlock, PomodoroState, PomodoroSession, ViewMode, StreakData, DragState, TaskChain, ChainTask, ChainTemplate, ScheduleBlock } from '../types';
 import { getCategoryColor } from '../utils/colors';
 // Safe circular dep: analytics.ts uses useStore only inside function bodies,
 // so by the time any action below runs, both modules are fully initialized.
@@ -96,6 +96,9 @@ interface BlockOutState {
       completionsFromLocal: number;
       categoriesFromLocal: number;
       blocksFromLocal: number;
+      overviewBlocksFromLocal: number;
+      overviewBlocksUpdatedFromLocal: number;
+      overviewBlocksDeleted: number;
     };
   } | null;
 
@@ -182,7 +185,7 @@ interface BlockOutState {
   // Actions — Task Chains
   setSelectedChainDate: (date: string) => void;
   setShowTaskChainModal: (show: boolean) => void;
-  addChainTask: (chainDate: string, title: string, afterIndex?: number) => void;
+  addChainTask: (chainDate: string, title: string, afterIndex?: number) => string;
   addRealTaskToChain: (chainDate: string, taskId: string, afterIndex?: number) => void;
   removeChainLink: (chainDate: string, index: number) => void;
   reorderChainLink: (chainDate: string, fromIndex: number, toIndex: number) => void;
@@ -203,6 +206,10 @@ interface BlockOutState {
   removeSubtaskFromChain: (chainDate: string, linkIndex: number) => void;
   toggleSubtaskExpansion: (chainDate: string, linkId: string) => void;
 
+  // Overview blocks
+  overviewBlocks: ScheduleBlock[];
+  setOverviewBlocks: (blocks: ScheduleBlock[]) => void;
+
   // Persistence
   loadData: (data: {
     tasks: Record<string, Task>;
@@ -211,6 +218,7 @@ interface BlockOutState {
     activeBlockId: string | null;
     streak?: StreakData;
     pomodoroSessions?: PomodoroSession[];
+    overviewBlocks?: ScheduleBlock[];
   }) => void;
   getSerializableState: () => {
     tasks: Record<string, Task>;
@@ -219,6 +227,7 @@ interface BlockOutState {
     activeBlockId: string | null;
     streak: StreakData;
     pomodoroSessions: PomodoroSession[];
+    overviewBlocks: ScheduleBlock[];
   };
 }
 
@@ -252,6 +261,10 @@ export const useStore = create<BlockOutState>((set, get) => ({
   chainTasks: {},
   selectedChainDate: todayStr(),
   showTaskChainModal: false,
+
+  // Overview blocks
+  overviewBlocks: [],
+  setOverviewBlocks: (blocks) => set({ overviewBlocks: blocks }),
 
   drag: {
     draggedTaskId: null,
@@ -822,47 +835,50 @@ export const useStore = create<BlockOutState>((set, get) => ({
   setSelectedChainDate: (date) => set({ selectedChainDate: date }),
   setShowTaskChainModal: (show) => set({ showTaskChainModal: show }),
 
-  addChainTask: (chainDate, title, afterIndex) => set((state) => {
+  addChainTask: (chainDate, title, afterIndex) => {
     const ctId = uuid();
-    const newCT: ChainTask = { id: ctId, title, type: 'ct', completed: false };
-    
-    const existingChain = state.taskChains[chainDate];
-    const newLink = { id: uuid(), type: 'ct' as const, taskId: ctId };
-    
-    let newLinks;
-    if (existingChain) {
-      newLinks = [...existingChain.links];
-      if (afterIndex !== undefined && afterIndex >= 0 && afterIndex < newLinks.length) {
-        // Find the actual index in the raw links array and skip past any subtasks
-        let insertIndex = afterIndex + 1;
-        const parentLinkId = newLinks[afterIndex]?.id;
-        
-        // Skip all subtasks that belong to this parent
-        while (insertIndex < newLinks.length && newLinks[insertIndex].parentId === parentLinkId) {
-          insertIndex++;
+    set((state) => {
+      const newCT: ChainTask = { id: ctId, title, type: 'ct', completed: false };
+      
+      const existingChain = state.taskChains[chainDate];
+      const newLink = { id: uuid(), type: 'ct' as const, taskId: ctId };
+      
+      let newLinks;
+      if (existingChain) {
+        newLinks = [...existingChain.links];
+        if (afterIndex !== undefined && afterIndex >= 0 && afterIndex < newLinks.length) {
+          // Find the actual index in the raw links array and skip past any subtasks
+          let insertIndex = afterIndex + 1;
+          const parentLinkId = newLinks[afterIndex]?.id;
+          
+          // Skip all subtasks that belong to this parent
+          while (insertIndex < newLinks.length && newLinks[insertIndex].parentId === parentLinkId) {
+            insertIndex++;
+          }
+          
+          newLinks.splice(insertIndex, 0, newLink);
+        } else {
+          newLinks.push(newLink);
         }
-        
-        newLinks.splice(insertIndex, 0, newLink);
       } else {
-        newLinks.push(newLink);
+        newLinks = [newLink];
       }
-    } else {
-      newLinks = [newLink];
-    }
-    
-    return {
-      chainTasks: { ...state.chainTasks, [ctId]: newCT },
-      taskChains: {
-        ...state.taskChains,
-        [chainDate]: {
-          id: existingChain?.id || uuid(),
-          date: chainDate,
-          links: newLinks,
-          createdAt: existingChain?.createdAt || Date.now(),
+      
+      return {
+        chainTasks: { ...state.chainTasks, [ctId]: newCT },
+        taskChains: {
+          ...state.taskChains,
+          [chainDate]: {
+            id: existingChain?.id || uuid(),
+            date: chainDate,
+            links: newLinks,
+            createdAt: existingChain?.createdAt || Date.now(),
+          },
         },
-      },
-    };
-  }),
+      };
+    });
+    return ctId;
+  },
 
   addRealTaskToChain: (chainDate, taskId, afterIndex) => set((state) => {
     const existingChain = state.taskChains[chainDate];
@@ -1328,6 +1344,8 @@ export const useStore = create<BlockOutState>((set, get) => ({
       ...(data as any).taskChains && { taskChains: (data as any).taskChains },
       ...(data as any).chainTemplates && { chainTemplates: (data as any).chainTemplates },
       ...(data as any).chainTasks && { chainTasks: (data as any).chainTasks },
+      // Overview blocks - load if provided, otherwise keep existing
+      ...(data as any).overviewBlocks !== undefined && { overviewBlocks: (data as any).overviewBlocks },
       // Track lastModified for cloud sync
       lastModified: (data as any).lastModified || Date.now(),
     }));
@@ -1358,6 +1376,7 @@ export const useStore = create<BlockOutState>((set, get) => ({
       taskChains: s.taskChains,
       chainTemplates: s.chainTemplates,
       chainTasks: s.chainTasks,
+      overviewBlocks: s.overviewBlocks,
       lastModified: s.lastModified || Date.now(),
     };
   },

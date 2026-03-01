@@ -127,6 +127,27 @@ export interface ChainTemplate {
   updatedAt?: number;
 }
 
+// Overview Schedule Block types
+export type BlockType = 'placeholder' | 'mt' | 'ct';
+
+export interface ScheduleBlock {
+  id: string;
+  dayIndex: number; // 0 = Monday, 6 = Sunday
+  startSlot: number; // 0 = 6:00 AM, 1 = 6:30 AM, etc.
+  endSlot: number; // exclusive
+  type: BlockType;
+  name: string;
+  taskId?: string; // For 'mt' type: reference to real task
+  color?: string; // For non-MT blocks: custom color
+  completed?: boolean; // Whether the block/task is completed
+  completedAt?: number; // When it was completed
+  actualDuration?: number; // Duration in minutes when completed
+  weekDate: string; // YYYY-MM-DD of the Monday of the week this block belongs to
+  selectedTaskIds?: string[]; // For placeholder blocks: IDs of selected CTs/MTs
+  createdAt: number;
+  updatedAt: number;
+}
+
 export interface TreemapNode {
   id: string;
   name: string;
