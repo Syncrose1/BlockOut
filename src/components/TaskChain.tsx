@@ -48,6 +48,8 @@ export function TaskChain() {
   const [insertAfterIndex, setInsertAfterIndex] = useState<number | null>(null);
   const [replacingPlaceholderIndex, setReplacingPlaceholderIndex] = useState<number | null>(null);
   const [showCalendar, setShowCalendar] = useState(false);
+  const [calendarMonth, setCalendarMonth] = useState(new Date().getMonth());
+  const [calendarYear, setCalendarYear] = useState(new Date().getFullYear());
   const [customMinutes, setCustomMinutes] = useState('');
   const [showCustomTime, setShowCustomTime] = useState(false);
   const [showBulkOperations, setShowBulkOperations] = useState(false);
@@ -88,11 +90,8 @@ export function TaskChain() {
 
   // Generate calendar for month navigation
   const calendarDays = useMemo(() => {
-    const today = new Date();
-    const year = today.getFullYear();
-    const month = today.getMonth();
-    const firstDay = new Date(year, month, 1);
-    const lastDay = new Date(year, month + 1, 0);
+    const firstDay = new Date(calendarYear, calendarMonth, 1);
+    const lastDay = new Date(calendarYear, calendarMonth + 1, 0);
     const daysInMonth = lastDay.getDate();
     const startDayOfWeek = firstDay.getDay();
     
@@ -105,7 +104,7 @@ export function TaskChain() {
     const todayString = todayStr();
     
     for (let day = 1; day <= daysInMonth; day++) {
-      const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+      const dateStr = `${calendarYear}-${String(calendarMonth + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
       days.push({
         date: dateStr,
         day,
@@ -115,7 +114,7 @@ export function TaskChain() {
     }
     
     return days;
-  }, [taskChains]);
+  }, [taskChains, calendarMonth, calendarYear]);
 
   // Get IDs of all tasks in the current chain for multiselect
   const chainTaskIds = useMemo(() => {
@@ -509,6 +508,61 @@ export function TaskChain() {
                   border: '1px solid var(--border)',
                 }}
               >
+                {/* Month/Year Navigation */}
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+                  <button 
+                    className="btn btn-ghost btn-sm" 
+                    onClick={() => {
+                      if (calendarMonth === 0) {
+                        setCalendarMonth(11);
+                        setCalendarYear(calendarYear - 1);
+                      } else {
+                        setCalendarMonth(calendarMonth - 1);
+                      }
+                    }}
+                    style={{ padding: '4px 8px' }}
+                  >
+                    ←
+                  </button>
+                  
+                  <div style={{ display: 'flex', gap: 8 }}>
+                    <select 
+                      value={calendarMonth} 
+                      onChange={(e) => setCalendarMonth(parseInt(e.target.value))}
+                      style={{ padding: '4px 8px', background: 'var(--bg-primary)', border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)', color: 'var(--text-primary)', fontSize: 13 }}
+                    >
+                      {['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'].map((name, i) => (
+                        <option key={i} value={i}>{name}</option>
+                      ))}
+                    </select>
+                    
+                    <select 
+                      value={calendarYear} 
+                      onChange={(e) => setCalendarYear(parseInt(e.target.value))}
+                      style={{ padding: '4px 8px', background: 'var(--bg-primary)', border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)', color: 'var(--text-primary)', fontSize: 13 }}
+                    >
+                      {Array.from({ length: 10 }, (_, i) => new Date().getFullYear() - 5 + i).map(year => (
+                        <option key={year} value={year}>{year}</option>
+                      ))}
+                    </select>
+                  </div>
+                  
+                  <button 
+                    className="btn btn-ghost btn-sm" 
+                    onClick={() => {
+                      if (calendarMonth === 11) {
+                        setCalendarMonth(0);
+                        setCalendarYear(calendarYear + 1);
+                      } else {
+                        setCalendarMonth(calendarMonth + 1);
+                      }
+                    }}
+                    style={{ padding: '4px 8px' }}
+                  >
+                    →
+                  </button>
+                </div>
+
                 <div style={{ 
                   display: 'grid', 
                   gridTemplateColumns: 'repeat(7, 1fr)', 
