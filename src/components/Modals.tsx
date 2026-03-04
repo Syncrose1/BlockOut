@@ -3130,6 +3130,7 @@ export function AITaskGeneratorModal({
   const activeBlockId = useStore((s) => s.activeBlockId);
   const addTask = useStore((s) => s.addTask);
   const addCategory = useStore((s) => s.addCategory);
+  const addSubcategory = useStore((s) => s.addSubcategory);
   const assignTaskToBlock = useStore((s) => s.assignTaskToBlock);
 
   const [copied, setCopied] = useState(false);
@@ -3229,11 +3230,28 @@ Generate tasks based on the user's content above.`;
     
     // Import new categories first
     const categoryIdMap: Record<string, string> = {};
+    const subcategoryIdMap: Record<string, Record<string, string>> = {}; // categoryName -> subcategoryName -> subcategoryId
     
     if (result.newCategories) {
       result.newCategories.forEach((newCat: any) => {
         const id = addCategory(newCat.name);
         categoryIdMap[newCat.name] = id;
+        
+        // Create subcategories for new categories
+        if (newCat.subcategories && Array.isArray(newCat.subcategories)) {
+          subcategoryIdMap[newCat.name] = {};
+          newCat.subcategories.forEach((sub: any) => {
+            addSubcategory(id, sub.name);
+            // Look up the created subcategory by name to get its ID
+            const cat = useStore.getState().categories[id];
+            if (cat) {
+              const createdSub = cat.subcategories.find(s => s.name === sub.name);
+              if (createdSub) {
+                subcategoryIdMap[newCat.name][sub.name] = createdSub.id;
+              }
+            }
+          });
+        }
       });
     }
     
@@ -3254,12 +3272,53 @@ Generate tasks based on the user's content above.`;
         categoryId = addCategory(task.categoryName);
       }
       
+      // Find subcategory ID if specified
+      let subcategoryId: string | undefined;
+      if (task.subcategoryName && categoryId) {
+        // Check in existing categories
+        const category = categories[categoryId];
+        if (category) {
+          const existingSub = category.subcategories.find(
+            s => s.name.toLowerCase() === task.subcategoryName.toLowerCase()
+          );
+          if (existingSub) {
+            subcategoryId = existingSub.id;
+          }
+        }
+        
+        // Check in newly created categories' subcategories
+        if (!subcategoryId && task.categoryName && subcategoryIdMap[task.categoryName]) {
+          subcategoryId = subcategoryIdMap[task.categoryName][task.subcategoryName];
+        }
+        
+        // If subcategory doesn't exist, create it
+        if (!subcategoryId && categoryId) {
+          addSubcategory(categoryId, task.subcategoryName);
+          // Look up the created subcategory by name to get its ID
+          const updatedCat = useStore.getState().categories[categoryId];
+          if (updatedCat) {
+            const createdSub = updatedCat.subcategories.find(
+              s => s.name.toLowerCase() === task.subcategoryName.toLowerCase()
+            );
+            if (createdSub) {
+              subcategoryId = createdSub.id;
+              // Track it for future tasks
+              if (!subcategoryIdMap[task.categoryName]) {
+                subcategoryIdMap[task.categoryName] = {};
+              }
+              subcategoryIdMap[task.categoryName][task.subcategoryName] = subcategoryId;
+            }
+          }
+        }
+      }
+      
       // Add task
       const taskId = addTask({
         title: task.title,
         categoryId: categoryId || Object.keys(categories)[0] || '',
         weight: task.weight || 3,
         notes: task.notes,
+        subcategoryId,
       });
       
       // Assign to block if selected
