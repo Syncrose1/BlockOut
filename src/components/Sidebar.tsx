@@ -159,7 +159,7 @@ export function Sidebar() {
     <div className="sidebar">
       <div className="sidebar-header" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', textAlign: 'center' }}>
         <div className="sidebar-logo" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 4 }}>
-          <img src="./Syncratic-Logo.svg" alt="" height="25" style={{ filter: 'brightness(0) invert(1)' }} />
+          <img src="./Syncratic-Logo-cropped.svg" alt="" height="25" style={{ filter: 'brightness(0) invert(1)' }} />
           BlockOut
         </div>
         {/* Streak display */}
