@@ -1,5 +1,7 @@
 import { useStore } from '../store';
 import { syncToDropbox, syncFromDropbox, isDropboxConfigured, syncToDropboxWithResolution, getDropboxAuthInfo, forceUploadToDropbox, mergeSnapshots, type AnyRecord } from './dropbox';
+import { saveToR2, loadFromR2, isR2SyncAvailable } from './r2sync';
+import { getAccessToken } from './supabase';
 
 const DEBUG = import.meta.env.DEV;
 
@@ -96,7 +98,25 @@ export async function saveLocal(): Promise<void> {
   await idbWrite(payload);
 }
 
+async function isR2Active(): Promise<boolean> {
+  if (!isR2SyncAvailable()) return false;
+  const token = await getAccessToken();
+  return !!token;
+}
+
 export async function saveToCloud(): Promise<void> {
+  // Check R2 cloud sync (Supabase auth + R2 storage)
+  if (await isR2Active()) {
+    const data = useStore.getState().getSerializableState();
+    const result = await saveToR2(data);
+    if (result.success) {
+      useStore.getState().setSyncStatus('synced');
+      return;
+    }
+    // If R2 fails, fall through to other methods
+    if (DEBUG) console.warn('[BlockOut] R2 sync failed, trying other methods:', result.error);
+  }
+
   // Check if Dropbox is configured
   if (isDropboxConfigured()) {
     const data = useStore.getState().getSerializableState() as any;
@@ -175,8 +195,52 @@ export async function loadData(): Promise<void> {
     console.warn('[BlockOut] IndexedDB read failed', e);
   }
 
+  // Try R2 cloud sync first (if user is signed in)
+  if (await isR2Active()) {
+    try {
+      const result = await loadFromR2();
+      if (result.data) {
+        remote = result.data;
+        if (DEBUG) console.log('[BlockOut] Loaded remote data from R2');
+
+        if (!local) {
+          applyData(remote, 'r2-remote');
+          useStore.getState().setSyncStatus('synced');
+          return;
+        }
+
+        // Simple strategy: use whichever has newer lastModified
+        const localMod = (local.lastModified as number) ?? 0;
+        const remoteMod = (remote.lastModified as number) ?? 0;
+
+        if (remoteMod > localMod) {
+          applyData(remote, 'r2-remote-newer');
+          // Also save locally
+          await idbWrite({ ...remote, lastModified: Date.now() });
+        } else {
+          applyData(local, 'r2-local-newer');
+          // Push local to R2
+          const data = useStore.getState().getSerializableState();
+          saveToR2(data).catch((e) => console.warn('[BlockOut] R2 push failed', e));
+        }
+        useStore.getState().setSyncStatus('synced');
+        return;
+      }
+      // No remote data — use local, push if available
+      if (local) {
+        applyData(local, 'r2-no-remote');
+        const data = useStore.getState().getSerializableState();
+        saveToR2(data).catch((e) => console.warn('[BlockOut] R2 initial push failed', e));
+        useStore.getState().setSyncStatus('synced');
+        return;
+      }
+    } catch (e) {
+      console.warn('[BlockOut] R2 load failed, trying other methods', e);
+    }
+  }
+
   const { url, token } = getCloudConfig();
-  
+
   // Try Dropbox if configured
   if (isDropboxConfigured()) {
     try {
@@ -431,10 +495,11 @@ export function startPeriodicCloudSync(): () => void {
     // Check if cloud sync is needed
     if (!_cloudSavePending) return;
     
-    // Check if any cloud sync is configured (Dropbox or self-hosted)
+    // Check if any cloud sync is configured (R2, Dropbox, or self-hosted)
     const { url } = getCloudConfig();
     const hasDropbox = isDropboxConfigured();
-    if (!url && !hasDropbox) {
+    const hasR2 = isR2SyncAvailable();
+    if (!url && !hasDropbox && !hasR2) {
       // No cloud configured, clear the flag to prevent endless checking
       _cloudSavePending = false;
       return;
@@ -476,7 +541,15 @@ export function startPeriodicCloudSync(): () => void {
   const handleUnload = () => {
     const { url, token } = getCloudConfig();
     const hasDropbox = isDropboxConfigured();
-    if (!url && !hasDropbox) return;
+    const hasR2 = isR2SyncAvailable();
+    if (!url && !hasDropbox && !hasR2) return;
+
+    // R2 sync on unload (best-effort)
+    if (hasR2) {
+      const data = useStore.getState().getSerializableState();
+      saveToR2(data).catch(() => {});
+      return;
+    }
     
     // For Dropbox, use syncToDropbox directly
     if (hasDropbox) {

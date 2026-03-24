@@ -5,10 +5,12 @@ A visual task management app built for people juggling tasks across different ti
 ## Features
 
 - **Treemap visualisation** — canvas-based squarified treemap; gray tiles pop into colour on completion with particle bursts
+- **Mobile-responsive** — collapsible category list replaces the treemap on phones; slide-out sidebar drawer; bottom-sheet modals
 - **Time blocks** — define periods with start/end dates and live countdowns
 - **Timeless pool** — a master inventory for tasks that don't belong to any block yet
 - **Categories & subcategories** — auto-coloured, shared across blocks, with nested treemap regions
-- **Kanban board** — drag cards between To Do / In Progress / Done columns
+- **Task Chain** — daily task scheduling with chain tasks and real task embedding
+- **Overview** — weekly schedule grid with drag-and-drop time blocks
 - **Timeline view** — see blocks laid out chronologically
 - **Pomodoro timer** — always-visible widget with audio chimes
 - **Focus mode** — click a category to dim everything else and auto-start Pomodoro
@@ -19,9 +21,10 @@ A visual task management app built for people juggling tasks across different ti
 - **Activity heatmap** — GitHub-style 365-day visualization of productivity
 - **Category analytics** — completion rates and statistics per category
 - **Onboarding tour** — guided introduction for new users
-- **Cloud sync** — self-hosted sync across devices via your own server
+- **Cloud sync** — multiple sync options: BlockOut Cloud (Supabase + R2), Dropbox, or self-hosted
+- **User accounts** — Supabase authentication with email/password sign-in
 - **PWA support** — installable on mobile with offline caching
-- **Desktop apps** — native Windows and Linux builds with auto-updates
+- **Desktop apps** — native Windows and Linux builds via Electron
 - **Self-hosted** — runs on your own machine, accessible across a Tailnet
 
 ## Prerequisites
@@ -35,6 +38,9 @@ A visual task management app built for people juggling tasks across different ti
 # Clone the repository
 git clone https://github.com/Syncrose1/BlockOut.git
 cd BlockOut
+
+# Copy environment file and fill in your values
+cp .env.example .env
 
 # Install dependencies
 npm install
@@ -78,8 +84,11 @@ BlockOut/
 ├── package.json
 ├── vite.config.ts           # Vite config with API proxy
 ├── tsconfig.json
+├── api/
+│   ├── data.js              # Vercel serverless: legacy data API
+│   └── r2-sync.js           # Vercel serverless: R2 cloud sync endpoint
 ├── server/
-│   └── index.js             # Express server (API + SPA serving)
+│   └── index.js             # Express server (API + R2 sync + SPA serving)
 ├── public/
 │   ├── manifest.json        # PWA manifest
 │   ├── sw.js                # Service worker
@@ -88,106 +97,176 @@ BlockOut/
 │   └── generate-icons.js    # SVG icon generator
 └── src/
     ├── main.tsx             # React entry point
-    ├── App.tsx              # Root layout
+    ├── App.tsx              # Root layout + auth state
+    ├── hooks/
+    │   └── useIsMobile.ts   # Responsive breakpoint hook
     ├── types/index.ts       # TypeScript interfaces
     ├── store/index.ts       # Zustand state management
     ├── utils/
     │   ├── treemap.ts       # Squarified treemap algorithm
     │   ├── colors.ts        # Colour palette
-    │   └── persistence.ts   # Server + localStorage persistence
-    ├── styles/global.css    # Dark-theme styles
+    │   ├── persistence.ts   # IndexedDB + cloud sync orchestration
+    │   ├── dropbox.ts       # Dropbox OAuth + sync
+    │   ├── supabase.ts      # Supabase auth client
+    │   ├── r2sync.ts        # R2 cloud storage client
+    │   └── analytics.ts     # Export/import, activity logging
+    ├── styles/global.css    # Dark-theme styles + mobile responsive
     └── components/
-        ├── Treemap.tsx      # Canvas treemap renderer
+        ├── Treemap.tsx      # Canvas treemap renderer (desktop)
+        ├── MobileTaskList.tsx # Collapsible category list (mobile)
         ├── Sidebar.tsx      # Blocks, pool, categories, streak
-        ├── Topbar.tsx       # View switcher, export, focus indicator
-        ├── Kanban.tsx       # Kanban board
+        ├── Topbar.tsx       # View switcher, export, auth, focus indicator
+        ├── TaskChain.tsx    # Daily task chain editor
+        ├── Overview.tsx     # Weekly schedule grid
         ├── Timeline.tsx     # Timeline view
         ├── Pomodoro.tsx     # Pomodoro timer widget
-        └── Modals.tsx       # Create/edit dialogs
+        ├── AuthModal.tsx    # Sign in / sign up modal
+        └── Modals.tsx       # All other dialogs
 ```
 
 ## Data storage
 
-All data is persisted to `data.json` in the project root via the Express API. The frontend also saves to `localStorage` as a fallback. No external database required.
+All data is persisted to **IndexedDB** in the browser as the primary store. The Express server also stores data in `data.json` as a secondary option. No external database required for basic use.
 
-## Cloud Sync Setup
+## Cloud Sync Options
 
-BlockOut supports self-hosted cloud sync so you can access your tasks across multiple devices on your Tailnet.
+BlockOut supports three concurrent cloud sync methods. You can use any combination:
 
-### Quick Start
+| Method | Auth | Storage | Best For |
+|--------|------|---------|----------|
+| **BlockOut Cloud** | Supabase (email/password) | Cloudflare R2 | Multi-device sync with accounts |
+| **Dropbox** | OAuth (your own Dropbox) | Dropbox file | Personal backup to your Dropbox |
+| **Self-Hosted** | Bearer token | JSON file on server | Full control, Tailnet access |
 
-1. **Start the server with a token** (for basic auth):
+### Option 1: BlockOut Cloud (Supabase Auth + Cloudflare R2)
+
+This is the recommended approach for multi-user, multi-device sync. Users create accounts and their data is stored in Cloudflare R2 object storage, keyed by user ID.
+
+#### 1. Set up Supabase (Auth)
+
+1. Create a free project at [supabase.com](https://supabase.com)
+2. Go to **Project Settings → API**
+3. Copy your **Project URL** and **anon (public) key**
+4. Add to your `.env`:
+
+```bash
+VITE_SUPABASE_URL=https://your-project-id.supabase.co
+VITE_SUPABASE_ANON_KEY=eyJhbGciOi...your-anon-key
+```
+
+5. (Optional) Copy the **service_role key** for server-side JWT verification:
+
+```bash
+SUPABASE_SERVICE_ROLE_KEY=eyJhbGciOi...your-service-role-key
+```
+
+> **Note:** The `VITE_` prefixed keys are public and bundled into the frontend. The `SUPABASE_SERVICE_ROLE_KEY` is server-side only and should never be exposed to the client.
+
+#### 2. Set up Cloudflare R2 (Storage)
+
+1. Go to [Cloudflare Dashboard](https://dash.cloudflare.com) → **R2**
+2. **Create a bucket** named `blockout` (or your preferred name)
+3. Go to **R2 → Manage R2 API Tokens → Create API Token**
+4. Grant **Object Read & Write** permission for the bucket
+5. Add to your `.env`:
+
+```bash
+R2_ACCOUNT_ID=your_cloudflare_account_id
+R2_ACCESS_KEY_ID=your_r2_access_key_id
+R2_SECRET_ACCESS_KEY=your_r2_secret_access_key
+R2_BUCKET_NAME=blockout
+```
+
+#### 3. How it works
+
+- Users click **Sign In** in the topbar to create an account or log in
+- Data syncs automatically every 10 seconds when changes are detected
+- Each user's data is stored at `users/{user_id}/blockout-data.json` in R2
+- The API route (`/api/r2-sync`) verifies the Supabase JWT before reading/writing
+- Existing local data (IndexedDB) is preserved — cloud sync runs alongside it
+
+#### Cost considerations
+
+- **Supabase free tier**: 50,000 monthly active users, unlimited auth
+- **Cloudflare R2 free tier**: 10 GB storage, 10 million reads/month, 1 million writes/month
+- A typical user's data is 5–50 KB of JSON — you can serve **hundreds of thousands of users** within the free tier
+- No egress fees on R2 (unlike S3)
+
+### Option 2: Dropbox Sync
+
+1. Create a Dropbox app at [dropbox.com/developers/apps](https://www.dropbox.com/developers/apps)
+2. Choose **Scoped access → App folder**
+3. Enable permissions: `files.content.write`, `files.content.read`
+4. Copy the App Key to `.env`:
+
+```bash
+VITE_DROPBOX_APP_KEY=your_app_key
+```
+
+5. Add your redirect URI (e.g. `http://localhost:5173`) in the Dropbox app settings
+6. In the app, click **Sync → Dropbox → Connect to Dropbox**
+
+### Option 3: Self-Hosted Server Sync
+
+1. **Start the server with a token:**
 ```bash
 BLOCKOUT_TOKEN=my-secret-token npm start
 ```
 
 2. **Configure the app:**
    - Click "Sync" in the topbar
-   - Enter your server URL: `https://blockout.yourdomain.com` (or `http://192.168.x.x:3001` for local network)
+   - Select "Self-Hosted"
+   - Enter your server URL: `https://blockout.yourdomain.com`
    - Enter your token: `my-secret-token`
    - Click "Test & sync now"
 
-### Environment Variables
+### Environment Variables Reference
 
-| Variable | Description | Default |
-|----------|-------------|---------|
-| `PORT` | Server port | `3001` |
-| `BLOCKOUT_TOKEN` | Optional Bearer token for auth | (none) |
-| `DATA_DIR` | Where to store data.json | Project root |
+#### Frontend (VITE_ prefix — bundled into client)
+
+| Variable | Description | Required |
+|----------|-------------|----------|
+| `VITE_DROPBOX_APP_KEY` | Dropbox OAuth app key | For Dropbox sync |
+| `VITE_SUPABASE_URL` | Supabase project URL | For BlockOut Cloud |
+| `VITE_SUPABASE_ANON_KEY` | Supabase public anon key | For BlockOut Cloud |
+
+#### Server-side (never exposed to client)
+
+| Variable | Description | Required |
+|----------|-------------|----------|
+| `PORT` | Server port (default: 3001) | No |
+| `BLOCKOUT_TOKEN` | Bearer token for self-hosted sync | For self-hosted sync |
+| `DATA_DIR` | Where to store data.json (default: project root) | No |
+| `SUPABASE_SERVICE_ROLE_KEY` | Supabase service role key for JWT verification | Recommended for Cloud |
+| `R2_ACCOUNT_ID` | Cloudflare account ID | For BlockOut Cloud |
+| `R2_ACCESS_KEY_ID` | R2 API token access key | For BlockOut Cloud |
+| `R2_SECRET_ACCESS_KEY` | R2 API token secret key | For BlockOut Cloud |
+| `R2_BUCKET_NAME` | R2 bucket name (default: `blockout`) | For BlockOut Cloud |
 
 ### Docker Deployment
-
-**Dockerfile (create in project root):**
 
 ```dockerfile
 FROM node:18-alpine
 
 WORKDIR /app
 
-# Copy package files
 COPY package*.json ./
 RUN npm ci --only=production
 
-# Copy app files
 COPY . .
-
-# Build frontend
 RUN npm run build
-
-# Create data directory
 RUN mkdir -p /data
 
-# Set environment
 ENV NODE_ENV=production
 ENV PORT=3001
 ENV DATA_DIR=/data
 
-# Expose port
 EXPOSE 3001
 
-# Start server
 CMD ["node", "server/index.js"]
 ```
 
-**Build and run:**
-
-```bash
-# Build the image
-docker build -t blockout .
-
-# Run with data persistence
-docker run -d \
-  --name blockout \
-  -p 3001:3001 \
-  -e BLOCKOUT_TOKEN=your-secret-token \
-  -v blockout-data:/data \
-  --restart unless-stopped \
-  blockout
-```
-
-**Docker Compose (recommended):**
-
-Create `docker-compose.yml`:
+**Docker Compose:**
 
 ```yaml
 version: '3.8'
@@ -202,25 +281,17 @@ services:
       - BLOCKOUT_TOKEN=${BLOCKOUT_TOKEN:-your-secret-token}
       - PORT=3001
       - DATA_DIR=/data
+      # BlockOut Cloud (optional)
+      - VITE_SUPABASE_URL=${VITE_SUPABASE_URL}
+      - VITE_SUPABASE_ANON_KEY=${VITE_SUPABASE_ANON_KEY}
+      - SUPABASE_SERVICE_ROLE_KEY=${SUPABASE_SERVICE_ROLE_KEY}
+      - R2_ACCOUNT_ID=${R2_ACCOUNT_ID}
+      - R2_ACCESS_KEY_ID=${R2_ACCESS_KEY_ID}
+      - R2_SECRET_ACCESS_KEY=${R2_SECRET_ACCESS_KEY}
+      - R2_BUCKET_NAME=${R2_BUCKET_NAME:-blockout}
     volumes:
       - ./data:/data
     restart: unless-stopped
-```
-
-Run with:
-
-```bash
-# Set your token
-export BLOCKOUT_TOKEN=your-secret-token
-
-# Start
-docker-compose up -d
-
-# View logs
-docker-compose logs -f
-
-# Update after code changes
-docker-compose up -d --build
 ```
 
 ### Tailscale Setup
@@ -232,76 +303,25 @@ To access BlockOut across devices on your Tailnet:
 # Ubuntu/Debian
 curl -fsSL https://tailscale.com/install.sh | sh
 sudo tailscale up
-
-# macOS
-brew install tailscale
-sudo tailscale up
-
-# See https://tailscale.com/download for others
 ```
 
 2. **Start BlockOut** bound to all interfaces:
 ```bash
 npm start
-# or with Docker, it already binds to 0.0.0.0
 ```
 
-3. **Get your Tailnet hostname:**
-```bash
-tailscale status
-```
-
-4. **Access from other devices:**
+3. **Access from other devices:**
 ```
 http://<tailnet-hostname>:3001
 ```
 
-### Reverse Proxy (HTTPS)
-
-For HTTPS access behind a reverse proxy:
-
-**Nginx example:**
-
-```nginx
-server {
-    listen 443 ssl;
-    server_name blockout.yourdomain.com;
-
-    ssl_certificate /path/to/cert.pem;
-    ssl_certificate_key /path/to/key.pem;
-
-    location / {
-        proxy_pass http://localhost:3001;
-        proxy_http_version 1.1;
-        proxy_set_header Upgrade $http_upgrade;
-        proxy_set_header Connection 'upgrade';
-        proxy_set_header Host $host;
-        proxy_set_header X-Real-IP $remote_addr;
-        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-        proxy_set_header X-Forwarded-Proto $scheme;
-        proxy_cache_bypass $http_upgrade;
-    }
-}
-```
-
-### Data Backup
-
-Your data is stored in `data.json` (or `/data/data.json` in Docker). Back up regularly:
-
-```bash
-# Local backup
-cp data.json data.json.backup.$(date +%Y%m%d)
-
-# Or use the Export feature in the app (JSON export)
-```
-
 ### Security Notes
 
-- The `BLOCKOUT_TOKEN` provides basic Bearer token authentication
-- Without a token, the API is open to anyone who can reach the server
+- The `BLOCKOUT_TOKEN` provides basic Bearer token authentication for self-hosted sync
+- Supabase handles authentication for BlockOut Cloud — JWTs are verified server-side
+- R2 credentials are server-side only — never exposed to the browser
 - Always use HTTPS in production (via reverse proxy)
-- Bind to localhost only if you don't need network access: `npm run dev`
-- Data is stored as plain JSON - no encryption at rest
+- Data is stored as plain JSON — no encryption at rest
 
 ## Vercel Deployment
 
@@ -313,137 +333,36 @@ BlockOut can be deployed to **Vercel** for free hosting with zero configuration.
 
 ### Manual Setup
 
-1. **Push to GitHub** (already done!)
-
-2. **Import to Vercel:**
-   - Go to [vercel.com/new](https://vercel.com/new)
-   - Import your GitHub repository
-   - Vercel will auto-detect Vite settings
-
-3. **Configure settings:**
-   - **Framework Preset:** Vite (auto-detected)
-   - **Build Command:** `npm run build`
-   - **Output Directory:** `dist`
-   - **Root Directory:** `./` (default)
-
-4. **Deploy!**
-
-### Required Vercel Settings
-
-| Setting | Value |
-|---------|-------|
-| **Framework Preset** | Vite |
-| **Build Command** | `npm run build` |
-| **Output Directory** | `dist` |
-| **Root Directory** | `./` |
-| **Node.js Version** | 18.x+ |
-
-### Optional Environment Variables
-
-Only set these if you need specific features:
-
-```bash
-# Optional: Protect API with token
-BLOCKOUT_TOKEN=your-secret-token
-
-# Optional: Supabase for multi-device sync
-SUPABASE_URL=https://your-project.supabase.co
-SUPABASE_ANON_KEY=your-anon-key
-```
-
-**For basic use, no environment variables needed!**
+1. Import your GitHub repository at [vercel.com/new](https://vercel.com/new)
+2. Vercel auto-detects Vite settings
+3. Add environment variables if using cloud sync (see table above)
+4. Deploy!
 
 ### Data Persistence on Vercel
 
-**✅ Good news: Data persists automatically!**
+BlockOut uses **IndexedDB** in the browser as the primary store — works perfectly on Vercel with no setup.
 
-BlockOut uses **IndexedDB** in the browser for storage. This works perfectly on Vercel - your data survives page refreshes, browser restarts, and is completely private to your device.
+For multi-device sync, configure **BlockOut Cloud** (Supabase + R2) or **Dropbox** via the Vercel environment variables dashboard.
 
-**Option 1: IndexedDB (Default - No Setup!)**
-
-BlockOut automatically saves all data to **IndexedDB in your browser** - this works on Vercel exactly like it does locally:
-- ✅ Unlimited storage (browser-dependent, typically 50MB+)
-- ✅ Data persists between sessions
-- ✅ Works offline
-- ✅ No external service to configure
-
-**Perfect for:** Personal use, single device, quick start
-
-**Limitation:** Data is tied to that browser/device
-
----
-
-### Optional: Cloud Database (For Multi-Device Sync)
-
-Only set up a database if you need to sync across devices. Otherwise, IndexedDB works great!
-
-#### Option A: Supabase ⭐ (500MB Free - Best for Sync)
-**Best option if you want cloud sync with generous storage.**
-
-1. Create free account at [supabase.com](https://supabase.com)
-2. Create a new project
-3. Go to Project Settings → Database → Connection string
-4. Add to Vercel:
-```bash
-vercel env add SUPABASE_URL
-vercel env add SUPABASE_ANON_KEY
-```
-
-#### Option B: Vercel KV (10MB Free)
-Only recommended if you have very few tasks (10MB = ~1,000-2,000 tasks).
+### Vercel Environment Variables for Cloud Sync
 
 ```bash
-# Create KV store
-vercel kv create my-blockout-data
+# Supabase Auth (public)
+VITE_SUPABASE_URL=https://your-project.supabase.co
+VITE_SUPABASE_ANON_KEY=your-anon-key
 
-# Link to your project
-vercel link
+# Supabase Auth (server-side)
+SUPABASE_SERVICE_ROLE_KEY=your-service-role-key
 
-# The KV credentials are automatically available as env vars
+# Cloudflare R2 (server-side)
+R2_ACCOUNT_ID=your_account_id
+R2_ACCESS_KEY_ID=your_access_key
+R2_SECRET_ACCESS_KEY=your_secret_key
+R2_BUCKET_NAME=blockout
+
+# Dropbox (public)
+VITE_DROPBOX_APP_KEY=your_dropbox_app_key
 ```
-
-The API automatically detects and uses Vercel KV when available.
-
-### Vercel Project Structure
-
-```
-BlockOut/
-├── api/
-│   └── data.ts           # Serverless API endpoint
-├── src/                  # React frontend
-├── dist/                 # Build output
-├── vercel.json           # Vercel configuration
-└── package.json
-```
-
-### Database Options Comparison
-
-| Option | Free Storage | Best For | Setup Difficulty |
-|--------|--------------|----------|------------------|
-| **Supabase** ⭐ | **500MB** | Most users | Easy |
-| Neon | 500MB | Postgres fans | Easy |
-| MongoDB Atlas | 512MB | JSON/document data | Medium |
-| Vercel KV | 10MB | Tiny projects | Easiest |
-| IndexedDB | Unlimited* | Single device | None |
-
-*Browser storage, doesn't sync between devices
-
-### Storage Options Summary
-
-| Environment | Storage | Persistence | Best For |
-|-------------|---------|-------------|----------|
-| Local dev (`npm run dev`) | `data.json` file | ✅ Persistent | Development |
-| Docker | Volume-mounted file | ✅ Persistent | Self-hosting |
-| **Vercel (default)** ⭐ | **IndexedDB (browser)** | **✅ Persistent** | **Most users** |
-| Vercel + Database | PostgreSQL/MongoDB | ✅ Persistent + Cloud Sync | Multi-device |
-
-**The key insight:** On Vercel, IndexedDB works perfectly without any database setup! Only add a database if you need to sync across multiple devices.
-
-### Custom Domain
-
-1. Go to Vercel Dashboard → Your Project → Settings → Domains
-2. Add your domain and follow DNS instructions
-3. Your BlockOut instance will be at `https://yourdomain.com`
 
 ## License
 

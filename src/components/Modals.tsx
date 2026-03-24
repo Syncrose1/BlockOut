@@ -19,6 +19,8 @@ import {
   startDropboxAuth,
   forceReauth,
 } from '../utils/dropbox';
+import { isR2SyncAvailable, saveToR2, loadFromR2 } from '../utils/r2sync';
+import { getAccessToken, isSupabaseConfigured } from '../utils/supabase';
 
 // ─── Calendar Date Picker ────────────────────────────────────────────────────
 
@@ -1536,18 +1538,86 @@ function formatRelativeTime(ts: number): string {
   return `${Math.floor(diff / 86400)}d ago`;
 }
 
+function CloudSyncStatus() {
+  const [status, setStatus] = useState<'checking' | 'signed-in' | 'not-signed-in'>('checking');
+  const [syncing, setSyncing] = useState(false);
+  const [syncResult, setSyncResult] = useState<'ok' | 'fail' | null>(null);
+
+  useEffect(() => {
+    getAccessToken().then((token) => {
+      setStatus(token ? 'signed-in' : 'not-signed-in');
+    });
+  }, []);
+
+  const handleTestSync = async () => {
+    setSyncing(true);
+    setSyncResult(null);
+    try {
+      const data = useStore.getState().getSerializableState();
+      const result = await saveToR2(data);
+      setSyncResult(result.success ? 'ok' : 'fail');
+      if (result.success) {
+        useStore.getState().setSyncStatus('synced');
+      }
+    } catch {
+      setSyncResult('fail');
+    } finally {
+      setSyncing(false);
+    }
+  };
+
+  if (status === 'checking') {
+    return <div style={{ fontSize: 12, color: 'var(--text-tertiary)' }}>Checking auth status...</div>;
+  }
+
+  if (status === 'not-signed-in') {
+    return (
+      <div style={{ fontSize: 12, color: 'var(--text-tertiary)' }}>
+        Sign in using the button in the top bar to enable cloud sync.
+      </div>
+    );
+  }
+
+  return (
+    <div>
+      <div style={{ fontSize: 12, color: 'hsl(140, 60%, 50%)', marginBottom: 10 }}>
+        Signed in — cloud sync is active
+      </div>
+      <button
+        className="btn btn-primary btn-sm"
+        onClick={handleTestSync}
+        disabled={syncing}
+        style={{ width: '100%' }}
+      >
+        {syncing ? 'Syncing...' : 'Sync Now'}
+      </button>
+      {syncResult === 'ok' && (
+        <div style={{ fontSize: 12, color: 'hsl(140, 60%, 50%)', marginTop: 8 }}>
+          Sync successful!
+        </div>
+      )}
+      {syncResult === 'fail' && (
+        <div style={{ fontSize: 12, color: 'hsl(0, 72%, 62%)', marginTop: 8 }}>
+          Sync failed. The server may not have R2 configured.
+        </div>
+      )}
+    </div>
+  );
+}
+
 export function SyncSettingsModal() {
   const open = useStore((s) => s.syncSettingsOpen);
   const setSyncSettingsOpen = useStore((s) => s.setSyncSettingsOpen);
   const syncStatus = useStore((s) => s.syncStatus);
   const setSyncStatus = useStore((s) => s.setSyncStatus);
 
-  const [syncProvider, setSyncProvider] = useState<'self-hosted' | 'dropbox'>(() => {
-    // Check what's configured
+  const [syncProvider, setSyncProvider] = useState<'self-hosted' | 'dropbox' | 'cloud'>(() => {
+    // Check what's configured — prefer cloud if signed in
+    if (isR2SyncAvailable()) return 'cloud';
     const cfg = getCloudConfig();
     if (cfg.url) return 'self-hosted';
     if (isDropboxConfigured()) return 'dropbox';
-    return 'self-hosted'; // Default to self-hosted
+    return isSupabaseConfigured() ? 'cloud' : 'self-hosted';
   });
 
   // Self-hosted state
@@ -1575,10 +1645,10 @@ export function SyncSettingsModal() {
     if (syncProvider === 'self-hosted') {
       setCloudConfig(url, token);
       clearDropboxConfig();
-    } else {
-      // Dropbox
+    } else if (syncProvider === 'dropbox') {
       setCloudConfig('', '');
     }
+    // Cloud (R2) doesn't need manual config — just needs sign-in
     setSyncSettingsOpen(false);
   };
 
@@ -1619,8 +1689,10 @@ export function SyncSettingsModal() {
     setSyncSettingsOpen(false);
   };
 
-  const isConfigured = syncProvider === 'self-hosted' 
-    ? url.trim().length > 0 
+  const isConfigured = syncProvider === 'cloud'
+    ? isR2SyncAvailable()
+    : syncProvider === 'self-hosted'
+    ? url.trim().length > 0
     : isDropboxConfigured();
 
   const statusDot: Record<string, string> = {
@@ -1670,7 +1742,15 @@ export function SyncSettingsModal() {
           </div>
 
           {/* Provider Selection */}
-          <div style={{ display: 'flex', gap: 8, marginBottom: 20 }}>
+          <div style={{ display: 'flex', gap: 8, marginBottom: 20, flexWrap: 'wrap' }}>
+            {isSupabaseConfigured() && (
+              <button
+                className={`btn ${syncProvider === 'cloud' ? 'btn-primary' : 'btn-ghost'}`}
+                onClick={() => setSyncProvider('cloud')}
+              >
+                BlockOut Cloud
+              </button>
+            )}
             <button
               className={`btn ${syncProvider === 'dropbox' ? 'btn-primary' : 'btn-ghost'}`}
               onClick={() => setSyncProvider('dropbox')}
@@ -1685,7 +1765,23 @@ export function SyncSettingsModal() {
             </button>
           </div>
 
-          {syncProvider === 'dropbox' ? (
+          {syncProvider === 'cloud' ? (
+            <>
+              <div style={{
+                padding: 16,
+                background: 'var(--bg-tertiary)',
+                borderRadius: 'var(--radius-sm)',
+              }}>
+                <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 8, color: 'var(--text-primary)' }}>
+                  BlockOut Cloud (R2 Storage)
+                </div>
+                <div style={{ fontSize: 12, color: 'var(--text-secondary)', marginBottom: 12 }}>
+                  Sign in with your account to sync data across devices. Your data is stored in Cloudflare R2 object storage — fast, reliable, and cost-effective.
+                </div>
+                <CloudSyncStatus />
+              </div>
+            </>
+          ) : syncProvider === 'dropbox' ? (
             <>
               {isDropboxConfigured() ? (
                 <div style={{ 

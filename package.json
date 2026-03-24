@@ -21,6 +21,8 @@
   "author": "Syncrose <raahat.shah@gmail.com>",
   "license": "ISC",
   "dependencies": {
+    "@aws-sdk/client-s3": "^3.1015.0",
+    "@supabase/supabase-js": "^2.100.0",
     "@uiw/react-heat-map": "^2.3.3",
     "@vercel/kv": "^3.0.0",
     "cors": "^2.8.6",

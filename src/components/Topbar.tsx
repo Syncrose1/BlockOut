@@ -4,7 +4,9 @@ import { AssignTasksModal, ExportImportModal, AITaskGeneratorModal } from './Mod
 import { exportTreemapAsImage } from './Treemap';
 import { exportToFile } from '../utils/analytics';
 import { saveToCloud } from '../utils/persistence';
+import { signOut, isSupabaseConfigured } from '../utils/supabase';
 import type { ViewMode } from '../types';
+import type { User } from '@supabase/supabase-js';
 
 function formatCountdown(endDate: number): string {
   const now = Date.now();
@@ -27,9 +29,11 @@ function formatCountdown(endDate: number): string {
 interface TopbarProps {
   isMobile?: boolean;
   onMenuToggle?: () => void;
+  authUser?: User | null;
+  onSignInClick?: () => void;
 }
 
-export function Topbar({ isMobile, onMenuToggle }: TopbarProps) {
+export function Topbar({ isMobile, onMenuToggle, authUser, onSignInClick }: TopbarProps) {
   const activeBlockId = useStore((s) => s.activeBlockId);
   const timeBlocks = useStore((s) => s.timeBlocks);
   const showTimelessPool = useStore((s) => s.showTimelessPool);
@@ -47,7 +51,14 @@ export function Topbar({ isMobile, onMenuToggle }: TopbarProps) {
   const [showExportImport, setShowExportImport] = useState(false);
   const [exportDropdownOpen, setExportDropdownOpen] = useState(false);
   const [showAITaskGenerator, setShowAITaskGenerator] = useState(false);
+  const [showUserMenu, setShowUserMenu] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
+  const userMenuRef = useRef<HTMLDivElement>(null);
+
+  const handleSignOut = useCallback(async () => {
+    await signOut();
+    setShowUserMenu(false);
+  }, []);
 
   const block = activeBlockId ? timeBlocks[activeBlockId] : null;
 
@@ -71,19 +82,22 @@ export function Topbar({ isMobile, onMenuToggle }: TopbarProps) {
     { id: 'taskchain', label: 'Task Chain' },
   ];
 
-  // Close dropdown when clicking outside
+  // Close dropdowns when clicking outside
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
       if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
         setExportDropdownOpen(false);
       }
+      if (userMenuRef.current && !userMenuRef.current.contains(event.target as Node)) {
+        setShowUserMenu(false);
+      }
     };
-    
-    if (exportDropdownOpen) {
+
+    if (exportDropdownOpen || showUserMenu) {
       document.addEventListener('mousedown', handleClickOutside);
       return () => document.removeEventListener('mousedown', handleClickOutside);
     }
-  }, [exportDropdownOpen]);
+  }, [exportDropdownOpen, showUserMenu]);
 
   const handleExport = useCallback(async () => {
     const dataUrl = await exportTreemapAsImage();
@@ -171,6 +185,51 @@ export function Topbar({ isMobile, onMenuToggle }: TopbarProps) {
               display: 'inline-block',
             }} />
           </button>
+
+          {/* Auth button (mobile) */}
+          {isSupabaseConfigured() && (
+            authUser ? (
+              <div ref={userMenuRef} style={{ position: 'relative' }}>
+                <button
+                  onClick={() => setShowUserMenu(!showUserMenu)}
+                  style={{
+                    width: 28, height: 28, borderRadius: '50%',
+                    background: 'var(--accent)', color: 'white',
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    fontSize: 12, fontWeight: 700, border: 'none', cursor: 'pointer',
+                  }}
+                  title={authUser.email || 'Account'}
+                >
+                  {(authUser.email || '?')[0].toUpperCase()}
+                </button>
+                {showUserMenu && (
+                  <div style={{
+                    position: 'absolute', top: '100%', right: 0, marginTop: 4,
+                    background: 'var(--bg-secondary)', border: '1px solid var(--border)',
+                    borderRadius: 'var(--radius-sm)', boxShadow: 'var(--shadow-lg)',
+                    zIndex: 100, minWidth: 180, padding: '8px 0',
+                  }}>
+                    <div style={{ padding: '6px 12px', fontSize: 12, color: 'var(--text-tertiary)', borderBottom: '1px solid var(--border)' }}>
+                      {authUser.email}
+                    </div>
+                    <button onClick={handleSignOut} style={{
+                      display: 'block', width: '100%', padding: '8px 12px',
+                      background: 'none', border: 'none', color: 'hsl(0, 72%, 62%)',
+                      fontSize: 13, textAlign: 'left', cursor: 'pointer',
+                    }}>Sign Out</button>
+                  </div>
+                )}
+              </div>
+            ) : (
+              <button
+                className="btn btn-ghost btn-sm"
+                onClick={onSignInClick}
+                style={{ fontSize: 11, padding: '4px 8px' }}
+              >
+                Sign In
+              </button>
+            )
+          )}
 
           <button
             className="btn btn-primary btn-sm"
@@ -503,6 +562,52 @@ export function Topbar({ isMobile, onMenuToggle }: TopbarProps) {
           </svg>
           Smart Create
         </button>
+
+        {/* Auth button (desktop) */}
+        {isSupabaseConfigured() && (
+          authUser ? (
+            <div ref={userMenuRef} style={{ position: 'relative' }}>
+              <button
+                onClick={() => setShowUserMenu(!showUserMenu)}
+                style={{
+                  width: 30, height: 30, borderRadius: '50%',
+                  background: 'var(--accent)', color: 'white',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  fontSize: 13, fontWeight: 700, border: 'none', cursor: 'pointer',
+                  transition: 'filter 0.15s',
+                }}
+                title={authUser.email || 'Account'}
+              >
+                {(authUser.email || '?')[0].toUpperCase()}
+              </button>
+              {showUserMenu && (
+                <div style={{
+                  position: 'absolute', top: '100%', right: 0, marginTop: 6,
+                  background: 'var(--bg-secondary)', border: '1px solid var(--border)',
+                  borderRadius: 'var(--radius-sm)', boxShadow: 'var(--shadow-lg)',
+                  zIndex: 100, minWidth: 200, padding: '8px 0',
+                }}>
+                  <div style={{ padding: '8px 14px', fontSize: 12, color: 'var(--text-tertiary)', borderBottom: '1px solid var(--border)' }}>
+                    Signed in as<br />
+                    <span style={{ color: 'var(--text-secondary)', fontWeight: 500 }}>{authUser.email}</span>
+                  </div>
+                  <button onClick={handleSignOut} style={{
+                    display: 'block', width: '100%', padding: '8px 14px',
+                    background: 'none', border: 'none', color: 'hsl(0, 72%, 62%)',
+                    fontSize: 13, textAlign: 'left', cursor: 'pointer',
+                  }}>Sign Out</button>
+                </div>
+              )}
+            </div>
+          ) : (
+            <button
+              className="btn btn-ghost btn-sm"
+              onClick={onSignInClick}
+            >
+              Sign In
+            </button>
+          )
+        )}
 
         <button
           className="btn btn-primary btn-sm"

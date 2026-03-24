@@ -3,11 +3,13 @@ import { useStore } from './store';
 import { loadData, debouncedSave, startPeriodicCloudSync } from './utils/persistence';
 import { handleDropboxCallback } from './utils/dropbox';
 import { loadTutorialData, hasShownTutorial } from './utils/tutorial';
+import { getSession, onAuthStateChange, isSupabaseConfigured } from './utils/supabase';
 import { useIsMobile } from './hooks/useIsMobile';
 import { Sidebar } from './components/Sidebar';
 import { Topbar } from './components/Topbar';
 import { Treemap } from './components/Treemap';
 import { MobileTaskList } from './components/MobileTaskList';
+import { AuthModal } from './components/AuthModal';
 
 import { Timeline } from './components/Timeline';
 import { TaskChain } from './components/TaskChain';
@@ -25,6 +27,7 @@ import {
   SyncSettingsModal,
   ConflictResolutionModal,
 } from './components/Modals';
+import type { User } from '@supabase/supabase-js';
 
 export function App() {
   const viewMode = useStore((s) => s.viewMode);
@@ -35,6 +38,8 @@ export function App() {
   const oauthProcessed = useRef(false);
   const isMobile = useIsMobile();
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [authUser, setAuthUser] = useState<User | null>(null);
+  const [showAuthModal, setShowAuthModal] = useState(false);
 
   const closeSidebar = useCallback(() => setSidebarOpen(false), []);
 
@@ -115,6 +120,16 @@ export function App() {
       setSidebarOpen(false);
     }
   }, [viewMode, isMobile]);
+
+  // Supabase auth state
+  useEffect(() => {
+    if (!isSupabaseConfigured()) return;
+    // Load initial session
+    getSession().then(({ user }) => setAuthUser(user));
+    // Listen for auth changes
+    const unsub = onAuthStateChange((user) => setAuthUser(user));
+    return unsub || undefined;
+  }, []);
 
   return (
     <div className={`app ${isMobile ? 'mobile' : ''}`}>
@@ -305,6 +320,8 @@ export function App() {
           <Topbar
             isMobile={isMobile}
             onMenuToggle={() => setSidebarOpen((prev) => !prev)}
+            authUser={authUser}
+            onSignInClick={() => setShowAuthModal(true)}
           />
           {viewMode === 'treemap' && (
             isMobile ? <MobileTaskList /> : <Treemap />
@@ -324,6 +341,11 @@ export function App() {
         <ConflictResolutionModal />
         <OnboardingTour />
         <WelcomeModal />
+        <AuthModal
+          open={showAuthModal}
+          onClose={() => setShowAuthModal(false)}
+          onAuthSuccess={(user) => setAuthUser(user)}
+        />
       </div>
     </div>
   );
