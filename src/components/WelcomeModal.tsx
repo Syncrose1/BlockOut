@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { clearTutorialData } from '../utils/tutorial';
+import { useIsMobile } from '../hooks/useIsMobile';
 
 const WELCOME_MODAL_KEY = 'blockout-welcome-shown';
 const ONBOARDING_KEY = 'blockout-onboarding';
@@ -54,12 +55,18 @@ export function useWelcomeModal() {
 
 export function WelcomeModal() {
   const { isOpen, closeModal } = useWelcomeModal();
+  const isMobile = useIsMobile();
 
   if (!isOpen) return null;
+
+  const modalAnimation = isMobile
+    ? { initial: { y: '100%', opacity: 0 }, animate: { y: 0, opacity: 1 }, exit: { y: '100%', opacity: 0 } }
+    : { initial: { scale: 0.9, opacity: 0 }, animate: { scale: 1, opacity: 1 }, exit: { scale: 0.9, opacity: 0 } };
 
   return (
     <AnimatePresence>
       <motion.div
+        className="welcome-modal-overlay"
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         exit={{ opacity: 0 }}
@@ -68,32 +75,33 @@ export function WelcomeModal() {
           inset: 0,
           zIndex: 9999,
           display: 'flex',
-          alignItems: 'center',
+          alignItems: isMobile ? 'flex-end' : 'center',
           justifyContent: 'center',
           background: 'rgba(0, 0, 0, 0.8)',
           backdropFilter: 'blur(4px)',
         }}
       >
         <motion.div
-          initial={{ scale: 0.9, opacity: 0 }}
-          animate={{ scale: 1, opacity: 1 }}
-          exit={{ scale: 0.9, opacity: 0 }}
+          className="welcome-modal-inner"
+          {...modalAnimation}
           transition={{ type: 'spring', damping: 25, stiffness: 300 }}
           style={{
-            width: 1200,
-            maxWidth: '95vw',
-            height: 520,
+            width: isMobile ? '100vw' : 1200,
+            maxWidth: isMobile ? '100vw' : '95vw',
+            height: isMobile ? 'auto' : 520,
             maxHeight: '90vh',
             background: 'var(--bg-secondary)',
-            borderRadius: 'var(--radius-lg)',
+            borderRadius: isMobile ? 'var(--radius-xl) var(--radius-xl) 0 0' : 'var(--radius-lg)',
             border: '1px solid var(--border)',
             overflow: 'hidden',
             display: 'flex',
+            flexDirection: isMobile ? 'column' : 'row',
             boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.5)',
           }}
         >
-          {/* Left side - Screenshot */}
+          {/* Left side - Screenshot (hidden on mobile) */}
           <div
+            className="welcome-modal-screenshot"
             style={{
               width: '50%',
               background: 'var(--bg-tertiary)',
@@ -129,14 +137,17 @@ export function WelcomeModal() {
             </div>
           </div>
 
-          {/* Right side - Welcome content */}
+          {/* Content side */}
           <div
+            className="welcome-modal-content"
             style={{
-              width: '50%',
-              padding: '32px 36px',
+              width: isMobile ? '100%' : '50%',
+              padding: isMobile ? '24px 20px' : '32px 36px',
+              paddingBottom: isMobile ? 'calc(24px + env(safe-area-inset-bottom, 0px))' : '32px',
               display: 'flex',
               flexDirection: 'column',
               justifyContent: 'space-between',
+              overflowY: 'auto',
             }}
           >
             <div>

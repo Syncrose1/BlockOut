@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { useIsMobile } from '../hooks/useIsMobile';
 
 interface TourStep {
   id: string;
@@ -138,11 +139,14 @@ export function useOnboarding() {
 
 export function OnboardingTour() {
   const tour = useOnboarding();
+  const isMobile = useIsMobile();
 
   if (!tour.isOpen) return null;
 
   const step = tour.step;
-  const position = step.getPosition();
+  const position = isMobile
+    ? { top: '50%', left: '50%' }
+    : step.getPosition();
 
   return (
     <AnimatePresence>
@@ -170,6 +174,7 @@ export function OnboardingTour() {
 
         {/* Tooltip */}
         <motion.div
+          className="onboarding-tooltip"
           initial={{ scale: 0.9, opacity: 0 }}
           animate={{ scale: 1, opacity: 1 }}
           exit={{ scale: 0.9, opacity: 0 }}

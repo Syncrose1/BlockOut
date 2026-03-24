@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { signIn, signUp, resetPassword, isSupabaseConfigured } from '../utils/supabase';
+import { useIsMobile } from '../hooks/useIsMobile';
 import type { User } from '@supabase/supabase-js';
 
 interface AuthModalProps {
@@ -10,6 +11,7 @@ interface AuthModalProps {
 }
 
 export function AuthModal({ open, onClose, onAuthSuccess }: AuthModalProps) {
+  const isMobile = useIsMobile();
   const [mode, setMode] = useState<'signin' | 'signup' | 'reset'>('signin');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -74,6 +76,10 @@ export function AuthModal({ open, onClose, onAuthSuccess }: AuthModalProps) {
     setMessage(null);
   };
 
+  const modalAnimation = isMobile
+    ? { initial: { y: '100%', opacity: 0 }, animate: { y: 0, opacity: 1 }, exit: { y: '100%', opacity: 0 } }
+    : { initial: { scale: 0.92, opacity: 0, y: 20 }, animate: { scale: 1, opacity: 1, y: 0 }, exit: { scale: 0.92, opacity: 0, y: 20 } };
+
   return (
     <AnimatePresence>
       <motion.div
@@ -85,9 +91,7 @@ export function AuthModal({ open, onClose, onAuthSuccess }: AuthModalProps) {
       >
         <motion.div
           className="modal"
-          initial={{ scale: 0.92, opacity: 0, y: 20 }}
-          animate={{ scale: 1, opacity: 1, y: 0 }}
-          exit={{ scale: 0.92, opacity: 0, y: 20 }}
+          {...modalAnimation}
           transition={{ type: 'spring', damping: 28, stiffness: 380 }}
           onClick={(e) => e.stopPropagation()}
         >
@@ -140,7 +144,7 @@ export function AuthModal({ open, onClose, onAuthSuccess }: AuthModalProps) {
                 onChange={(e) => setEmail(e.target.value)}
                 placeholder="you@example.com"
                 required
-                autoFocus
+                autoFocus={!isMobile}
                 autoComplete="email"
               />
             </div>
@@ -191,19 +195,21 @@ export function AuthModal({ open, onClose, onAuthSuccess }: AuthModalProps) {
           </form>
 
           {/* Mode switcher links */}
-          <div style={{ marginTop: 16, textAlign: 'center', fontSize: 12, color: 'var(--text-tertiary)' }}>
+          <div style={{ marginTop: 16, textAlign: 'center', color: 'var(--text-tertiary)', display: 'flex', flexWrap: 'wrap', justifyContent: 'center', gap: 4 }}>
             {mode === 'signin' && (
               <>
                 <button
+                  className="modal-mode-btn"
                   onClick={() => switchMode('signup')}
-                  style={{ color: 'var(--accent)', background: 'none', border: 'none', cursor: 'pointer', fontSize: 12 }}
+                  style={{ color: 'var(--accent)', background: 'none', border: 'none', cursor: 'pointer', fontSize: 13, padding: '10px 6px' }}
                 >
                   Create an account
                 </button>
-                <span style={{ margin: '0 8px' }}>|</span>
+                <span style={{ alignSelf: 'center' }}>|</span>
                 <button
+                  className="modal-mode-btn"
                   onClick={() => switchMode('reset')}
-                  style={{ color: 'var(--accent)', background: 'none', border: 'none', cursor: 'pointer', fontSize: 12 }}
+                  style={{ color: 'var(--accent)', background: 'none', border: 'none', cursor: 'pointer', fontSize: 13, padding: '10px 6px' }}
                 >
                   Forgot password?
                 </button>
@@ -211,16 +217,18 @@ export function AuthModal({ open, onClose, onAuthSuccess }: AuthModalProps) {
             )}
             {mode === 'signup' && (
               <button
+                className="modal-mode-btn"
                 onClick={() => switchMode('signin')}
-                style={{ color: 'var(--accent)', background: 'none', border: 'none', cursor: 'pointer', fontSize: 12 }}
+                style={{ color: 'var(--accent)', background: 'none', border: 'none', cursor: 'pointer', fontSize: 13, padding: '10px 6px' }}
               >
                 Already have an account? Sign in
               </button>
             )}
             {mode === 'reset' && (
               <button
+                className="modal-mode-btn"
                 onClick={() => switchMode('signin')}
-                style={{ color: 'var(--accent)', background: 'none', border: 'none', cursor: 'pointer', fontSize: 12 }}
+                style={{ color: 'var(--accent)', background: 'none', border: 'none', cursor: 'pointer', fontSize: 13, padding: '10px 6px' }}
               >
                 Back to sign in
               </button>
@@ -228,11 +236,12 @@ export function AuthModal({ open, onClose, onAuthSuccess }: AuthModalProps) {
           </div>
 
           <button
+            className="modal-close-btn"
             onClick={onClose}
             style={{
-              position: 'absolute', top: 14, right: 14,
+              position: 'absolute', top: 8, right: 8,
               background: 'none', border: 'none', color: 'var(--text-tertiary)',
-              fontSize: 18, cursor: 'pointer', lineHeight: 1, padding: 4,
+              fontSize: 20, cursor: 'pointer', lineHeight: 1,
             }}
           >
             &times;
