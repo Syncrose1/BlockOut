@@ -24,7 +24,12 @@ function formatCountdown(endDate: number): string {
   return `${hours}h remaining`;
 }
 
-export function Topbar() {
+interface TopbarProps {
+  isMobile?: boolean;
+  onMenuToggle?: () => void;
+}
+
+export function Topbar({ isMobile, onMenuToggle }: TopbarProps) {
   const activeBlockId = useStore((s) => s.activeBlockId);
   const timeBlocks = useStore((s) => s.timeBlocks);
   const showTimelessPool = useStore((s) => s.showTimelessPool);
@@ -120,6 +125,144 @@ export function Topbar() {
     error: 'Sync error — click to configure',
   };
 
+  // Mobile topbar: hamburger + title + add task
+  if (isMobile) {
+    return (
+      <>
+        <div className="topbar topbar-mobile">
+          {/* Hamburger menu */}
+          <button
+            className="mobile-hamburger"
+            onClick={onMenuToggle}
+            title="Open menu"
+          >
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+              <line x1="3" y1="6" x2="21" y2="6" />
+              <line x1="3" y1="12" x2="21" y2="12" />
+              <line x1="3" y1="18" x2="21" y2="18" />
+            </svg>
+          </button>
+
+          <div className="topbar-title" style={{ flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+            {showTimelessPool
+              ? poolViewMode === 'unassigned'
+                ? 'Unassigned'
+                : 'All Tasks'
+              : block?.name || 'BlockOut'}
+          </div>
+
+          {/* Progress on mobile */}
+          {total > 0 && (
+            <span className="progress-text" style={{ fontSize: 12 }}>{completed}/{total}</span>
+          )}
+
+          {/* Sync dot */}
+          <button
+            title={syncTitle[syncStatus]}
+            onClick={() => setSyncSettingsOpen(true)}
+            style={{
+              background: 'none', border: 'none', cursor: 'pointer',
+              display: 'flex', alignItems: 'center', padding: 4,
+            }}
+          >
+            <span style={{
+              width: 7, height: 7, borderRadius: '50%',
+              background: syncDotColor[syncStatus],
+              display: 'inline-block',
+            }} />
+          </button>
+
+          <button
+            className="btn btn-primary btn-sm"
+            onClick={() => setShowNewTaskModal(true)}
+            style={{ padding: '5px 10px', fontSize: 12 }}
+          >
+            + Task
+          </button>
+        </div>
+
+        {/* Mobile secondary bar: view switcher + actions */}
+        <div className="topbar-mobile-secondary">
+          <div className="view-switcher" style={{ flex: 1 }}>
+            {views.filter(v => v.id !== 'taskchain').map((v) => (
+              <button
+                key={v.id}
+                className={viewMode === v.id ? 'active' : ''}
+                onClick={() => setViewMode(v.id)}
+                style={{ fontSize: 11, padding: '4px 10px' }}
+              >
+                {v.id === 'treemap' ? 'Tasks' : v.label}
+              </button>
+            ))}
+          </div>
+
+          {/* Export dropdown */}
+          <div ref={dropdownRef} style={{ position: 'relative' }}>
+            <button
+              className="btn btn-ghost btn-sm"
+              onClick={() => setExportDropdownOpen(!exportDropdownOpen)}
+              style={{ fontSize: 11, padding: '4px 8px' }}
+            >
+              ...
+            </button>
+
+            {exportDropdownOpen && (
+              <div style={{
+                position: 'absolute', top: '100%', right: 0, marginTop: 4,
+                background: 'var(--bg-secondary)', border: '1px solid var(--border)',
+                borderRadius: 'var(--radius-sm)', boxShadow: 'var(--shadow-lg)',
+                zIndex: 100, minWidth: 160,
+              }}>
+                <button onClick={() => { setShowExportImport(true); setExportDropdownOpen(false); }}
+                  style={{ display: 'block', width: '100%', padding: '10px 12px', background: 'none', border: 'none', color: 'var(--text-primary)', fontSize: 13, textAlign: 'left', cursor: 'pointer', borderBottom: '1px solid var(--border)' }}>
+                  Export/Import Data
+                </button>
+                <button onClick={() => { exportToFile('full'); setExportDropdownOpen(false); }}
+                  style={{ display: 'block', width: '100%', padding: '10px 12px', background: 'none', border: 'none', color: 'var(--text-primary)', fontSize: 13, textAlign: 'left', cursor: 'pointer', borderBottom: '1px solid var(--border)' }}>
+                  Export JSON
+                </button>
+                <button onClick={() => { setShowAITaskGenerator(true); setExportDropdownOpen(false); }}
+                  style={{ display: 'block', width: '100%', padding: '10px 12px', background: 'none', border: 'none', color: 'var(--text-primary)', fontSize: 13, textAlign: 'left', cursor: 'pointer' }}>
+                  Smart Create
+                </button>
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Focus mode indicator on mobile */}
+        {focusMode && focusedCategory && (
+          <div style={{
+            display: 'flex', alignItems: 'center', gap: 6,
+            padding: '6px 12px',
+            background: focusedCategory.color.replace('62%)', '15%)'),
+            borderBottom: `1px solid ${focusedCategory.color.replace('62%)', '30%)')}`,
+            fontSize: 12, fontWeight: 600, color: focusedCategory.color,
+          }}>
+            <span style={{
+              width: 8, height: 8, borderRadius: '50%',
+              background: focusedCategory.color,
+              boxShadow: `0 0 8px ${focusedCategory.color}`,
+              animation: 'focus-pulse 2s ease-in-out infinite',
+            }} />
+            Focusing: {focusedCategory.name}
+            <button onClick={exitFocusMode}
+              style={{ marginLeft: 'auto', fontSize: 14, color: 'var(--text-secondary)', cursor: 'pointer', background: 'none', border: 'none' }}
+              title="Exit focus mode"
+            >&times;</button>
+          </div>
+        )}
+
+        {showAssign && block && (
+          <AssignTasksModal blockId={block.id} onClose={() => setShowAssign(false)} />
+        )}
+        <ExportImportModal open={showExportImport} onClose={() => setShowExportImport(false)} />
+        <AITaskGeneratorModal open={showAITaskGenerator} onClose={() => setShowAITaskGenerator(false)} />
+      </>
+    );
+  }
+
+  // Desktop topbar (unchanged)
   return (
     <>
       <div className="topbar">
@@ -207,7 +350,7 @@ export function Topbar() {
           >
             Export
           </button>
-          
+
           {exportDropdownOpen && (
             <div
               style={{
@@ -243,7 +386,7 @@ export function Topbar() {
               >
                 📤 Export/Import Data
               </button>
-              
+
               <button
                 onClick={() => {
                   exportToFile('full');

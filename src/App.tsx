@@ -1,11 +1,13 @@
-import { useEffect, useState, useRef } from 'react';
+import { useEffect, useState, useRef, useCallback } from 'react';
 import { useStore } from './store';
 import { loadData, debouncedSave, startPeriodicCloudSync } from './utils/persistence';
 import { handleDropboxCallback } from './utils/dropbox';
 import { loadTutorialData, hasShownTutorial } from './utils/tutorial';
+import { useIsMobile } from './hooks/useIsMobile';
 import { Sidebar } from './components/Sidebar';
 import { Topbar } from './components/Topbar';
 import { Treemap } from './components/Treemap';
+import { MobileTaskList } from './components/MobileTaskList';
 
 import { Timeline } from './components/Timeline';
 import { TaskChain } from './components/TaskChain';
@@ -31,23 +33,27 @@ export function App() {
   const [isLoading, setIsLoading] = useState(true);
   const [isFadingOut, setIsFadingOut] = useState(false);
   const oauthProcessed = useRef(false);
+  const isMobile = useIsMobile();
+  const [sidebarOpen, setSidebarOpen] = useState(false);
+
+  const closeSidebar = useCallback(() => setSidebarOpen(false), []);
 
   // Handle Dropbox OAuth callback on mount
   useEffect(() => {
     const handleCallback = async () => {
       // Prevent double-processing in React StrictMode
       if (oauthProcessed.current) return;
-      
+
       const url = new URL(window.location.href);
       const code = url.searchParams.get('code');
       const isCallbackRoute = window.location.pathname === '/' || window.location.pathname === '/dropbox-callback';
-      
+
       if (isCallbackRoute && code) {
         oauthProcessed.current = true;
-        
+
         // Clear the code from URL immediately to prevent reuse
         window.history.replaceState({}, '', '/');
-        
+
         const result = await handleDropboxCallback(code);
         if (result.success) {
           setOauthError(null);
@@ -58,7 +64,7 @@ export function App() {
         }
       }
     };
-    
+
     handleCallback();
   }, []);
 
@@ -66,12 +72,12 @@ export function App() {
   useEffect(() => {
     const initializeApp = async () => {
       await loadData();
-      
+
       // Load tutorial data if first time user
       if (!hasShownTutorial()) {
         loadTutorialData();
       }
-      
+
       // After data loads, check if no view is selected
       // If nothing cached, default to "All Tasks" view
       const state = useStore.getState();
@@ -79,14 +85,14 @@ export function App() {
         console.log('[BlockOut] No cached view found, defaulting to All Tasks');
         useStore.getState().setShowTimelessPool(true);
       }
-      
+
       // Small delay to ensure UI is ready before showing content
       setTimeout(() => {
         setIsFadingOut(true);
         setTimeout(() => setIsLoading(false), 600); // Wait for fade animation to complete
       }, 100);
     };
-    
+
     initializeApp();
   }, []);
 
@@ -103,8 +109,15 @@ export function App() {
     return startPeriodicCloudSync();
   }, []);
 
+  // Close sidebar when navigating on mobile
+  useEffect(() => {
+    if (isMobile) {
+      setSidebarOpen(false);
+    }
+  }, [viewMode, isMobile]);
+
   return (
-    <div className="app">
+    <div className={`app ${isMobile ? 'mobile' : ''}`}>
       {/* Loading overlay */}
       {isLoading && (
         <div style={{
@@ -169,7 +182,7 @@ export function App() {
               animation: 'pulse-center 1.5s ease-in-out infinite',
             }} />
           </div>
-          
+
           {/* Loading text with typing effect */}
           <div style={{
             display: 'flex',
@@ -200,7 +213,7 @@ export function App() {
               }}>...</span>
             </div>
           </div>
-          
+
           {/* Progress bar */}
           <div style={{
             width: 200,
@@ -221,7 +234,7 @@ export function App() {
               animation: 'progress 2s ease-in-out infinite',
             }} />
           </div>
-          
+
           <style>{`
             @keyframes pulse-ring {
               0% { transform: scale(0.8); opacity: 0.8; }
@@ -260,7 +273,7 @@ export function App() {
           boxShadow: '0 4px 12px rgba(0,0,0,0.3)',
         }}>
           {oauthError}
-          <button 
+          <button
             onClick={() => setOauthError(null)}
             style={{ marginLeft: 12, background: 'none', border: 'none', color: 'white', cursor: 'pointer' }}
           >
@@ -273,16 +286,34 @@ export function App() {
         transition: 'opacity 0.6s ease-in',
         display: 'contents',
       }}>
-        <Sidebar />
-        <div className="main">
-          <Topbar />
-          {viewMode === 'treemap' && <Treemap />}
+        {/* Mobile: slide-out drawer sidebar */}
+        {isMobile ? (
+          <>
+            {/* Backdrop */}
+            {sidebarOpen && (
+              <div className="mobile-sidebar-backdrop" onClick={closeSidebar} />
+            )}
+            <div className={`mobile-sidebar-drawer ${sidebarOpen ? 'open' : ''}`}>
+              <Sidebar />
+            </div>
+          </>
+        ) : (
+          <Sidebar />
+        )}
 
+        <div className="main">
+          <Topbar
+            isMobile={isMobile}
+            onMenuToggle={() => setSidebarOpen((prev) => !prev)}
+          />
+          {viewMode === 'treemap' && (
+            isMobile ? <MobileTaskList /> : <Treemap />
+          )}
           {viewMode === 'timeline' && <Timeline />}
           {viewMode === 'taskchain' && <TaskChain />}
           {viewMode === 'overview' && <Overview />}
         </div>
-        <Pomodoro />
+        {!isMobile && <Pomodoro />}
         <NewBlockModal />
         <NewCategoryModal />
         <NewTaskModal />
