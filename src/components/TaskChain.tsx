@@ -40,8 +40,19 @@ export function TaskChain() {
   const updateChainTaskNotes = useStore((s) => s.updateChainTaskNotes);
   const addSubtaskToChain = useStore((s) => s.addSubtaskToChain);
   const toggleSubtaskExpansion = useStore((s) => s.toggleSubtaskExpansion);
+  const addTaskGroup = useStore((s) => s.addTaskGroup);
+  const removeTaskGroup = useStore((s) => s.removeTaskGroup);
+  const renameTaskGroup = useStore((s) => s.renameTaskGroup);
+  const setTaskGroupColor = useStore((s) => s.setTaskGroupColor);
+  const toggleTaskGroupCollapsed = useStore((s) => s.toggleTaskGroupCollapsed);
+  const migrateChainToGroups = useStore((s) => s.migrateChainToGroups);
 
   const isMobile = useIsMobile();
+
+  const GROUP_COLORS = [
+    '#3b82f6', '#8b5cf6', '#ec4899', '#f97316', '#22c55e',
+    '#eab308', '#06b6d4', '#ef4444', '#6b7280', '#14b8a6',
+  ];
 
   const [showTemplates, setShowTemplates] = useState(false);
   const [newTaskTitle, setNewTaskTitle] = useState('');
@@ -63,6 +74,13 @@ export function TaskChain() {
   const [editingCTLinkIndex, setEditingCTLinkIndex] = useState<number | null>(null);
   const [showCTContextMenu, setShowCTContextMenu] = useState(false);
   
+  // Group state
+  const [insertingInGroupId, setInsertingInGroupId] = useState<string | null>(null);
+  const [editingGroupId, setEditingGroupId] = useState<string | null>(null);
+  const [editingGroupName, setEditingGroupName] = useState('');
+  const [newGroupName, setNewGroupName] = useState('');
+  const [showAddGroup, setShowAddGroup] = useState(false);
+
   // Subtask state
   const [addingSubtaskForLinkId, setAddingSubtaskForLinkId] = useState<string | null>(null);
   const [subtaskTitle, setSubtaskTitle] = useState('');
@@ -150,32 +168,38 @@ export function TaskChain() {
   // Handle adding CT
   const handleAddCT = () => {
     if (!newTaskTitle.trim()) return;
-    if (insertAfterIndex !== null) {
+    if (insertingInGroupId) {
+      addChainTask(selectedChainDate, newTaskTitle, insertAfterIndex !== null ? insertAfterIndex : undefined, insertingInGroupId);
+    } else if (insertAfterIndex !== null) {
       addChainTask(selectedChainDate, newTaskTitle, insertAfterIndex);
     } else {
       addChainTask(selectedChainDate, newTaskTitle);
     }
     setNewTaskTitle('');
     setInsertAfterIndex(null);
+    setInsertingInGroupId(null);
     debouncedSave();
   };
 
   // Handle adding Main Task
   const handleAddMainTask = () => {
     if (!selectedMainTaskId) return;
-    
+
     // If we're replacing a placeholder, use the replace function
     if (replacingPlaceholderIndex !== null) {
       replacePlaceholderWithTask(selectedChainDate, replacingPlaceholderIndex, selectedMainTaskId);
       setReplacingPlaceholderIndex(null);
+    } else if (insertingInGroupId) {
+      addRealTaskToChain(selectedChainDate, selectedMainTaskId, insertAfterIndex !== null ? insertAfterIndex : undefined, insertingInGroupId);
     } else if (insertAfterIndex !== null) {
       addRealTaskToChain(selectedChainDate, selectedMainTaskId, insertAfterIndex);
     } else {
       addRealTaskToChain(selectedChainDate, selectedMainTaskId);
     }
-    
+
     setSelectedMainTaskId('');
     setInsertAfterIndex(null);
+    setInsertingInGroupId(null);
     debouncedSave();
   };
 
@@ -343,14 +367,21 @@ export function TaskChain() {
   // Calculate chain stats for progress bar
   const chainStats = useMemo(() => {
     if (!currentChain) return { total: 0, completed: 0, active: 0, pending: 0 };
-    
-    const total = currentChain.links.filter(l => l.type !== 'subtask').length;
+
+    let allLinks: typeof currentChain.links;
+    if (currentChain.groups) {
+      allLinks = currentChain.groups.flatMap(g => g.links);
+    } else {
+      allLinks = currentChain.links;
+    }
+
+    const total = allLinks.filter(l => l.type !== 'subtask').length;
     let completed = 0;
     let active = 0;
-    
-    currentChain.links.forEach((link, index) => {
+
+    allLinks.forEach((link, index) => {
       if (link.type === 'subtask') return;
-      
+
       const task = link.type === 'ct' ? chainTasks[link.taskId] : tasks[link.taskId];
       if (task?.completed) {
         completed++;
@@ -358,7 +389,7 @@ export function TaskChain() {
         active++;
       }
     });
-    
+
     return {
       total,
       completed,
@@ -367,15 +398,14 @@ export function TaskChain() {
     };
   }, [currentChain, tasks, chainTasks]);
 
-  // Get subtasks for a parent link
-  const getSubtasksForParent = (parentId: string) => {
-    if (!currentChain) return [];
-    const parentIndex = currentChain.links.findIndex(l => l.id === parentId);
-    if (parentIndex === -1) return [];
-    
-    const subtasks = [];
-    for (let i = parentIndex + 1; i < currentChain.links.length; i++) {
-      const link = currentChain.links[i];
+  // Get subtasks for a parent link within a specific links array
+  const getSubtasksForParentInLinks = (links: import('../types').ChainLink[], parentId: string) => {
+    const parentIndex = links.findIndex(l => l.id === parentId);
+    if (parentIndex === -1) return [] as Array<{ link: import('../types').ChainLink; index: number }>;
+
+    const subtasks: Array<{ link: import('../types').ChainLink; index: number }> = [];
+    for (let i = parentIndex + 1; i < links.length; i++) {
+      const link = links[i];
       if (link.type === 'subtask' && link.parentId === parentId) {
         subtasks.push({ link, index: i });
       } else if (!link.parentId) {
@@ -385,28 +415,24 @@ export function TaskChain() {
     return subtasks;
   };
 
-  // Build chain items for V0-style rendering (only parent tasks, with their subtasks)
-  const chainItems = useMemo(() => {
-    if (!currentChain) return [];
-    
-    const items: Array<{ link: typeof currentChain.links[0]; index: number; nodeNumber: number; subtasks: ReturnType<typeof getSubtasksForParent> }> = [];
-    let nodeNumber = 1;
-    
-    currentChain.links.forEach((link, index) => {
-      // Skip subtasks - they'll be included inside their parents
+  // Build chain items from a links array (used for both legacy and per-group rendering)
+  const buildChainItemsFromLinks = (links: import('../types').ChainLink[], startNodeNumber = 1) => {
+    const items: Array<{ link: import('../types').ChainLink; index: number; nodeNumber: number; subtasks: Array<{ link: import('../types').ChainLink; index: number }> }> = [];
+    let nodeNumber = startNodeNumber;
+
+    links.forEach((link, index) => {
       if (link.type === 'subtask') return;
-      
-      const subtasks = getSubtasksForParent(link.id);
-      
-      items.push({
-        link,
-        index,
-        nodeNumber: nodeNumber++,
-        subtasks,
-      });
+      const subtasks = getSubtasksForParentInLinks(links, link.id);
+      items.push({ link, index, nodeNumber: nodeNumber++, subtasks });
     });
-    
+
     return items;
+  };
+
+  // Build chain items for legacy flat mode
+  const chainItems = useMemo(() => {
+    if (!currentChain || currentChain.groups) return [];
+    return buildChainItemsFromLinks(currentChain.links);
   }, [currentChain]);
 
   const calendarContent = (
@@ -651,7 +677,7 @@ export function TaskChain() {
         </div>
         
         {currentChain && currentChain.links.length > 0 && (
-          <button 
+          <button
             className="btn btn-ghost btn-sm"
             onClick={() => setShowSaveTemplate(true)}
             style={{ display: 'flex', alignItems: 'center', gap: 6 }}
@@ -664,10 +690,59 @@ export function TaskChain() {
             Save as Template
           </button>
         )}
+
+        <button
+          className="btn btn-ghost btn-sm"
+          onClick={() => setShowAddGroup(true)}
+          style={{ display: 'flex', alignItems: 'center', gap: 6 }}
+        >
+          + Add Group
+        </button>
       </div>
 
+      {/* Add Group Form */}
+      <AnimatePresence>
+        {showAddGroup && (
+          <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} exit={{ opacity: 0, height: 0 }}
+            style={{ background: 'var(--bg-secondary)', padding: 12, borderRadius: 'var(--radius-lg)', border: '1px solid var(--border)', marginBottom: 12, flexShrink: 0 }}
+          >
+            <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 8 }}>New Group</div>
+            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
+              <input
+                type="text"
+                value={newGroupName}
+                onChange={e => setNewGroupName(e.target.value)}
+                placeholder="Group name (e.g. Medicine)"
+                autoFocus={!isMobile}
+                style={{ flex: '1 1 140px', padding: '8px 10px', background: 'var(--bg-tertiary)', border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)', color: 'var(--text-primary)', fontSize: 13 }}
+                onKeyDown={e => {
+                  if (e.key === 'Enter' && newGroupName.trim()) {
+                    if (currentChain && !currentChain.groups) migrateChainToGroups(selectedChainDate);
+                    addTaskGroup(selectedChainDate, newGroupName.trim());
+                    setNewGroupName('');
+                    setShowAddGroup(false);
+                    debouncedSave();
+                  }
+                }}
+              />
+              <button className="btn btn-primary btn-sm"
+                disabled={!newGroupName.trim()}
+                onClick={() => {
+                  if (currentChain && !currentChain.groups) migrateChainToGroups(selectedChainDate);
+                  addTaskGroup(selectedChainDate, newGroupName.trim());
+                  setNewGroupName('');
+                  setShowAddGroup(false);
+                  debouncedSave();
+                }}
+              >Create</button>
+              <button className="btn btn-ghost btn-sm" onClick={() => { setShowAddGroup(false); setNewGroupName(''); }}>Cancel</button>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
       {/* Workflow Chain Summary */}
-      {currentChain && currentChain.links.length > 0 && (
+      {currentChain && (currentChain.links.length > 0 || (currentChain.groups && currentChain.groups.some(g => g.links.length > 0))) && (
         <div style={{
           background: 'var(--bg-secondary)',
           borderRadius: 'var(--radius-lg)',
@@ -734,8 +809,8 @@ export function TaskChain() {
         overflow: 'auto',
         padding: isMobile ? '0 0 20px 0' : '0 20px 20px 0',
       }}>
-        {/* Add First Task Button (when empty) */}
-        {(!currentChain || currentChain.links.length === 0) && !insertAfterIndex && (
+        {/* Add First Task Button (when empty - only in flat/legacy mode) */}
+        {(!currentChain || (!currentChain.groups && currentChain.links.length === 0)) && !insertAfterIndex && (
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
@@ -1164,6 +1239,304 @@ export function TaskChain() {
           );
         })}
         
+        {/* Grouped Mode Rendering */}
+        {currentChain?.groups && currentChain.groups.map((group) => {
+          const groupItems = buildChainItemsFromLinks(group.links);
+          const isGroupInserting = insertingInGroupId === group.id;
+
+          return (
+            <div key={group.id} style={{ marginBottom: 20 }}>
+              {/* Group Header */}
+              <div
+                style={{
+                  display: 'flex', alignItems: 'center', gap: 8,
+                  padding: '10px 12px',
+                  background: 'var(--bg-secondary)',
+                  borderRadius: 'var(--radius-lg)',
+                  border: `2px solid ${group.color || 'var(--border)'}`,
+                  marginBottom: 8, cursor: 'pointer',
+                  userSelect: 'none',
+                }}
+                onClick={() => toggleTaskGroupCollapsed(selectedChainDate, group.id)}
+              >
+                <div style={{ width: 12, height: 12, borderRadius: '50%', background: group.color || 'var(--border)', flexShrink: 0 }} />
+                {editingGroupId === group.id ? (
+                  <input
+                    autoFocus
+                    value={editingGroupName}
+                    onChange={e => setEditingGroupName(e.target.value)}
+                    onBlur={() => { renameTaskGroup(selectedChainDate, group.id, editingGroupName); setEditingGroupId(null); debouncedSave(); }}
+                    onKeyDown={e => { if (e.key === 'Enter') { renameTaskGroup(selectedChainDate, group.id, editingGroupName); setEditingGroupId(null); debouncedSave(); } }}
+                    style={{ flex: 1, background: 'transparent', border: 'none', color: 'var(--text-primary)', fontSize: 14, fontWeight: 600, outline: 'none' }}
+                    onClick={e => e.stopPropagation()}
+                  />
+                ) : (
+                  <span style={{ flex: 1, fontWeight: 600, fontSize: 14 }}>{group.name || 'Unnamed Group'}</span>
+                )}
+                {/* Color palette */}
+                <div style={{ display: 'flex', gap: 4 }} onClick={e => e.stopPropagation()}>
+                  {GROUP_COLORS.map(c => (
+                    <div
+                      key={c}
+                      onClick={() => { setTaskGroupColor(selectedChainDate, group.id, c); debouncedSave(); }}
+                      style={{
+                        width: 12, height: 12, borderRadius: '50%', background: c, cursor: 'pointer',
+                        outline: group.color === c ? '2px solid white' : 'none',
+                        outlineOffset: 1,
+                      }}
+                    />
+                  ))}
+                </div>
+                {/* Edit button */}
+                <button
+                  className="btn btn-ghost btn-xs"
+                  onClick={e => { e.stopPropagation(); setEditingGroupId(group.id); setEditingGroupName(group.name); }}
+                  style={{ color: 'var(--text-secondary)', padding: '2px 5px' }}
+                  title="Rename group"
+                >
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>
+                  </svg>
+                </button>
+                {/* Delete button */}
+                <button
+                  className="btn btn-ghost btn-xs"
+                  onClick={e => { e.stopPropagation(); removeTaskGroup(selectedChainDate, group.id); debouncedSave(); }}
+                  style={{ color: 'var(--text-tertiary)', padding: '2px 5px' }}
+                  title="Delete group"
+                >
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                    <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+                  </svg>
+                </button>
+                {/* Collapse indicator */}
+                <span style={{ color: 'var(--text-secondary)', fontSize: 12, marginLeft: 4 }}>
+                  {group.collapsed ? '▶' : '▼'}
+                </span>
+              </div>
+
+              {/* Group Body */}
+              {!group.collapsed && (
+                <div style={{ paddingLeft: 16 }}>
+                  {groupItems.map(({ link, index, nodeNumber, subtasks }) => {
+                    const isCT = link.type === 'ct';
+                    const ct = isCT ? chainTasks[link.taskId] : null;
+                    const mainTask = link.type === 'realtask' && link.taskId ? tasks[link.taskId] : null;
+                    const isPlaceholder = link.type === 'realtask' && !link.taskId;
+                    const task = ct || mainTask;
+                    const isCompleted = task?.completed || false;
+                    const isSelected = !!(mainTask && selectedTaskIds.includes(mainTask.id));
+                    const isLastItem = nodeNumber === groupItems.length;
+
+                    let accentColor = 'var(--accent)';
+                    if (isSelected) accentColor = 'hsl(210, 100%, 65%)';
+                    else if (isCompleted) accentColor = 'hsl(140, 60%, 40%)';
+                    else if (isCT) accentColor = 'hsl(200, 70%, 50%)';
+                    else if (mainTask) accentColor = 'hsl(270, 60%, 50%)';
+                    else if (isPlaceholder) accentColor = 'var(--text-tertiary)';
+
+                    let cardBg = 'var(--bg-secondary)';
+                    let cardBorder = 'var(--border)';
+                    if (isSelected) { cardBg = 'hsla(210, 100%, 65%, 0.08)'; cardBorder = 'hsl(210, 100%, 65%)'; }
+                    else if (isCompleted) { cardBg = 'hsla(140, 60%, 40%, 0.06)'; cardBorder = 'hsla(140, 60%, 40%, 0.3)'; }
+
+                    return (
+                      <div key={link.id} style={{ display: 'flex', alignItems: 'flex-start' }}>
+                        {/* Left connector column */}
+                        <div style={{ width: 56, display: 'flex', flexDirection: 'column', alignItems: 'center', flexShrink: 0 }}>
+                          {nodeNumber > 1 && (
+                            <div style={{ height: 16, width: 2, borderRadius: '9999px', backgroundColor: isCompleted ? accentColor : 'var(--border)', opacity: isCompleted ? 0.6 : 1 }} />
+                          )}
+                          {nodeNumber === 1 && <div style={{ height: 16 }} />}
+                          <div style={{
+                            width: 36, height: 36, borderRadius: '50%',
+                            background: isCompleted ? 'hsl(140, 60%, 40%)' : 'transparent',
+                            border: isCompleted ? '2px solid hsl(140, 60%, 40%)' : '2px solid #475569',
+                            display: 'flex', alignItems: 'center', justifyContent: 'center',
+                            color: isCompleted ? 'white' : 'var(--text-secondary)',
+                            fontWeight: 700, fontSize: 13, flexShrink: 0,
+                          }}>
+                            {isCompleted ? (
+                              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+                                <polyline points="20 6 9 17 4 12"/>
+                              </svg>
+                            ) : nodeNumber}
+                          </div>
+                          {!isLastItem && (
+                            <div style={{ flex: 1, width: 2, minHeight: 16, borderRadius: '9999px', backgroundColor: '#334155' }} />
+                          )}
+                          {isLastItem && <div style={{ height: 20 }} />}
+                        </div>
+
+                        {/* Task card */}
+                        <div style={{ flex: 1, marginLeft: 12, paddingBottom: isLastItem ? 0 : 8 }}>
+                          <motion.div
+                            initial={{ opacity: 0, x: -16 }}
+                            animate={{ opacity: 1, x: 0 }}
+                            transition={{ delay: (nodeNumber - 1) * 0.04 }}
+                            onDoubleClick={() => handleDoubleClick(link)}
+                            onClick={(e) => handleTaskClick(link, index, e)}
+                            onContextMenu={(e) => handleRightClick(link, index, e)}
+                            style={{
+                              background: cardBg, border: `1.5px solid ${cardBorder}`,
+                              borderRadius: 12, overflow: 'hidden',
+                              cursor: mainTask ? 'pointer' : 'default',
+                              userSelect: 'none', WebkitUserSelect: 'none',
+                            }}
+                          >
+                            <div style={{ height: 3, background: isCompleted ? accentColor : 'transparent', transition: 'background 0.3s ease' }} />
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '14px 16px' }}>
+                              <div style={{
+                                width: 32, height: 32, borderRadius: 8,
+                                background: isCompleted ? 'hsla(140,60%,40%,0.15)' : isCT ? 'hsla(200,70%,50%,0.15)' : isPlaceholder ? 'var(--bg-tertiary)' : 'hsla(270,60%,50%,0.15)',
+                                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                fontSize: 11, fontWeight: 700, flexShrink: 0,
+                                color: isCompleted ? 'hsl(140,60%,40%)' : isCT ? 'hsl(200,70%,50%)' : isPlaceholder ? 'var(--text-tertiary)' : 'hsl(270,60%,50%)',
+                              }}>
+                                {isCT ? 'CT' : isPlaceholder ? '?' : 'M'}
+                              </div>
+                              <div style={{ flex: 1, minWidth: 0 }}>
+                                {isPlaceholder ? (
+                                  <>
+                                    <div style={{ color: 'var(--text-tertiary)', fontStyle: 'italic', fontSize: 14 }}>Insert Main Task</div>
+                                    {link.placeholder && <div style={{ color: 'var(--text-secondary)', fontSize: 12, marginTop: 2 }}>e.g. {link.placeholder}</div>}
+                                  </>
+                                ) : (
+                                  <div style={{
+                                    fontSize: 14, fontWeight: 500,
+                                    textDecoration: isCompleted ? 'line-through' : 'none',
+                                    color: isCompleted ? 'var(--text-secondary)' : 'var(--text-primary)',
+                                    overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+                                  }}>{task?.title || 'Unknown Task'}</div>
+                                )}
+                              </div>
+                              <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexShrink: 0 }}>
+                                {!isPlaceholder && (
+                                  <button
+                                    className="btn btn-sm"
+                                    onClick={(e) => { e.stopPropagation(); isCT ? handleCompleteCT(link.taskId) : handleCompleteMainTask(link.taskId); }}
+                                    style={{
+                                      background: isCompleted ? 'transparent' : accentColor,
+                                      color: isCompleted ? 'var(--text-secondary)' : 'white',
+                                      border: isCompleted ? '1px solid var(--border)' : 'none',
+                                      fontSize: 12, padding: '4px 10px',
+                                    }}
+                                  >{isCompleted ? 'Undo' : 'Done'}</button>
+                                )}
+                                {isPlaceholder && (
+                                  <button className="btn btn-sm btn-primary" onClick={(e) => { e.stopPropagation(); setReplacingPlaceholderIndex(index); }}>Select</button>
+                                )}
+                                <button
+                                  className="btn btn-ghost btn-xs"
+                                  onClick={(e) => { e.stopPropagation(); removeChainLink(selectedChainDate, index, group.id); debouncedSave(); }}
+                                  title="Remove from chain" style={{ color: 'var(--text-tertiary)', padding: '4px 6px' }}
+                                >
+                                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                                    <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+                                  </svg>
+                                </button>
+                              </div>
+                            </div>
+                            {/* Subtasks for grouped mode */}
+                            {subtasks.length > 0 && (
+                              <div style={{ borderTop: '1px solid var(--border)', padding: '10px 16px 12px', display: 'flex', flexDirection: 'column', gap: 6 }}>
+                                <span style={{ fontSize: 11, color: 'var(--text-secondary)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: 0.5 }}>Subtasks</span>
+                                {subtasks.map(({ link: subLink, index: subIndex }) => {
+                                  const subIsCT = subLink.subType === 'ct';
+                                  const subCt = subIsCT ? chainTasks[subLink.taskId] : null;
+                                  const subMain = !subIsCT && subLink.taskId ? tasks[subLink.taskId] : null;
+                                  const subTask = subCt || subMain;
+                                  const subDone = subTask?.completed || false;
+                                  return (
+                                    <div key={subLink.id}
+                                      style={{
+                                        display: 'flex', alignItems: 'center', gap: 8,
+                                        padding: '7px 10px',
+                                        background: subDone ? 'hsla(140,60%,40%,0.06)' : 'var(--bg-tertiary)',
+                                        borderRadius: 8, border: '1px solid var(--border)',
+                                      }}
+                                      onDoubleClick={() => handleDoubleClick(subLink)}
+                                    >
+                                      <button
+                                        onClick={(e) => { e.stopPropagation(); handleDoubleClick(subLink); }}
+                                        style={{
+                                          width: 20, height: 20, borderRadius: '50%', padding: 0,
+                                          border: `2px solid ${subDone ? 'hsl(140,60%,40%)' : 'var(--border)'}`,
+                                          background: subDone ? 'hsl(140,60%,40%)' : 'transparent',
+                                          display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                          cursor: 'pointer', flexShrink: 0,
+                                        }}
+                                      >
+                                        {subDone && <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg>}
+                                      </button>
+                                      <span style={{
+                                        flex: 1, fontSize: 13,
+                                        color: subDone ? 'var(--text-secondary)' : 'var(--text-primary)',
+                                        textDecoration: subDone ? 'line-through' : 'none',
+                                      }}>{subTask?.title || 'Unknown'}</span>
+                                      <button
+                                        className="btn btn-ghost btn-xs"
+                                        onClick={(e) => { e.stopPropagation(); removeChainLink(selectedChainDate, subIndex, group.id); debouncedSave(); }}
+                                        style={{ color: 'var(--text-tertiary)', padding: '2px 4px' }}
+                                      >
+                                        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                                          <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+                                        </svg>
+                                      </button>
+                                    </div>
+                                  );
+                                })}
+                              </div>
+                            )}
+                          </motion.div>
+                        </div>
+                      </div>
+                    );
+                  })}
+
+                  {/* Add Task to Group */}
+                  {isGroupInserting ? (
+                    <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }}
+                      style={{ background: 'var(--bg-secondary)', padding: 14, borderRadius: 10, border: `2px solid ${group.color || 'var(--accent)'}`, marginTop: 8 }}
+                    >
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
+                        <h3 style={{ fontSize: 14, margin: 0 }}>Add to {group.name}</h3>
+                        <button className="btn btn-ghost btn-sm" onClick={() => { setInsertingInGroupId(null); setNewTaskTitle(''); setSelectedMainTaskId(''); }}>×</button>
+                      </div>
+                      <div style={{ display: 'flex', gap: 8, marginBottom: 10 }}>
+                        <input type="text" value={newTaskTitle} onChange={(e) => setNewTaskTitle(e.target.value)} placeholder="New chain task" autoFocus={!isMobile}
+                          style={{ flex: 1, padding: '7px 10px', background: 'var(--bg-tertiary)', border: '1px solid var(--border)', borderRadius: 6, color: 'var(--text-primary)', fontSize: 13 }}
+                          onKeyDown={(e) => e.key === 'Enter' && handleAddCT()}
+                        />
+                        <button className="btn btn-primary btn-sm" onClick={handleAddCT} disabled={!newTaskTitle.trim()}>Add CT</button>
+                      </div>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10, color: 'var(--text-secondary)', fontSize: 11 }}>
+                        <div style={{ flex: 1, height: 1, background: 'var(--border)' }} />OR<div style={{ flex: 1, height: 1, background: 'var(--border)' }} />
+                      </div>
+                      <div style={{ display: 'flex', gap: 8 }}>
+                        <select value={selectedMainTaskId} onChange={(e) => setSelectedMainTaskId(e.target.value)}
+                          style={{ flex: 1, padding: '7px 10px', background: 'var(--bg-tertiary)', border: '1px solid var(--border)', borderRadius: 6, color: 'var(--text-primary)', fontSize: 13 }}>
+                          <option value="">Select from task pool...</option>
+                          {uncompletedTasks.map((t) => <option key={t.id} value={t.id}>{t.title}</option>)}
+                        </select>
+                        <button className="btn btn-ghost btn-sm" onClick={handleAddMainTask} disabled={!selectedMainTaskId}>Link Task</button>
+                      </div>
+                    </motion.div>
+                  ) : (
+                    <button
+                      className="btn btn-ghost btn-sm"
+                      onClick={() => { setInsertingInGroupId(group.id); setInsertAfterIndex(null); setNewTaskTitle(''); setSelectedMainTaskId(''); }}
+                      style={{ padding: '10px 12px', border: '1px dashed var(--border)', borderRadius: 'var(--radius-lg)', marginTop: 4, width: '100%' }}
+                    >
+                      + Add Task to {group.name}
+                    </button>
+                  )}
+                </div>
+              )}
+            </div>
+          );
+        })}
+
         {/* Add at End Button / Inline Modal */}
         {currentChain && chainItems.length > 0 && (
           insertAfterIndex === chainItems[chainItems.length - 1].index && !replacingPlaceholderIndex ? (

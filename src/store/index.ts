@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import { v4 as uuid } from 'uuid';
-import type { Task, Category, TimeBlock, PomodoroState, PomodoroSession, ViewMode, StreakData, DragState, TaskChain, ChainTask, ChainTemplate, ScheduleBlock } from '../types';
+import type { Task, Category, TimeBlock, PomodoroState, PomodoroSession, ViewMode, StreakData, DragState, TaskChain, ChainTask, ChainTemplate, ChainLink, TaskGroup, ScheduleBlock } from '../types';
 import { getCategoryColor } from '../utils/colors';
 // Safe circular dep: analytics.ts uses useStore only inside function bodies,
 // so by the time any action below runs, both modules are fully initialized.
@@ -185,10 +185,10 @@ interface BlockOutState {
   // Actions — Task Chains
   setSelectedChainDate: (date: string) => void;
   setShowTaskChainModal: (show: boolean) => void;
-  addChainTask: (chainDate: string, title: string, afterIndex?: number) => string;
-  addRealTaskToChain: (chainDate: string, taskId: string, afterIndex?: number) => void;
-  removeChainLink: (chainDate: string, index: number) => void;
-  reorderChainLink: (chainDate: string, fromIndex: number, toIndex: number) => void;
+  addChainTask: (chainDate: string, title: string, afterIndex?: number, groupId?: string) => string;
+  addRealTaskToChain: (chainDate: string, taskId: string, afterIndex?: number, groupId?: string) => void;
+  removeChainLink: (chainDate: string, index: number, groupId?: string) => void;
+  reorderChainLink: (chainDate: string, fromIndex: number, toIndex: number, groupId?: string) => void;
   completeChainTask: (ctId: string) => void;
   uncompleteChainTask: (ctId: string) => void;
   promoteCTtoTask: (ctId: string, categoryId: string) => string;
@@ -205,6 +205,14 @@ interface BlockOutState {
   addSubtaskToChain: (chainDate: string, parentLinkId: string, title: string, subType: 'ct' | 'realtask', taskId?: string) => void;
   removeSubtaskFromChain: (chainDate: string, linkIndex: number) => void;
   toggleSubtaskExpansion: (chainDate: string, linkId: string) => void;
+
+  // Task Group actions
+  addTaskGroup: (chainDate: string, name: string, color?: string) => string;
+  removeTaskGroup: (chainDate: string, groupId: string) => void;
+  renameTaskGroup: (chainDate: string, groupId: string, name: string) => void;
+  setTaskGroupColor: (chainDate: string, groupId: string, color: string) => void;
+  toggleTaskGroupCollapsed: (chainDate: string, groupId: string) => void;
+  migrateChainToGroups: (chainDate: string) => void;
 
   // Overview blocks
   overviewBlocks: ScheduleBlock[];
@@ -835,14 +843,40 @@ export const useStore = create<BlockOutState>((set, get) => ({
   setSelectedChainDate: (date) => set({ selectedChainDate: date }),
   setShowTaskChainModal: (show) => set({ showTaskChainModal: show }),
 
-  addChainTask: (chainDate, title, afterIndex) => {
+  addChainTask: (chainDate, title, afterIndex, groupId) => {
     const ctId = uuid();
     set((state) => {
       const newCT: ChainTask = { id: ctId, title, type: 'ct', completed: false };
-      
+
       const existingChain = state.taskChains[chainDate];
-      const newLink = { id: uuid(), type: 'ct' as const, taskId: ctId };
-      
+      const newLink: ChainLink = { id: uuid(), type: 'ct' as const, taskId: ctId };
+
+      if (groupId && existingChain?.groups) {
+        // Operate on the group's links
+        const newGroups = existingChain.groups.map((g) => {
+          if (g.id !== groupId) return g;
+          const groupLinks = [...g.links];
+          if (afterIndex !== undefined && afterIndex >= 0 && afterIndex < groupLinks.length) {
+            let insertIndex = afterIndex + 1;
+            const parentLinkId = groupLinks[afterIndex]?.id;
+            while (insertIndex < groupLinks.length && groupLinks[insertIndex].parentId === parentLinkId) {
+              insertIndex++;
+            }
+            groupLinks.splice(insertIndex, 0, newLink);
+          } else {
+            groupLinks.push(newLink);
+          }
+          return { ...g, links: groupLinks };
+        });
+        return {
+          chainTasks: { ...state.chainTasks, [ctId]: newCT },
+          taskChains: {
+            ...state.taskChains,
+            [chainDate]: { ...existingChain, groups: newGroups },
+          },
+        };
+      }
+
       let newLinks;
       if (existingChain) {
         newLinks = [...existingChain.links];
@@ -850,12 +884,12 @@ export const useStore = create<BlockOutState>((set, get) => ({
           // Find the actual index in the raw links array and skip past any subtasks
           let insertIndex = afterIndex + 1;
           const parentLinkId = newLinks[afterIndex]?.id;
-          
+
           // Skip all subtasks that belong to this parent
           while (insertIndex < newLinks.length && newLinks[insertIndex].parentId === parentLinkId) {
             insertIndex++;
           }
-          
+
           newLinks.splice(insertIndex, 0, newLink);
         } else {
           newLinks.push(newLink);
@@ -863,7 +897,7 @@ export const useStore = create<BlockOutState>((set, get) => ({
       } else {
         newLinks = [newLink];
       }
-      
+
       return {
         chainTasks: { ...state.chainTasks, [ctId]: newCT },
         taskChains: {
@@ -880,9 +914,33 @@ export const useStore = create<BlockOutState>((set, get) => ({
     return ctId;
   },
 
-  addRealTaskToChain: (chainDate, taskId, afterIndex) => set((state) => {
+  addRealTaskToChain: (chainDate, taskId, afterIndex, groupId) => set((state) => {
     const existingChain = state.taskChains[chainDate];
-    const newLink = { id: uuid(), type: 'realtask' as const, taskId };
+    const newLink: ChainLink = { id: uuid(), type: 'realtask' as const, taskId };
+
+    if (groupId && existingChain?.groups) {
+      const newGroups = existingChain.groups.map((g) => {
+        if (g.id !== groupId) return g;
+        const groupLinks = [...g.links];
+        if (afterIndex !== undefined && afterIndex >= 0 && afterIndex < groupLinks.length) {
+          let insertIndex = afterIndex + 1;
+          const parentLinkId = groupLinks[afterIndex]?.id;
+          while (insertIndex < groupLinks.length && groupLinks[insertIndex].parentId === parentLinkId) {
+            insertIndex++;
+          }
+          groupLinks.splice(insertIndex, 0, newLink);
+        } else {
+          groupLinks.push(newLink);
+        }
+        return { ...g, links: groupLinks };
+      });
+      return {
+        taskChains: {
+          ...state.taskChains,
+          [chainDate]: { ...existingChain, groups: newGroups },
+        },
+      };
+    }
 
     let newLinks;
     if (existingChain) {
@@ -918,9 +976,22 @@ export const useStore = create<BlockOutState>((set, get) => ({
     };
   }),
 
-  removeChainLink: (chainDate, index) => set((state) => {
+  removeChainLink: (chainDate, index, groupId) => set((state) => {
     const chain = state.taskChains[chainDate];
     if (!chain) return state;
+
+    if (groupId && chain.groups) {
+      const newGroups = chain.groups.map((g) => {
+        if (g.id !== groupId) return g;
+        return { ...g, links: g.links.filter((_, i) => i !== index) };
+      });
+      return {
+        taskChains: {
+          ...state.taskChains,
+          [chainDate]: { ...chain, groups: newGroups },
+        },
+      };
+    }
 
     const newLinks = chain.links.filter((_, i) => i !== index);
 
@@ -932,14 +1003,30 @@ export const useStore = create<BlockOutState>((set, get) => ({
     };
   }),
 
-  reorderChainLink: (chainDate, fromIndex, toIndex) => set((state) => {
+  reorderChainLink: (chainDate, fromIndex, toIndex, groupId) => set((state) => {
     const chain = state.taskChains[chainDate];
     if (!chain) return state;
-    
+
+    if (groupId && chain.groups) {
+      const newGroups = chain.groups.map((g) => {
+        if (g.id !== groupId) return g;
+        const links = [...g.links];
+        const [moved] = links.splice(fromIndex, 1);
+        links.splice(toIndex, 0, moved);
+        return { ...g, links };
+      });
+      return {
+        taskChains: {
+          ...state.taskChains,
+          [chainDate]: { ...chain, groups: newGroups },
+        },
+      };
+    }
+
     const links = [...chain.links];
     const [moved] = links.splice(fromIndex, 1);
     links.splice(toIndex, 0, moved);
-    
+
     return {
       taskChains: {
         ...state.taskChains,
@@ -1038,13 +1125,40 @@ export const useStore = create<BlockOutState>((set, get) => ({
       }
     });
     
+    const templateGroups = chain.groups ? chain.groups.map(group => {
+      const groupLinkIdToIndex = new Map(group.links.map((link, i) => [link.id, i]));
+      return {
+        name: group.name,
+        color: group.color,
+        links: group.links.map(link => {
+          if (link.type === 'subtask') {
+            const parentIndex = link.parentId ? groupLinkIdToIndex.get(link.parentId) : undefined;
+            if (link.subType === 'ct') {
+              const ct = state.chainTasks[link.taskId];
+              return { type: 'subtask' as const, subType: 'ct' as const, ctTitle: ct?.title || 'Subtask', parentIndex };
+            } else {
+              const task = state.tasks[link.taskId];
+              return { type: 'subtask' as const, subType: 'realtask' as const, realTaskPlaceholder: task?.title || 'Insert Real Task', parentIndex };
+            }
+          } else if (link.type === 'ct') {
+            const ct = state.chainTasks[link.taskId];
+            return { type: 'ct' as const, ctTitle: ct?.title || 'Chain Task' };
+          } else {
+            const task = state.tasks[link.taskId];
+            return { type: 'realtask' as const, realTaskPlaceholder: task?.title || 'Insert Real Task' };
+          }
+        }),
+      };
+    }) : undefined;
+
     const template: ChainTemplate = {
       id: uuid(),
       name,
       links: templateLinks,
+      groups: templateGroups,
       createdAt: Date.now(),
     };
-    
+
     return {
       chainTemplates: { ...state.chainTemplates, [template.id]: template },
     };
@@ -1108,13 +1222,52 @@ export const useStore = create<BlockOutState>((set, get) => ({
       return { id: newLinkId, type: 'ct' as const, taskId: '' };
     });
     
+    let newGroups: TaskGroup[] | undefined;
+    if (template.groups) {
+      newGroups = template.groups.map(groupTemplate => {
+        const groupParentIdMap: Record<number, string> = {};
+        const groupLinks = groupTemplate.links.map((link, index) => {
+          const newLinkId = uuid();
+          if (link.type === 'ct') {
+            const ctId = uuid();
+            newChainTasks[ctId] = { id: ctId, title: link.ctTitle || 'Chain Task', type: 'ct', completed: false };
+            const linkObj = { id: newLinkId, type: 'ct' as const, taskId: ctId };
+            groupParentIdMap[index] = newLinkId;
+            return linkObj;
+          } else if (link.type === 'realtask') {
+            const linkObj = { id: newLinkId, type: 'realtask' as const, taskId: '', placeholder: link.realTaskPlaceholder || 'Insert Real Task' };
+            groupParentIdMap[index] = newLinkId;
+            return linkObj;
+          } else if (link.type === 'subtask') {
+            const parentTemplateIndex = link.parentIndex;
+            const parentId = parentTemplateIndex !== undefined ? groupParentIdMap[parentTemplateIndex] : undefined;
+            if (link.subType === 'ct') {
+              const ctId = uuid();
+              newChainTasks[ctId] = { id: ctId, title: link.ctTitle || 'Subtask', type: 'ct', completed: false };
+              return { id: newLinkId, type: 'subtask' as const, taskId: ctId, parentId, subType: 'ct' as const };
+            } else {
+              return { id: newLinkId, type: 'subtask' as const, taskId: '', parentId, subType: 'realtask' as const, placeholder: link.realTaskPlaceholder || 'Insert Real Task' };
+            }
+          }
+          return { id: newLinkId, type: 'ct' as const, taskId: '' };
+        });
+        return {
+          id: uuid(),
+          name: groupTemplate.name,
+          color: groupTemplate.color,
+          links: groupLinks,
+        };
+      });
+    }
+
     const chain: TaskChain = {
       id: uuid(),
       date,
-      links: newLinks,
+      links: newGroups ? [] : newLinks,
+      groups: newGroups,
       createdAt: Date.now(),
     };
-    
+
     return {
       chainTasks: { ...state.chainTasks, ...newChainTasks },
       taskChains: { ...state.taskChains, [date]: chain },
@@ -1306,6 +1459,105 @@ export const useStore = create<BlockOutState>((set, get) => ({
       taskChains: {
         ...state.taskChains,
         [chainDate]: { ...chain, links: newLinks },
+      },
+    };
+  }),
+
+  // Task Group actions
+  addTaskGroup: (chainDate, name, color) => {
+    const groupId = uuid();
+    set((state) => {
+      const existingChain = state.taskChains[chainDate];
+      const newGroup: TaskGroup = { id: groupId, name, color, links: [] };
+      const groups = existingChain?.groups ? [...existingChain.groups, newGroup] : [newGroup];
+      return {
+        taskChains: {
+          ...state.taskChains,
+          [chainDate]: {
+            id: existingChain?.id || uuid(),
+            date: chainDate,
+            links: existingChain?.links || [],
+            groups,
+            createdAt: existingChain?.createdAt || Date.now(),
+          },
+        },
+      };
+    });
+    return groupId;
+  },
+
+  removeTaskGroup: (chainDate, groupId) => set((state) => {
+    const chain = state.taskChains[chainDate];
+    if (!chain?.groups) return state;
+    const group = chain.groups.find(g => g.id === groupId);
+    const ctIdsToDelete = group?.links
+      .filter(l => l.type === 'ct')
+      .map(l => l.taskId) || [];
+    const newChainTasks = { ...state.chainTasks };
+    ctIdsToDelete.forEach(id => { delete newChainTasks[id]; });
+    return {
+      chainTasks: newChainTasks,
+      taskChains: {
+        ...state.taskChains,
+        [chainDate]: { ...chain, groups: chain.groups.filter(g => g.id !== groupId) },
+      },
+    };
+  }),
+
+  renameTaskGroup: (chainDate, groupId, name) => set((state) => {
+    const chain = state.taskChains[chainDate];
+    if (!chain?.groups) return state;
+    return {
+      taskChains: {
+        ...state.taskChains,
+        [chainDate]: {
+          ...chain,
+          groups: chain.groups.map(g => g.id === groupId ? { ...g, name } : g),
+        },
+      },
+    };
+  }),
+
+  setTaskGroupColor: (chainDate, groupId, color) => set((state) => {
+    const chain = state.taskChains[chainDate];
+    if (!chain?.groups) return state;
+    return {
+      taskChains: {
+        ...state.taskChains,
+        [chainDate]: {
+          ...chain,
+          groups: chain.groups.map(g => g.id === groupId ? { ...g, color } : g),
+        },
+      },
+    };
+  }),
+
+  toggleTaskGroupCollapsed: (chainDate, groupId) => set((state) => {
+    const chain = state.taskChains[chainDate];
+    if (!chain?.groups) return state;
+    return {
+      taskChains: {
+        ...state.taskChains,
+        [chainDate]: {
+          ...chain,
+          groups: chain.groups.map(g => g.id === groupId ? { ...g, collapsed: !g.collapsed } : g),
+        },
+      },
+    };
+  }),
+
+  migrateChainToGroups: (chainDate) => set((state) => {
+    const chain = state.taskChains[chainDate];
+    if (!chain || chain.groups) return state; // already has groups or no chain
+    const defaultGroup: TaskGroup = {
+      id: uuid(),
+      name: 'Default',
+      links: chain.links || [],
+    };
+    return {
+      taskChains: {
+        ...state.taskChains,
+        [chainDate]: { ...chain, groups: [defaultGroup], links: [] },
       },
     };
   }),
