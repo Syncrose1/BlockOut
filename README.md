@@ -1,4 +1,4 @@
-# BlockOut
+# BlockOut V3
 
 A visual task management app built for people juggling tasks across different timeframes. Organise work into **time blocks** (e.g. a 6-week clinical placement), assign **categories** that persist across blocks, and see everything as a colour-coded **treemap** inspired by WinDirStat/QDirStat.
 
