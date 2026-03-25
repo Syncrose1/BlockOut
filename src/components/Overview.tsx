@@ -700,7 +700,8 @@ export function Overview() {
         </div>
       </div>
 
-      <div style={{ display: 'flex', gap: 1, background: 'var(--border)', borderRadius: 'var(--radius-md)', overflow: 'hidden' }}>
+      <div style={{ overflowX: 'auto', WebkitOverflowScrolling: 'touch' }}>
+      <div style={{ display: 'flex', gap: 1, background: 'var(--border)', borderRadius: 'var(--radius-md)', overflow: 'hidden', minWidth: 700 }}>
         <div style={{ width: 80, flexShrink: 0 }}>
           <div style={{ background: 'var(--bg-secondary)', padding: '12px 8px', fontWeight: 600, fontSize: 12, textAlign: 'center', height: 48 }}>Time</div>
           {TIME_SLOTS.map((slot, i) => (
@@ -711,7 +712,7 @@ export function Overview() {
         </div>
 
         {DAYS.map((day, dayIndex) => (
-          <div key={day} style={{ flex: 1, minWidth: 0 }}>
+          <div key={day} style={{ flex: 1, minWidth: 90 }}>
             <div style={{ background: 'var(--bg-secondary)', padding: '12px 8px', fontWeight: 600, fontSize: 13, textAlign: 'center', height: 48 }}>{day}</div>
             <div style={{ position: 'relative' }}>
               {TIME_SLOTS.map((_, slotIndex) => (
@@ -865,6 +866,7 @@ export function Overview() {
             </div>
           </div>
         ))}
+      </div>
       </div>
 
       {/* Context Menu */}

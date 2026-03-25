@@ -19,8 +19,13 @@ import {
   startDropboxAuth,
   forceReauth,
 } from '../utils/dropbox';
-import { isR2SyncAvailable, saveToR2, loadFromR2 } from '../utils/r2sync';
-import { getAccessToken, isSupabaseConfigured } from '../utils/supabase';
+import { isR2SyncAvailable, saveToR2 } from '../utils/r2sync';
+import {
+  isSupabaseConfigured, signIn, signUp, signOut,
+  resetPassword, getSession, onAuthStateChange,
+} from '../utils/supabase';
+import type { User } from '@supabase/supabase-js';
+import { useIsMobile } from '../hooks/useIsMobile';
 
 // ─── Calendar Date Picker ────────────────────────────────────────────────────
 
@@ -1538,175 +1543,145 @@ function formatRelativeTime(ts: number): string {
   return `${Math.floor(diff / 86400)}d ago`;
 }
 
-function CloudSyncStatus() {
-  const [status, setStatus] = useState<'checking' | 'signed-in' | 'not-signed-in'>('checking');
-  const [syncing, setSyncing] = useState(false);
-  const [syncResult, setSyncResult] = useState<'ok' | 'fail' | null>(null);
-
-  useEffect(() => {
-    getAccessToken().then((token) => {
-      setStatus(token ? 'signed-in' : 'not-signed-in');
-    });
-  }, []);
-
-  const handleTestSync = async () => {
-    setSyncing(true);
-    setSyncResult(null);
-    try {
-      const data = useStore.getState().getSerializableState();
-      const result = await saveToR2(data);
-      setSyncResult(result.success ? 'ok' : 'fail');
-      if (result.success) {
-        useStore.getState().setSyncStatus('synced');
-      }
-    } catch {
-      setSyncResult('fail');
-    } finally {
-      setSyncing(false);
-    }
-  };
-
-  if (status === 'checking') {
-    return <div style={{ fontSize: 12, color: 'var(--text-tertiary)' }}>Checking auth status...</div>;
-  }
-
-  if (status === 'not-signed-in') {
-    return (
-      <div style={{ fontSize: 12, color: 'var(--text-tertiary)' }}>
-        Sign in using the button in the top bar to enable cloud sync.
-      </div>
-    );
-  }
-
-  return (
-    <div>
-      <div style={{ fontSize: 12, color: 'hsl(140, 60%, 50%)', marginBottom: 10 }}>
-        Signed in — cloud sync is active
-      </div>
-      <button
-        className="btn btn-primary btn-sm"
-        onClick={handleTestSync}
-        disabled={syncing}
-        style={{ width: '100%' }}
-      >
-        {syncing ? 'Syncing...' : 'Sync Now'}
-      </button>
-      {syncResult === 'ok' && (
-        <div style={{ fontSize: 12, color: 'hsl(140, 60%, 50%)', marginTop: 8 }}>
-          Sync successful!
-        </div>
-      )}
-      {syncResult === 'fail' && (
-        <div style={{ fontSize: 12, color: 'hsl(0, 72%, 62%)', marginTop: 8 }}>
-          Sync failed. The server may not have R2 configured.
-        </div>
-      )}
-    </div>
-  );
-}
-
 export function SyncSettingsModal() {
   const open = useStore((s) => s.syncSettingsOpen);
   const setSyncSettingsOpen = useStore((s) => s.setSyncSettingsOpen);
   const syncStatus = useStore((s) => s.syncStatus);
   const setSyncStatus = useStore((s) => s.setSyncStatus);
 
-  const [syncProvider, setSyncProvider] = useState<'self-hosted' | 'dropbox' | 'cloud'>(() => {
-    // Check what's configured — prefer cloud if signed in
-    if (isR2SyncAvailable()) return 'cloud';
-    const cfg = getCloudConfig();
-    if (cfg.url) return 'self-hosted';
-    if (isDropboxConfigured()) return 'dropbox';
-    return isSupabaseConfigured() ? 'cloud' : 'self-hosted';
-  });
+  // Auth state
+  const [authUser, setAuthUser] = useState<User | null>(null);
+  const [authChecked, setAuthChecked] = useState(false);
+  const [authMode, setAuthMode] = useState<'signin' | 'signup' | 'reset'>('signin');
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [authLoading, setAuthLoading] = useState(false);
+  const [authError, setAuthError] = useState<string | null>(null);
+  const [authMessage, setAuthMessage] = useState<string | null>(null);
 
-  // Self-hosted state
-  const [url, setUrl] = useState(() => getCloudConfig().url);
-  const [token, setToken] = useState(() => getCloudConfig().token);
-  
-  const [testing, setTesting] = useState(false);
-  const [testResult, setTestResult] = useState<'ok' | 'fail' | null>(null);
-  const [lastSynced, setLastSynced] = useState<number | null>(getLastSyncedTime);
+  // Sync feedback
+  const [syncing, setSyncing] = useState(false);
+  const [syncResult, setSyncResult] = useState<'ok' | 'fail' | null>(null);
+  const [lastSynced, setLastSynced] = useState<number | null>(null);
 
-  // Refresh lastSynced display whenever modal opens
+  // Dropbox accordion (secondary option)
+  const [showDropbox, setShowDropbox] = useState(false);
+
+  // Load session when modal opens
   useEffect(() => {
-    if (open) {
-      const cfg = getCloudConfig();
-      setUrl(cfg.url);
-      setToken(cfg.token);
-      setLastSynced(getLastSyncedTime());
-      setTestResult(null);
+    if (!open) return;
+    setLastSynced(getLastSyncedTime());
+    setSyncResult(null);
+    if (isSupabaseConfigured()) {
+      setAuthChecked(false);
+      getSession().then(({ user }) => { setAuthUser(user); setAuthChecked(true); });
+    } else {
+      setAuthChecked(true);
     }
+  }, [open]);
+
+  // Subscribe to auth changes while modal is open
+  useEffect(() => {
+    if (!open || !isSupabaseConfigured()) return;
+    const unsub = onAuthStateChange((user) => setAuthUser(user));
+    return unsub || undefined;
   }, [open]);
 
   if (!open) return null;
 
-  const handleSave = () => {
-    if (syncProvider === 'self-hosted') {
-      setCloudConfig(url, token);
-      clearDropboxConfig();
-    } else if (syncProvider === 'dropbox') {
-      setCloudConfig('', '');
-    }
-    // Cloud (R2) doesn't need manual config — just needs sign-in
-    setSyncSettingsOpen(false);
+  const supabaseReady = isSupabaseConfigured();
+
+  const switchAuthMode = (m: 'signin' | 'signup' | 'reset') => {
+    setAuthMode(m); setAuthError(null); setAuthMessage(null);
   };
 
-  const handleTestAndSync = async () => {
-    setTesting(true);
-    setTestResult(null);
-
+  const handleAuthSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setAuthError(null); setAuthMessage(null); setAuthLoading(true);
     try {
-      setSyncStatus('syncing');
-
-      if (syncProvider === 'self-hosted') {
-        setCloudConfig(url, token);
-        await saveToCloud();
-      } else {
-        const data = useStore.getState().getSerializableState();
-        await syncToDropbox(data);
+      if (authMode === 'reset') {
+        const r = await resetPassword(email);
+        if (r.error) setAuthError(r.error);
+        else setAuthMessage('Reset link sent — check your email.');
+        return;
       }
-
-      setTestResult('ok');
-      setLastSynced(Date.now());
-    } catch (err) {
-      console.error('Sync error:', err);
-      setTestResult('fail');
-      setSyncStatus('error');
+      if (authMode === 'signup') {
+        if (password !== confirmPassword) { setAuthError('Passwords do not match'); return; }
+        if (password.length < 6) { setAuthError('Password must be at least 6 characters'); return; }
+      }
+      const r = authMode === 'signin' ? await signIn(email, password) : await signUp(email, password);
+      if (r.error) {
+        setAuthError(r.error);
+      } else if (r.user) {
+        if (authMode === 'signup') {
+          setAuthMessage('Account created! Confirm your email then sign in.');
+          switchAuthMode('signin');
+        } else {
+          setAuthUser(r.user);
+          setSyncStatus('syncing');
+          saveToR2(useStore.getState().getSerializableState())
+            .then((res) => setSyncStatus(res.success ? 'synced' : 'error'))
+            .catch(() => setSyncStatus('error'));
+        }
+      }
     } finally {
-      setTesting(false);
+      setAuthLoading(false);
     }
   };
 
-  const handleDisconnect = () => {
-    if (syncProvider === 'self-hosted') {
-      setCloudConfig('', '');
-      setUrl('');
-      setToken('');
-    } else {
-      clearDropboxConfig();
-    }
-    setSyncSettingsOpen(false);
+  const handleSignOut = async () => {
+    await signOut();
+    setAuthUser(null);
+    setSyncStatus('idle');
   };
 
-  const isConfigured = syncProvider === 'cloud'
-    ? isR2SyncAvailable()
-    : syncProvider === 'self-hosted'
-    ? url.trim().length > 0
-    : isDropboxConfigured();
+  const handleSyncNow = async () => {
+    setSyncing(true); setSyncResult(null);
+    try {
+      const result = await saveToR2(useStore.getState().getSerializableState());
+      setSyncResult(result.success ? 'ok' : 'fail');
+      if (result.success) { setSyncStatus('synced'); setLastSynced(Date.now()); }
+    } catch { setSyncResult('fail'); } finally { setSyncing(false); }
+  };
 
-  const statusDot: Record<string, string> = {
-    idle: 'var(--text-tertiary)',
-    syncing: 'hsl(48, 90%, 60%)',
-    synced: 'hsl(140, 60%, 50%)',
-    error: 'hsl(0, 72%, 62%)',
-  };
-  const statusLabel: Record<string, string> = {
-    idle: 'not configured',
-    syncing: 'syncing…',
-    synced: 'synced',
-    error: 'sync error',
-  };
+  const dropboxSection = (
+    <div style={{ marginTop: 4, padding: 12, background: 'var(--bg-tertiary)', borderRadius: 'var(--radius-sm)' }}>
+      <div style={{
+        display: 'inline-block', fontSize: 10, fontWeight: 700, textTransform: 'uppercase',
+        letterSpacing: 0.8, color: 'hsl(40,80%,60%)', background: 'hsla(40,80%,60%,0.12)',
+        border: '1px solid hsla(40,80%,60%,0.25)', borderRadius: 4, padding: '2px 6px', marginBottom: 10,
+      }}>Experimental — may have bugs</div>
+      {isDropboxConfigured() ? (
+        <div>
+          <div style={{ fontSize: 13, color: 'hsl(140,60%,50%)', marginBottom: 10 }}>✓ Connected to Dropbox</div>
+          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+            <button className="btn btn-ghost btn-sm" onClick={async () => {
+              try {
+                setSyncStatus('syncing');
+                const remote = await syncFromDropbox();
+                if (remote) { useStore.getState().loadData(remote as any); setSyncStatus('synced'); }
+              } catch { setSyncStatus('error'); }
+            }}>Refresh from Dropbox</button>
+            <button className="btn btn-danger btn-sm" onClick={() => { clearDropboxConfig(); setSyncSettingsOpen(false); }}>Disconnect</button>
+          </div>
+        </div>
+      ) : (
+        <div>
+          <p style={{ fontSize: 12, color: 'var(--text-secondary)', marginBottom: 12, lineHeight: 1.5 }}>
+            No account needed. Your data syncs to /Apps/BlockOut in your Dropbox.
+          </p>
+          <button className="btn btn-ghost btn-sm" onClick={startDropboxAuth} style={{ width: '100%' }}>
+            Connect to Dropbox
+          </button>
+        </div>
+      )}
+    </div>
+  );
+
+  // REMOVED: old syncProvider state and self-hosted config
+  // Keeping these variables to avoid breaking other code that may reference them
+  const _unused_syncProvider = null;
 
   return (
     <AnimatePresence>
@@ -1727,214 +1702,117 @@ export function SyncSettingsModal() {
         >
           <h2>Cloud Sync</h2>
 
-          {/* Status */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 18, fontSize: 13 }}>
-            <span style={{
-              width: 8, height: 8, borderRadius: '50%',
-              background: statusDot[syncStatus], flexShrink: 0,
-            }} />
-            <span style={{ color: 'var(--text-secondary)' }}>
-              {statusLabel[syncStatus]}
-              {lastSynced && syncStatus !== 'syncing'
-                ? ` · last synced ${formatRelativeTime(lastSynced)}`
-                : ''}
-            </span>
-          </div>
-
-          {/* Provider Selection */}
-          <div style={{ display: 'flex', gap: 8, marginBottom: 20, flexWrap: 'wrap' }}>
-            {isSupabaseConfigured() && (
-              <button
-                className={`btn ${syncProvider === 'cloud' ? 'btn-primary' : 'btn-ghost'}`}
-                onClick={() => setSyncProvider('cloud')}
-              >
-                BlockOut Cloud
-              </button>
-            )}
-            <button
-              className={`btn ${syncProvider === 'dropbox' ? 'btn-primary' : 'btn-ghost'}`}
-              onClick={() => setSyncProvider('dropbox')}
-            >
-              Dropbox
-            </button>
-            <button
-              className={`btn ${syncProvider === 'self-hosted' ? 'btn-primary' : 'btn-ghost'}`}
-              onClick={() => setSyncProvider('self-hosted')}
-            >
-              Self-Hosted
-            </button>
-          </div>
-
-          {syncProvider === 'cloud' ? (
+          {supabaseReady ? (
             <>
-              <div style={{
-                padding: 16,
-                background: 'var(--bg-tertiary)',
-                borderRadius: 'var(--radius-sm)',
-              }}>
-                <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 8, color: 'var(--text-primary)' }}>
-                  BlockOut Cloud (R2 Storage)
-                </div>
-                <div style={{ fontSize: 12, color: 'var(--text-secondary)', marginBottom: 12 }}>
-                  Sign in with your account to sync data across devices. Your data is stored in Cloudflare R2 object storage — fast, reliable, and cost-effective.
-                </div>
-                <CloudSyncStatus />
-              </div>
-            </>
-          ) : syncProvider === 'dropbox' ? (
-            <>
-              {isDropboxConfigured() ? (
-                <div style={{ 
-                  padding: 16, 
-                  background: 'var(--bg-tertiary)', 
-                  borderRadius: 'var(--radius-sm)',
-                  textAlign: 'center' 
-                }}>
-                  <div style={{ fontSize: 14, marginBottom: 8 }}>
-                     Connected to Dropbox
+              {/* ── Cloud primary section ── */}
+              {!authChecked ? (
+                <div style={{ fontSize: 13, color: 'var(--text-tertiary)', padding: '8px 0' }}>Loading…</div>
+              ) : authUser ? (
+                /* Signed in */
+                <div>
+                  <div style={{
+                    display: 'flex', alignItems: 'center', gap: 8,
+                    padding: '10px 14px',
+                    background: 'hsla(140,60%,50%,0.08)',
+                    border: '1px solid hsla(140,60%,50%,0.2)',
+                    borderRadius: 'var(--radius-sm)', marginBottom: 14,
+                  }}>
+                    <span style={{ width: 8, height: 8, borderRadius: '50%', background: 'hsl(140,60%,50%)', flexShrink: 0 }} />
+                    <span style={{ fontSize: 13, color: 'hsl(140,60%,50%)', fontWeight: 600, flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                      Syncing as {authUser.email}
+                    </span>
                   </div>
-                  <div style={{ fontSize: 12, color: 'var(--text-secondary)' }}>
-                    Your data will sync automatically to your Dropbox account
+                  {lastSynced && <div style={{ fontSize: 12, color: 'var(--text-tertiary)', marginBottom: 12 }}>Last synced: {formatRelativeTime(lastSynced)}</div>}
+                  {syncResult === 'ok' && <div style={{ fontSize: 12, color: 'hsl(140,60%,50%)', marginBottom: 10 }}>✓ Sync successful</div>}
+                  {syncResult === 'fail' && <div style={{ fontSize: 12, color: 'hsl(0,72%,62%)', marginBottom: 10 }}>✗ Sync failed — check server R2 config</div>}
+                  <div style={{ display: 'flex', gap: 8 }}>
+                    <button className="btn btn-primary btn-sm" onClick={handleSyncNow} disabled={syncing} style={{ flex: 1 }}>
+                      {syncing ? 'Syncing…' : 'Sync Now'}
+                    </button>
+                    <button className="btn btn-ghost btn-sm" onClick={handleSignOut}>Sign Out</button>
                   </div>
                 </div>
               ) : (
-                <>
-                  <div className="modal-field">
-                    <div style={{ fontSize: 12, color: 'var(--text-secondary)', marginBottom: 16 }}>
-                      <strong>Connect with OAuth:</strong>
-                      <ol style={{ margin: '8px 0', paddingLeft: 20 }}>
-                        <li>You'll be redirected to Dropbox to authorize this app</li>
-                        <li>We only access a single folder (/Apps/BlockOut)</li>
-                        <li>No data is stored on our servers - everything stays in your Dropbox</li>
-                      </ol>
+                /* Not signed in — show auth form */
+                <form onSubmit={handleAuthSubmit}>
+                  <div style={{ fontSize: 13, color: 'var(--text-secondary)', marginBottom: 14 }}>
+                    {authMode === 'signin' && 'Sign in to sync your data across devices.'}
+                    {authMode === 'signup' && 'Create a free account to enable cloud sync.'}
+                    {authMode === 'reset' && 'Enter your email and we\'ll send a reset link.'}
+                  </div>
+                  {authError && (
+                    <div style={{ padding: '8px 12px', background: 'hsla(0,72%,62%,0.1)', border: '1px solid hsla(0,72%,62%,0.3)', borderRadius: 'var(--radius-sm)', color: 'hsl(0,72%,62%)', fontSize: 12, marginBottom: 12 }}>
+                      {authError}
                     </div>
-                    <button
-                      className="btn btn-primary"
-                      onClick={startDropboxAuth}
-                      style={{ width: '100%' }}
-                    >
-                      Connect to Dropbox (OAuth)
-                    </button>
+                  )}
+                  {authMessage && (
+                    <div style={{ padding: '8px 12px', background: 'hsla(140,60%,50%,0.1)', border: '1px solid hsla(140,60%,50%,0.3)', borderRadius: 'var(--radius-sm)', color: 'hsl(140,60%,50%)', fontSize: 12, marginBottom: 12 }}>
+                      {authMessage}
+                    </div>
+                  )}
+                  <div className="modal-field">
+                    <label>Email</label>
+                    <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="you@example.com" required autoComplete="email" />
                   </div>
+                  {authMode !== 'reset' && (
+                    <div className="modal-field">
+                      <label>Password</label>
+                      <input type="password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="••••••••" required minLength={6} autoComplete={authMode === 'signin' ? 'current-password' : 'new-password'} />
+                    </div>
+                  )}
+                  {authMode === 'signup' && (
+                    <div className="modal-field">
+                      <label>Confirm Password</label>
+                      <input type="password" value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)} placeholder="••••••••" required minLength={6} autoComplete="new-password" />
+                    </div>
+                  )}
+                  <button type="submit" className="btn btn-primary btn-full" disabled={authLoading} style={{ marginBottom: 10 }}>
+                    {authLoading ? 'Please wait…' : authMode === 'signin' ? 'Sign In' : authMode === 'signup' ? 'Create Account' : 'Send Reset Email'}
+                  </button>
+                  <div style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'center', gap: 2, fontSize: 13 }}>
+                    {authMode === 'signin' ? (
+                      <>
+                        <button type="button" onClick={() => switchAuthMode('signup')} style={{ color: 'var(--accent)', padding: '6px 8px' }}>Create account</button>
+                        <span style={{ color: 'var(--text-tertiary)', alignSelf: 'center' }}>·</span>
+                        <button type="button" onClick={() => switchAuthMode('reset')} style={{ color: 'var(--accent)', padding: '6px 8px' }}>Forgot password?</button>
+                      </>
+                    ) : (
+                      <button type="button" onClick={() => switchAuthMode('signin')} style={{ color: 'var(--accent)', padding: '6px 8px' }}>Back to sign in</button>
+                    )}
+                  </div>
+                </form>
+              )}
 
-                  <div style={{ fontSize: 11, color: 'var(--text-tertiary)', marginTop: 16 }}>
-                    Don't have a Dropbox account?{' '}
-                    <a 
-                      href="https://www.dropbox.com/register" 
-                      target="_blank" 
-                      rel="noopener noreferrer"
-                      style={{ color: 'var(--accent)' }}
-                    >
-                      Sign up here
-                    </a>
-                  </div>
-                </>
+              {/* ── Dropbox alternative (only when not signed in to cloud) ── */}
+              {!authUser && (
+                <div style={{ marginTop: 20, borderTop: '1px solid var(--border)', paddingTop: 14 }}>
+                  <button
+                    onClick={() => setShowDropbox(!showDropbox)}
+                    style={{ width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: 12, color: 'var(--text-tertiary)', padding: '2px 0' }}
+                  >
+                    <span>Don't want to make an account? Use Dropbox instead</span>
+                    <span style={{ transition: 'transform 200ms', transform: showDropbox ? 'rotate(180deg)' : 'none', fontSize: 10 }}>▾</span>
+                  </button>
+                  {showDropbox && dropboxSection}
+                </div>
               )}
             </>
           ) : (
+            /* Supabase not configured — Dropbox only */
             <>
-              <div className="modal-field">
-                <label>Remote server URL</label>
-                <input
-                  value={url}
-                  onChange={(e) => setUrl(e.target.value)}
-                  placeholder="https://blockout.yourdomain.com"
-                  autoFocus
-                />
-                <div style={{ fontSize: 11, color: 'var(--text-tertiary)', marginTop: 4 }}>
-                  Your self-hosted BlockOut server. Leave blank to disable cloud sync.
-                </div>
+              <div style={{ fontSize: 12, color: 'var(--text-tertiary)', marginBottom: 14, padding: '10px 12px', background: 'var(--bg-tertiary)', borderRadius: 'var(--radius-sm)' }}>
+                BlockOut Cloud requires Supabase setup (see README.md). Using Dropbox as alternative.
               </div>
-
-              <div className="modal-field">
-                <label>Token (optional)</label>
-                <input
-                  value={token}
-                  onChange={(e) => setToken(e.target.value)}
-                  type="password"
-                  placeholder="Set via BLOCKOUT_TOKEN on the server"
-                />
-                <div style={{ fontSize: 11, color: 'var(--text-tertiary)', marginTop: 4 }}>
-                  Must match the <code>BLOCKOUT_TOKEN</code> env variable on your server.
-                </div>
-              </div>
+              {dropboxSection}
             </>
           )}
 
-          {testResult === 'ok' && (
-            <div style={{ fontSize: 13, color: 'hsl(140, 60%, 50%)', marginBottom: 12 }}>
-              Connection successful — data pushed to server.
-            </div>
-          )}
-          {testResult === 'fail' && (
-            <div style={{ fontSize: 13, color: 'hsl(0, 72%, 62%)', marginBottom: 12 }}>
-              Connection failed. Check the URL and token.
-            </div>
-          )}
-
-          {syncProvider === 'dropbox' && syncStatus === 'error' && isDropboxConfigured() && (
-            <div style={{ fontSize: 13, color: 'hsl(35, 92%, 50%)', marginBottom: 12, padding: 12, background: 'hsla(35, 92%, 50%, 0.1)', borderRadius: 6 }}>
-              <strong>Domain mismatch detected!</strong><br/>
-              Your Dropbox token may have been created for a different domain (localhost vs production).<br/>
-              Try clicking "Complete reset & reconnect" below.
-            </div>
-          )}
-
-          <div style={{ fontSize: 12, color: 'var(--text-tertiary)', marginBottom: 16 }}>
-            Data syncs automatically every 5 minutes and on page close.
-            Local (IndexedDB) is always the primary store — cloud is a backup.
+          <div style={{ fontSize: 11, color: 'var(--text-tertiary)', marginTop: 16, paddingTop: 12, borderTop: '1px solid var(--border)', lineHeight: 1.5 }}>
+            Syncs automatically every 5 minutes and on page close. Local storage is always the primary data source.
           </div>
 
-          <div className="modal-actions">
-            <button className="btn btn-ghost" onClick={() => setSyncSettingsOpen(false)}>Cancel</button>
-            {isConfigured && (
-              <>
-                {syncProvider === 'dropbox' && isDropboxConfigured() && (
-                  <button
-                    className="btn btn-ghost"
-                    onClick={async () => {
-                      try {
-                        setSyncStatus('syncing');
-                        const remote = await syncFromDropbox();
-                        if (remote) {
-                          useStore.getState().loadData(remote as any);
-                          setSyncStatus('synced');
-                          setTestResult('ok');
-                          alert('Data refreshed from Dropbox!');
-                        } else {
-                          alert('No data found in Dropbox');
-                        }
-                      } catch (err) {
-                        console.error('Force refresh error:', err);
-                        setSyncStatus('error');
-                        alert('Failed to refresh: ' + (err as Error).message);
-                      }
-                    }}
-                  >
-                    Force refresh from Dropbox
-                  </button>
-                )}
-                <button 
-                  className="btn btn-danger" 
-                  onClick={handleDisconnect}
-                >
-                  Disconnect
-                </button>
-                {syncProvider === 'dropbox' && syncStatus === 'error' && (
-                  <button 
-                    className="btn btn-danger" 
-                    onClick={() => {
-                      if (confirm('This will clear your Dropbox connection and redirect you to re-authenticate. Continue?')) {
-                        forceReauth();
-                      }
-                    }}
-                  >
-                    Complete reset & reconnect
-                  </button>
-                )}
-              </>
-            )}
-            <button className="btn btn-primary" onClick={handleSave}>Save</button>
+          <div className="modal-actions" style={{ marginTop: 14 }}>
+            <button className="btn btn-ghost" onClick={() => setSyncSettingsOpen(false)}>Close</button>
           </div>
         </motion.div>
       </motion.div>
@@ -2601,6 +2479,7 @@ export function UnifiedTaskContextMenu({
   x: number;
   y: number;
 }) {
+  const isMobile = useIsMobile();
   const tasks = useStore((s) => s.tasks);
   const categories = useStore((s) => s.categories);
   const selectedTaskIds = useStore((s) => s.selectedTaskIds);
@@ -2912,6 +2791,18 @@ export function UnifiedTaskContextMenu({
     );
   }
 
+  const overlayStyle = isMobile
+    ? { zIndex: 1000, alignItems: 'flex-end', justifyContent: 'center' }
+    : { zIndex: 1000, alignItems: 'flex-start', paddingTop: adjustedY, paddingLeft: adjustedX, justifyContent: 'flex-start' };
+
+  const modalStyle = isMobile
+    ? { width: '100vw', maxWidth: '100vw', margin: 0, maxHeight: '85vh', overflow: 'auto', borderRadius: 'var(--radius-xl) var(--radius-xl) 0 0', paddingBottom: 'calc(20px + env(safe-area-inset-bottom, 0px))' }
+    : { maxWidth: 640, margin: 0, maxHeight: '80vh', overflow: 'auto' };
+
+  const modalAnim = isMobile
+    ? { initial: { y: '100%', opacity: 0 }, animate: { y: 0, opacity: 1 }, exit: { y: '100%', opacity: 0 } }
+    : { initial: { scale: 0.92, opacity: 0, y: 20 }, animate: { scale: 1, opacity: 1, y: 0 }, exit: { scale: 0.92, opacity: 0, y: 20 } };
+
   return (
     <AnimatePresence>
       <motion.div
@@ -2920,27 +2811,14 @@ export function UnifiedTaskContextMenu({
         animate={{ opacity: 1 }}
         exit={{ opacity: 0 }}
         onClick={onClose}
-        style={{ 
-          zIndex: 1000,
-          alignItems: 'flex-start',
-          paddingTop: adjustedY,
-          paddingLeft: adjustedX,
-          justifyContent: 'flex-start'
-        }}
+        style={overlayStyle}
       >
         <motion.div
           className="modal"
-          initial={{ scale: 0.92, opacity: 0, y: 20 }}
-          animate={{ scale: 1, opacity: 1, y: 0 }}
-          exit={{ scale: 0.92, opacity: 0, y: 20 }}
+          {...modalAnim}
           transition={{ type: 'spring', damping: 28, stiffness: 380 }}
           onClick={(e) => e.stopPropagation()}
-          style={{ 
-            maxWidth: 640,
-            margin: 0,
-            maxHeight: '80vh',
-            overflow: 'auto'
-          }}
+          style={modalStyle}
         >
           {isArchived && (
             <div style={{
@@ -2960,9 +2838,9 @@ export function UnifiedTaskContextMenu({
             </div>
           )}
 
-          <div style={{ display: 'flex', gap: 24 }}>
+          <div style={{ display: 'flex', gap: 24, flexDirection: isMobile ? 'column' : 'row' }}>
             {/* Left Panel - Individual Task Actions */}
-            <div style={{ flex: 1, minWidth: 240 }}>
+            <div style={{ flex: 1, minWidth: isMobile ? 'unset' : 240 }}>
               <h3 style={{ 
                 fontSize: 14, 
                 color: 'var(--text-secondary)', 
