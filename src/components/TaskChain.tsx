@@ -3,6 +3,7 @@ import { useStore } from '../store';
 import { motion, AnimatePresence } from 'framer-motion';
 import { debouncedSave } from '../utils/persistence';
 import { UnifiedTaskContextMenu } from './Modals';
+import { useIsMobile } from '../hooks/useIsMobile';
 
 // Get today's date string
 function todayStr(): string {
@@ -39,6 +40,8 @@ export function TaskChain() {
   const updateChainTaskNotes = useStore((s) => s.updateChainTaskNotes);
   const addSubtaskToChain = useStore((s) => s.addSubtaskToChain);
   const toggleSubtaskExpansion = useStore((s) => s.toggleSubtaskExpansion);
+
+  const isMobile = useIsMobile();
 
   const [showTemplates, setShowTemplates] = useState(false);
   const [newTaskTitle, setNewTaskTitle] = useState('');
@@ -410,11 +413,11 @@ export function TaskChain() {
     <div 
       ref={containerRef}
       className="taskchain-container" 
-      style={{ 
+      style={{
         height: '100%',
         display: 'flex',
         flexDirection: 'column',
-        padding: '20px 30px',
+        padding: isMobile ? '12px' : '20px 30px',
         overflow: 'auto',
       }}
     >
@@ -450,10 +453,11 @@ export function TaskChain() {
       </div>
 
       {/* Template Actions */}
-      <div style={{ 
-        display: 'flex', 
-        gap: 12, 
-        marginBottom: 24,
+      <div style={{
+        display: 'flex',
+        flexWrap: 'wrap',
+        gap: 8,
+        marginBottom: 16,
         flexShrink: 0,
       }}>
         <button 
@@ -505,6 +509,7 @@ export function TaskChain() {
                   boxShadow: 'var(--shadow-lg)',
                   zIndex: 100,
                   minWidth: 280,
+                  maxWidth: isMobile ? 'calc(100vw - 24px)' : undefined,
                   border: '1px solid var(--border)',
                 }}
               >

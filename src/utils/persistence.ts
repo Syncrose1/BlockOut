@@ -254,40 +254,48 @@ export async function loadData(): Promise<void> {
               // Local was newer, uploaded successfully
               useStore.getState().setSyncStatus('synced');
               applyData(local, 'dropbox-uploaded');
+              // Back up to R2 if available
+              if (isR2SyncAvailable()) saveToR2(useStore.getState().getSerializableState() as Record<string, unknown>).catch(() => {});
               break;
-              
+
             case 'downloaded':
               // Remote was newer, use the data that was already downloaded
               if (DEBUG) console.log('[BlockOut] Downloaded case, has data:', !!result.data);
               if (result.data) {
                 applyData(result.data, 'dropbox-downloaded');
                 useStore.getState().setSyncStatus('synced');
+                // Back up to R2 if available
+                if (isR2SyncAvailable()) saveToR2(useStore.getState().getSerializableState() as Record<string, unknown>).catch(() => {});
               } else {
                 console.warn('[BlockOut] No data in download result, using local');
                 applyData(local, 'dropbox-download-fallback');
               }
               break;
-              
+
             case 'merged':
               // Conflict resolved by merging, use the merged data
               if (result.data) {
                 applyData(result.data, 'dropbox-merged');
                 await idbWrite({ ...result.data, lastModified: Date.now() });
                 if (result.mergeInfo) {
-                  useStore.getState().setConflictState({ 
-                    local, 
-                    remote: result.data, 
+                  useStore.getState().setConflictState({
+                    local,
+                    remote: result.data,
                     merged: result.data,
-                    mergeInfo: result.mergeInfo 
+                    mergeInfo: result.mergeInfo
                   });
                 }
+                // Back up to R2 if available
+                if (isR2SyncAvailable()) saveToR2(useStore.getState().getSerializableState() as Record<string, unknown>).catch(() => {});
               }
               useStore.getState().setSyncStatus('synced');
               break;
-              
+
             case 'unchanged':
               applyData(local, 'dropbox-unchanged');
               useStore.getState().setSyncStatus('synced');
+              // Local is already most up-to-date — back up to R2 if available
+              if (isR2SyncAvailable()) saveToR2(useStore.getState().getSerializableState() as Record<string, unknown>).catch(() => {});
               break;
           }
           return;
@@ -301,6 +309,8 @@ export async function loadData(): Promise<void> {
         if (remote) {
           applyData(remote);
           useStore.getState().setSyncStatus('synced');
+          // Back up to R2 if available
+          if (isR2SyncAvailable()) saveToR2(useStore.getState().getSerializableState() as Record<string, unknown>).catch(() => {});
         }
         return;
       }
