@@ -3,6 +3,7 @@ import { useStore } from '../store';
 import { motion, AnimatePresence } from 'framer-motion';
 import { debouncedSave } from '../utils/persistence';
 import type { BlockType, ScheduleBlock } from '../types';
+import { useIsMobile } from '../hooks/useIsMobile';
 
 const DAYS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
 const START_HOUR = 6;
@@ -76,6 +77,7 @@ interface WeekTemplate {
 }
 
 export function Overview() {
+  const isMobile = useIsMobile();
   const store = useStore();
   const tasks = store.tasks;
   const categories = store.categories;
@@ -647,55 +649,59 @@ export function Overview() {
   }, [currentWeekStart]);
 
   return (
-    <div 
-      style={{ height: '100%', overflow: 'auto', padding: '20px', background: 'var(--bg-primary)' }}
+    <div
+      style={{ height: '100%', overflow: 'auto', padding: isMobile ? '12px' : '20px', background: 'var(--bg-primary)' }}
       onMouseUp={handleMouseUp}
       onMouseLeave={handleMouseUp}
       onClick={() => setContextMenu(null)}
     >
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
-        <div>
-          <h2 style={{ margin: 0, fontSize: 20, fontWeight: 600 }}>Weekly Schedule Overview</h2>
-          <p style={{ margin: '4px 0 0 0', fontSize: 13, color: 'var(--text-secondary)' }}>{weekRangeText} • Click and drag to create, double-click to complete, right-click to edit</p>
+      <div style={{ marginBottom: 16 }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: 8, marginBottom: 8 }}>
+          <div>
+            <h2 style={{ margin: 0, fontSize: isMobile ? 16 : 20, fontWeight: 600 }}>Weekly Schedule</h2>
+            <p style={{ margin: '2px 0 0 0', fontSize: 12, color: 'var(--text-secondary)' }}>{weekRangeText}</p>
+          </div>
+          {/* Primary nav: Prev/Next/Current */}
+          <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+            <button
+              className="btn btn-ghost btn-sm"
+              onClick={() => {
+                const prevWeek = new Date(currentWeekStart);
+                prevWeek.setDate(prevWeek.getDate() - 7);
+                setCurrentWeekStart(prevWeek);
+              }}
+            >
+              ← Prev
+            </button>
+            <button
+              className="btn btn-ghost btn-sm"
+              onClick={() => setShowCalendarModal(true)}
+            >
+              Calendar
+            </button>
+            <button
+              className="btn btn-ghost btn-sm"
+              onClick={() => setCurrentWeekStart(getWeekStart(new Date()))}
+              disabled={isCurrentWeek}
+            >
+              Current
+            </button>
+            <button
+              className="btn btn-ghost btn-sm"
+              onClick={() => {
+                const nextWeek = new Date(currentWeekStart);
+                nextWeek.setDate(nextWeek.getDate() + 7);
+                setCurrentWeekStart(nextWeek);
+              }}
+            >
+              Next →
+            </button>
+          </div>
         </div>
-        <div style={{ display: 'flex', gap: 8 }}>
-          <button 
-            className="btn btn-ghost btn-sm" 
-            onClick={() => {
-              const prevWeek = new Date(currentWeekStart);
-              prevWeek.setDate(prevWeek.getDate() - 7);
-              setCurrentWeekStart(prevWeek);
-            }}
-          >
-            ← Prev
-          </button>
-          <button 
-            className="btn btn-ghost btn-sm" 
-            onClick={() => setShowCalendarModal(true)}
-          >
-            Calendar
-          </button>
-          <button 
-            className="btn btn-ghost btn-sm" 
-            onClick={() => setCurrentWeekStart(getWeekStart(new Date()))}
-            disabled={isCurrentWeek}
-          >
-            Current
-          </button>
-          <button 
-            className="btn btn-ghost btn-sm" 
-            onClick={() => {
-              const nextWeek = new Date(currentWeekStart);
-              nextWeek.setDate(nextWeek.getDate() + 7);
-              setCurrentWeekStart(nextWeek);
-            }}
-          >
-            Next →
-          </button>
-          <div style={{ width: 1, background: 'var(--border)', margin: '0 4px' }} />
+        {/* Secondary actions */}
+        <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
           <button className="btn btn-ghost btn-sm" onClick={() => { setTemplateMode('save'); setShowTemplateModal(true); }}>Save Template</button>
           <button className="btn btn-ghost btn-sm" onClick={() => { setTemplateMode('load'); setShowTemplateModal(true); }}>Load Template</button>
-          <div style={{ width: 1, background: 'var(--border)', margin: '0 4px' }} />
           <button className="btn btn-ghost btn-sm" onClick={() => updateBlocks(allBlocks.filter(b => !blocks.find(cb => cb.id === b.id)))} disabled={blocks.length === 0}>Clear Week</button>
         </div>
       </div>
