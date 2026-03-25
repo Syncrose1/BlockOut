@@ -105,10 +105,19 @@ export interface ChainLink {
   expanded?: boolean; // For parent tasks: whether subtasks are expanded
 }
 
+export interface TaskGroup {
+  id: string;
+  name: string;
+  color?: string;      // accent color for the group header
+  collapsed?: boolean;
+  links: ChainLink[];
+}
+
 export interface TaskChain {
   id: string;
   date: string; // YYYY-MM-DD
   links: ChainLink[];
+  groups?: TaskGroup[];
   createdAt: number;
   completedAt?: number;
 }
@@ -122,6 +131,17 @@ export interface ChainTemplate {
     realTaskPlaceholder?: string; // For realtask: example task name
     parentIndex?: number; // For subtasks: index of parent link
     subType?: 'ct' | 'realtask'; // For subtasks: type of subtask
+  }>;
+  groups?: Array<{
+    name: string;
+    color?: string;
+    links: Array<{
+      type: 'ct' | 'realtask' | 'subtask';
+      ctTitle?: string;
+      realTaskPlaceholder?: string;
+      parentIndex?: number;
+      subType?: 'ct' | 'realtask';
+    }>;
   }>;
   createdAt: number;
   updatedAt?: number;
