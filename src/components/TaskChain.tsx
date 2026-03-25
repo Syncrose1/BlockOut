@@ -493,12 +493,31 @@ export function TaskChain() {
           </button>
           
           <AnimatePresence>
+            {showCalendar && isMobile && (
+              <div
+                onClick={() => setShowCalendar(false)}
+                style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', zIndex: 999 }}
+              />
+            )}
             {showCalendar && (
               <motion.div
-                initial={{ opacity: 0, y: -10, scale: 0.95 }}
-                animate={{ opacity: 1, y: 0, scale: 1 }}
-                exit={{ opacity: 0, y: -10, scale: 0.95 }}
-                style={{
+                initial={{ opacity: 0, scale: 0.95 }}
+                animate={{ opacity: 1, scale: 1 }}
+                exit={{ opacity: 0, scale: 0.95 }}
+                style={isMobile ? {
+                  position: 'fixed',
+                  top: '50%',
+                  left: '50%',
+                  transform: 'translate(-50%, -50%)',
+                  background: 'var(--bg-secondary)',
+                  padding: 16,
+                  borderRadius: 'var(--radius-lg)',
+                  boxShadow: 'var(--shadow-lg)',
+                  zIndex: 1000,
+                  width: 'calc(100vw - 32px)',
+                  maxWidth: 340,
+                  border: '1px solid var(--border)',
+                } : {
                   position: 'absolute',
                   top: '100%',
                   left: 0,
@@ -509,7 +528,6 @@ export function TaskChain() {
                   boxShadow: 'var(--shadow-lg)',
                   zIndex: 100,
                   minWidth: 280,
-                  maxWidth: isMobile ? 'calc(100vw - 24px)' : undefined,
                   border: '1px solid var(--border)',
                 }}
               >
@@ -706,12 +724,12 @@ export function TaskChain() {
       )}
 
       {/* Main Chain Area */}
-      <div style={{ 
+      <div style={{
         flex: 1,
         display: 'flex',
         flexDirection: 'column',
         overflow: 'auto',
-        padding: '0 20px 20px 0',
+        padding: isMobile ? '0 0 20px 0' : '0 20px 20px 0',
       }}>
         {/* Add First Task Button (when empty) */}
         {(!currentChain || currentChain.links.length === 0) && !insertAfterIndex && (
@@ -1311,25 +1329,25 @@ export function TaskChain() {
             </div>
             
             {/* Add CT */}
-            <div style={{ display: 'flex', gap: 12, marginBottom: 16 }}>
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginBottom: 16 }}>
               <input
                 type="text"
                 value={newTaskTitle}
                 onChange={(e) => setNewTaskTitle(e.target.value)}
                 placeholder="New chain task (quick to-do)"
                 style={{
-                  flex: 1,
+                  flex: '1 1 180px',
                   padding: '10px 12px',
                   background: 'var(--bg-tertiary)',
                   border: '1px solid var(--border)',
                   borderRadius: 'var(--radius-sm)',
                   color: 'var(--text-primary)',
                 }}
-                autoFocus
+                autoFocus={!isMobile}
                 onKeyDown={(e) => e.key === 'Enter' && handleAddCT()}
               />
-              <button 
-                className="btn btn-primary" 
+              <button
+                className="btn btn-primary"
                 onClick={handleAddCT}
                 disabled={!newTaskTitle.trim()}
               >
@@ -1352,7 +1370,7 @@ export function TaskChain() {
             </div>
 
             {/* Add Main Task */}
-            <div style={{ display: 'flex', gap: 12 }}>
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
               <select
                 value={selectedMainTaskId}
                 onChange={(e) => setSelectedMainTaskId(e.target.value)}
