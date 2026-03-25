@@ -409,8 +409,103 @@ export function TaskChain() {
     return items;
   }, [currentChain]);
 
+  const calendarContent = (
+    <>
+      {/* Month/Year Navigation */}
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+        <button
+          className="btn btn-ghost btn-sm"
+          onClick={() => {
+            if (calendarMonth === 0) {
+              setCalendarMonth(11);
+              setCalendarYear(calendarYear - 1);
+            } else {
+              setCalendarMonth(calendarMonth - 1);
+            }
+          }}
+          style={{ padding: '4px 8px' }}
+        >
+          ←
+        </button>
+        <div style={{ display: 'flex', gap: 8 }}>
+          <select
+            value={calendarMonth}
+            onChange={(e) => setCalendarMonth(parseInt(e.target.value))}
+            style={{ padding: '4px 8px', background: 'var(--bg-primary)', border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)', color: 'var(--text-primary)', fontSize: 13 }}
+          >
+            {['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'].map((name, i) => (
+              <option key={i} value={i}>{name}</option>
+            ))}
+          </select>
+          <select
+            value={calendarYear}
+            onChange={(e) => setCalendarYear(parseInt(e.target.value))}
+            style={{ padding: '4px 8px', background: 'var(--bg-primary)', border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)', color: 'var(--text-primary)', fontSize: 13 }}
+          >
+            {Array.from({ length: 10 }, (_, i) => new Date().getFullYear() - 5 + i).map(year => (
+              <option key={year} value={year}>{year}</option>
+            ))}
+          </select>
+        </div>
+        <button
+          className="btn btn-ghost btn-sm"
+          onClick={() => {
+            if (calendarMonth === 11) {
+              setCalendarMonth(0);
+              setCalendarYear(calendarYear + 1);
+            } else {
+              setCalendarMonth(calendarMonth + 1);
+            }
+          }}
+          style={{ padding: '4px 8px' }}
+        >
+          →
+        </button>
+      </div>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: 4, textAlign: 'center', fontSize: 11 }}>
+        {['Su', 'Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa'].map((d) => (
+          <div key={d} style={{ color: 'var(--text-secondary)', padding: '4px', fontWeight: 600 }}>{d}</div>
+        ))}
+        {calendarDays.map((day, i) => (
+          <button
+            key={i}
+            onClick={() => {
+              if (day.date) {
+                setSelectedChainDate(day.date);
+                setShowCalendar(false);
+              }
+            }}
+            style={{
+              padding: '6px',
+              borderRadius: 'var(--radius-sm)',
+              background: day.date === selectedChainDate ? 'var(--accent)' : day.isToday ? 'var(--bg-tertiary)' : 'transparent',
+              color: day.date === selectedChainDate ? 'white' : 'var(--text-primary)',
+              border: day.hasChain ? '2px solid var(--accent)' : day.isToday ? '1px solid var(--border)' : 'none',
+              cursor: day.date ? 'pointer' : 'default',
+              opacity: day.date ? 1 : 0,
+              fontSize: 13,
+              fontWeight: day.date === selectedChainDate || day.isToday ? 600 : 400,
+            }}
+          >
+            {day.day || ''}
+          </button>
+        ))}
+      </div>
+      <div style={{ marginTop: 12, fontSize: 11, color: 'var(--text-secondary)', display: 'flex', gap: 16, justifyContent: 'center' }}>
+        <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+          <span style={{ width: 8, height: 8, border: '2px solid var(--accent)', borderRadius: 2 }} />
+          Has Chain
+        </span>
+        <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+          <span style={{ width: 8, height: 8, background: 'var(--accent)', borderRadius: 2 }} />
+          Selected
+        </span>
+      </div>
+    </>
+  );
+
   return (
-    <div 
+    <div
       ref={containerRef}
       className="taskchain-container" 
       style={{
@@ -494,30 +589,48 @@ export function TaskChain() {
           
           <AnimatePresence>
             {showCalendar && isMobile && (
-              <div
-                onClick={() => setShowCalendar(false)}
-                style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', zIndex: 999 }}
-              />
-            )}
-            {showCalendar && (
               <motion.div
-                initial={{ opacity: 0, scale: 0.95 }}
-                animate={{ opacity: 1, scale: 1 }}
-                exit={{ opacity: 0, scale: 0.95 }}
-                style={isMobile ? {
-                  position: 'fixed',
-                  top: '50%',
-                  left: '50%',
-                  transform: 'translate(-50%, -50%)',
-                  background: 'var(--bg-secondary)',
-                  padding: 16,
-                  borderRadius: 'var(--radius-lg)',
-                  boxShadow: 'var(--shadow-lg)',
-                  zIndex: 1000,
-                  width: 'calc(100vw - 32px)',
-                  maxWidth: 340,
-                  border: '1px solid var(--border)',
-                } : {
+                key="cal-backdrop"
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                onClick={() => setShowCalendar(false)}
+                style={{
+                  position: 'fixed', inset: 0,
+                  background: 'rgba(0,0,0,0.5)',
+                  zIndex: 999,
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                }}
+              >
+                <motion.div
+                  key="cal-popup-mobile"
+                  initial={{ scale: 0.95, opacity: 0 }}
+                  animate={{ scale: 1, opacity: 1 }}
+                  exit={{ scale: 0.95, opacity: 0 }}
+                  onClick={(e) => e.stopPropagation()}
+                  style={{
+                    background: 'var(--bg-secondary)',
+                    padding: 16,
+                    borderRadius: 'var(--radius-lg)',
+                    boxShadow: 'var(--shadow-lg)',
+                    width: 'calc(100vw - 32px)',
+                    maxWidth: 340,
+                    border: '1px solid var(--border)',
+                  }}
+                >
+                  {calendarContent}
+                </motion.div>
+              </motion.div>
+            )}
+            {showCalendar && !isMobile && (
+              <motion.div
+                key="cal-popup-desktop"
+                initial={{ opacity: 0, y: -10, scale: 0.95 }}
+                animate={{ opacity: 1, y: 0, scale: 1 }}
+                exit={{ opacity: 0, y: -10, scale: 0.95 }}
+                style={{
                   position: 'absolute',
                   top: '100%',
                   left: 0,
@@ -531,117 +644,7 @@ export function TaskChain() {
                   border: '1px solid var(--border)',
                 }}
               >
-                {/* Month/Year Navigation */}
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
-                  <button 
-                    className="btn btn-ghost btn-sm" 
-                    onClick={() => {
-                      if (calendarMonth === 0) {
-                        setCalendarMonth(11);
-                        setCalendarYear(calendarYear - 1);
-                      } else {
-                        setCalendarMonth(calendarMonth - 1);
-                      }
-                    }}
-                    style={{ padding: '4px 8px' }}
-                  >
-                    ←
-                  </button>
-                  
-                  <div style={{ display: 'flex', gap: 8 }}>
-                    <select 
-                      value={calendarMonth} 
-                      onChange={(e) => setCalendarMonth(parseInt(e.target.value))}
-                      style={{ padding: '4px 8px', background: 'var(--bg-primary)', border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)', color: 'var(--text-primary)', fontSize: 13 }}
-                    >
-                      {['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'].map((name, i) => (
-                        <option key={i} value={i}>{name}</option>
-                      ))}
-                    </select>
-                    
-                    <select 
-                      value={calendarYear} 
-                      onChange={(e) => setCalendarYear(parseInt(e.target.value))}
-                      style={{ padding: '4px 8px', background: 'var(--bg-primary)', border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)', color: 'var(--text-primary)', fontSize: 13 }}
-                    >
-                      {Array.from({ length: 10 }, (_, i) => new Date().getFullYear() - 5 + i).map(year => (
-                        <option key={year} value={year}>{year}</option>
-                      ))}
-                    </select>
-                  </div>
-                  
-                  <button 
-                    className="btn btn-ghost btn-sm" 
-                    onClick={() => {
-                      if (calendarMonth === 11) {
-                        setCalendarMonth(0);
-                        setCalendarYear(calendarYear + 1);
-                      } else {
-                        setCalendarMonth(calendarMonth + 1);
-                      }
-                    }}
-                    style={{ padding: '4px 8px' }}
-                  >
-                    →
-                  </button>
-                </div>
-
-                <div style={{ 
-                  display: 'grid', 
-                  gridTemplateColumns: 'repeat(7, 1fr)', 
-                  gap: 4,
-                  textAlign: 'center',
-                  fontSize: 11,
-                }}>
-                  {['Su', 'Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa'].map((d) => (
-                    <div key={d} style={{ color: 'var(--text-secondary)', padding: '4px', fontWeight: 600 }}>
-                      {d}
-                    </div>
-                  ))}
-                  {calendarDays.map((day, i) => (
-                    <button
-                      key={i}
-                      onClick={() => {
-                        if (day.date) {
-                          setSelectedChainDate(day.date);
-                          setShowCalendar(false);
-                        }
-                      }}
-                      style={{
-                        padding: '6px',
-                        borderRadius: 'var(--radius-sm)',
-                        background: day.date === selectedChainDate 
-                          ? 'var(--accent)' 
-                          : day.isToday 
-                            ? 'var(--bg-tertiary)' 
-                            : 'transparent',
-                        color: day.date === selectedChainDate ? 'white' : 'var(--text-primary)',
-                        border: day.hasChain 
-                          ? '2px solid var(--accent)' 
-                          : day.isToday 
-                            ? '1px solid var(--border)' 
-                            : 'none',
-                        cursor: day.date ? 'pointer' : 'default',
-                        opacity: day.date ? 1 : 0,
-                        fontSize: 13,
-                        fontWeight: day.date === selectedChainDate || day.isToday ? 600 : 400,
-                      }}
-                    >
-                      {day.day || ''}
-                    </button>
-                  ))}
-                </div>
-                
-                <div style={{ marginTop: 12, fontSize: 11, color: 'var(--text-secondary)', display: 'flex', gap: 16, justifyContent: 'center' }}>
-                  <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-                    <span style={{ width: 8, height: 8, border: '2px solid var(--accent)', borderRadius: 2 }} />
-                    Has Chain
-                  </span>
-                  <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-                    <span style={{ width: 8, height: 8, background: 'var(--accent)', borderRadius: 2 }} />
-                    Selected
-                  </span>
-                </div>
+                {calendarContent}
               </motion.div>
             )}
           </AnimatePresence>
@@ -1370,12 +1373,12 @@ export function TaskChain() {
             </div>
 
             {/* Add Main Task */}
-            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
               <select
                 value={selectedMainTaskId}
                 onChange={(e) => setSelectedMainTaskId(e.target.value)}
                 style={{
-                  flex: 1,
+                  width: '100%',
                   padding: '10px 12px',
                   background: 'var(--bg-tertiary)',
                   border: '1px solid var(--border)',
