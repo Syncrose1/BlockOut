@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useMemo } from 'react';
+import React, { useState, useCallback, useMemo, useRef } from 'react';
 import { useStore } from '../store';
 import { motion, AnimatePresence } from 'framer-motion';
 import { debouncedSave } from '../utils/persistence';
@@ -78,6 +78,8 @@ interface WeekTemplate {
 
 export function Overview() {
   const isMobile = useIsMobile();
+  const touchStartRef = useRef<{ time: number; y: number } | null>(null);
+  const longPressTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const store = useStore();
   const tasks = store.tasks;
   const categories = store.categories;
@@ -391,6 +393,10 @@ export function Overview() {
     setContextMenu({ x: e.clientX, y: e.clientY, blockId: block.id });
   };
 
+  const handleBlockLongPress = useCallback((block: ScheduleBlock, touchX: number, touchY: number) => {
+    setContextMenu({ x: touchX, y: touchY, blockId: block.id });
+  }, []);
+
   const openPlaceholderSelectModal = (block: ScheduleBlock) => {
     setSelectingPlaceholderBlock(block);
     setPlaceholderSelectedTaskIds(block.selectedTaskIds || []);
@@ -442,6 +448,17 @@ export function Overview() {
   const getBlockAtSlot = (dayIndex: number, slotIndex: number) => {
     return blocks.find(b => b.dayIndex === dayIndex && slotIndex >= b.startSlot && slotIndex < b.endSlot);
   };
+
+  const handleTouchTap = useCallback((dayIndex: number, slotIndex: number) => {
+    if (getBlockAtSlot(dayIndex, slotIndex)) return;
+    const endSlot = Math.min(slotIndex + 2, TIME_SLOTS.length - 1);
+    setPendingBlock({ dayIndex, startSlot: slotIndex, endSlot });
+    setBlockName('');
+    setSelectedTaskId('');
+    setCreateMode('placeholder');
+    setSelectedColor(BLOCK_COLORS[0].value);
+    setShowCreateModal(true);
+  }, [getBlockAtSlot]);
 
   const getBlockColor = (block: ScheduleBlock) => {
     // If completed, always show green
@@ -729,9 +746,22 @@ export function Overview() {
                     background: isCreatingHere(dayIndex, slotIndex) ? 'rgba(59, 130, 246, 0.2)' : 'var(--bg-primary)',
                     borderTop: slotIndex > 0 ? '1px solid var(--border-dim)' : 'none',
                     cursor: isCreating ? 'crosshair' : 'pointer',
+                    touchAction: 'manipulation',
                   }}
                   onMouseDown={() => !getBlockAtSlot(dayIndex, slotIndex) && handleMouseDown(dayIndex, slotIndex)}
                   onMouseEnter={() => handleMouseEnter(dayIndex, slotIndex)}
+                  onTouchStart={(e) => {
+                    touchStartRef.current = { time: Date.now(), y: e.touches[0].clientY };
+                  }}
+                  onTouchEnd={(e) => {
+                    if (!touchStartRef.current) return;
+                    const elapsed = Date.now() - touchStartRef.current.time;
+                    const moved = Math.abs(e.changedTouches[0].clientY - touchStartRef.current.y);
+                    touchStartRef.current = null;
+                    if (elapsed < 500 && moved < 15) {
+                      handleTouchTap(dayIndex, slotIndex);
+                    }
+                  }}
                 />
               ))}
               
@@ -792,6 +822,18 @@ export function Overview() {
                           }}
                           onDoubleClick={() => initiateBlockComplete({ ...block, taskId, type: taskInfo.type, completed: isCompleted })}
                           onContextMenu={(e) => handleBlockContextMenu(e, block)}
+                          onTouchStart={(e) => {
+                            const touch = e.touches[0];
+                            longPressTimerRef.current = setTimeout(() => {
+                              handleBlockLongPress(block, touch.clientX, touch.clientY);
+                            }, 500);
+                          }}
+                          onTouchEnd={() => {
+                            if (longPressTimerRef.current) { clearTimeout(longPressTimerRef.current); longPressTimerRef.current = null; }
+                          }}
+                          onTouchMove={() => {
+                            if (longPressTimerRef.current) { clearTimeout(longPressTimerRef.current); longPressTimerRef.current = null; }
+                          }}
                         >
                           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 2 }}>
                             <div style={{ fontWeight: 600, fontSize: 14, lineHeight: 1.2, flex: 1 }}>{taskInfo.name}</div>
@@ -824,6 +866,18 @@ export function Overview() {
                         }}
                         onDoubleClick={() => initiateBlockComplete(block)}
                         onContextMenu={(e) => handleBlockContextMenu(e, block)}
+                        onTouchStart={(e) => {
+                          const touch = e.touches[0];
+                          longPressTimerRef.current = setTimeout(() => {
+                            handleBlockLongPress(block, touch.clientX, touch.clientY);
+                          }, 500);
+                        }}
+                        onTouchEnd={() => {
+                          if (longPressTimerRef.current) { clearTimeout(longPressTimerRef.current); longPressTimerRef.current = null; }
+                        }}
+                        onTouchMove={() => {
+                          if (longPressTimerRef.current) { clearTimeout(longPressTimerRef.current); longPressTimerRef.current = null; }
+                        }}
                       >
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 6 }}>
                           <div style={{ fontWeight: 600, fontSize: 16, lineHeight: 1.2, flex: 1 }}>{block.name}</div>
@@ -937,13 +991,62 @@ export function Overview() {
       {/* Create Block Modal */}
       <AnimatePresence>
         {showCreateModal && pendingBlock && (
-          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 100 }} onClick={() => setShowCreateModal(false)}>
-            <motion.div initial={{ scale: 0.9 }} animate={{ scale: 1 }} exit={{ scale: 0.9 }} style={{ background: 'var(--bg-secondary)', padding: 24, borderRadius: 'var(--radius-lg)', width: 450, border: '1px solid var(--border)' }} onClick={e => e.stopPropagation()}>
+          <motion.div
+            initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+            style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: isMobile ? 'flex-end' : 'center', justifyContent: 'center', zIndex: 100 }}
+            onClick={() => setShowCreateModal(false)}
+          >
+            <motion.div
+              initial={isMobile ? { y: '100%' } : { scale: 0.9 }}
+              animate={isMobile ? { y: 0 } : { scale: 1 }}
+              exit={isMobile ? { y: '100%' } : { scale: 0.9 }}
+              style={{
+                background: 'var(--bg-secondary)',
+                padding: 24,
+                borderRadius: isMobile ? 'var(--radius-xl) var(--radius-xl) 0 0' : 'var(--radius-lg)',
+                width: isMobile ? '100%' : 450,
+                maxWidth: isMobile ? '100%' : 500,
+                border: '1px solid var(--border)',
+                maxHeight: isMobile ? '85vh' : undefined,
+                overflowY: 'auto',
+                paddingBottom: isMobile ? 'calc(24px + env(safe-area-inset-bottom, 0px))' : 24,
+              }}
+              onClick={e => e.stopPropagation()}
+            >
               <h3 style={{ margin: '0 0 16px 0' }}>Create Schedule Block</h3>
               
               <p style={{ margin: '0 0 12px 0', fontSize: 13, color: 'var(--text-secondary)' }}>
                 {pendingBlock && DAYS[pendingBlock.dayIndex]} {pendingBlock && TIME_SLOTS[pendingBlock.startSlot]?.label} - {pendingBlock && TIME_SLOTS[pendingBlock.endSlot]?.label}
               </p>
+
+              {isMobile && pendingBlock && (
+                <div style={{ display: 'flex', gap: 8, marginBottom: 16 }}>
+                  <div style={{ flex: 1 }}>
+                    <label style={{ display: 'block', fontSize: 12, color: 'var(--text-secondary)', marginBottom: 4 }}>Start</label>
+                    <select
+                      value={pendingBlock.startSlot}
+                      onChange={(e) => setPendingBlock(pb => pb ? { ...pb, startSlot: parseInt(e.target.value) } : pb)}
+                      style={{ width: '100%', padding: '8px', background: 'var(--bg-primary)', border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)', color: 'var(--text-primary)', fontSize: 13 }}
+                    >
+                      {TIME_SLOTS.map((slot, i) => (
+                        <option key={i} value={i}>{slot.label}</option>
+                      ))}
+                    </select>
+                  </div>
+                  <div style={{ flex: 1 }}>
+                    <label style={{ display: 'block', fontSize: 12, color: 'var(--text-secondary)', marginBottom: 4 }}>End</label>
+                    <select
+                      value={pendingBlock.endSlot}
+                      onChange={(e) => setPendingBlock(pb => pb ? { ...pb, endSlot: parseInt(e.target.value) } : pb)}
+                      style={{ width: '100%', padding: '8px', background: 'var(--bg-primary)', border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)', color: 'var(--text-primary)', fontSize: 13 }}
+                    >
+                      {TIME_SLOTS.map((slot, i) => (
+                        <option key={i} value={i}>{slot.label}</option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+              )}
 
               <div style={{ display: 'flex', gap: 8, marginBottom: 16 }}>
                 {(['placeholder', 'mt', 'ct'] as BlockType[]).map((mode) => (
@@ -966,7 +1069,7 @@ export function Overview() {
                     value={blockName}
                     onChange={(e) => setBlockName(e.target.value)}
                     style={{ width: '100%', padding: '10px 12px', marginBottom: 16, background: 'var(--bg-primary)', border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)', color: 'var(--text-primary)', fontSize: 14 }}
-                    autoFocus
+                    autoFocus={!isMobile}
                   />
                   <div style={{ marginBottom: 16 }}>
                     <label style={{ display: 'block', fontSize: 13, marginBottom: 8, color: 'var(--text-secondary)' }}>Color:</label>
@@ -1148,7 +1251,7 @@ export function Overview() {
       <AnimatePresence>
         {showCalendarModal && (
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 100 }} onClick={() => setShowCalendarModal(false)}>
-            <motion.div initial={{ scale: 0.9 }} animate={{ scale: 1 }} exit={{ scale: 0.9 }} style={{ background: 'var(--bg-secondary)', padding: 24, borderRadius: 'var(--radius-lg)', width: 340, border: '1px solid var(--border)' }} onClick={e => e.stopPropagation()}>
+            <motion.div initial={{ scale: 0.9 }} animate={{ scale: 1 }} exit={{ scale: 0.9 }} style={{ background: 'var(--bg-secondary)', padding: 24, borderRadius: 'var(--radius-lg)', width: 340, maxWidth: 'calc(100vw - 32px)', border: '1px solid var(--border)' }} onClick={e => e.stopPropagation()}>
               <h3 style={{ margin: '0 0 16px 0' }}>Select Week</h3>
               
               {/* Month/Year Navigation */}
