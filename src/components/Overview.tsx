@@ -78,7 +78,6 @@ interface WeekTemplate {
 
 export function Overview() {
   const isMobile = useIsMobile();
-  const touchStartRef = useRef<{ time: number; y: number } | null>(null);
   const longPressTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const store = useStore();
   const tasks = store.tasks;
@@ -748,20 +747,9 @@ export function Overview() {
                     cursor: isCreating ? 'crosshair' : 'pointer',
                     touchAction: 'manipulation',
                   }}
-                  onMouseDown={() => !getBlockAtSlot(dayIndex, slotIndex) && handleMouseDown(dayIndex, slotIndex)}
-                  onMouseEnter={() => handleMouseEnter(dayIndex, slotIndex)}
-                  onTouchStart={(e) => {
-                    touchStartRef.current = { time: Date.now(), y: e.touches[0].clientY };
-                  }}
-                  onTouchEnd={(e) => {
-                    if (!touchStartRef.current) return;
-                    const elapsed = Date.now() - touchStartRef.current.time;
-                    const moved = Math.abs(e.changedTouches[0].clientY - touchStartRef.current.y);
-                    touchStartRef.current = null;
-                    if (elapsed < 500 && moved < 15) {
-                      handleTouchTap(dayIndex, slotIndex);
-                    }
-                  }}
+                  onMouseDown={() => !isMobile && !getBlockAtSlot(dayIndex, slotIndex) && handleMouseDown(dayIndex, slotIndex)}
+                  onMouseEnter={() => !isMobile && handleMouseEnter(dayIndex, slotIndex)}
+                  onClick={() => isMobile && !getBlockAtSlot(dayIndex, slotIndex) && handleTouchTap(dayIndex, slotIndex)}
                 />
               ))}
               
