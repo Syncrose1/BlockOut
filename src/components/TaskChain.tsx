@@ -543,43 +543,45 @@ export function TaskChain() {
       }}
     >
       {/* Header with Calendar */}
-      <div style={{ 
-        display: 'flex', 
+      <div style={{
+        display: 'flex',
         justifyContent: 'space-between',
         alignItems: 'flex-start',
-        marginBottom: 24,
+        marginBottom: isMobile ? 12 : 24,
         flexShrink: 0,
       }}>
         <div>
-          <h1 style={{ 
-            fontSize: 24, 
+          <h1 style={{
+            fontSize: isMobile ? 18 : 24,
             fontWeight: 600,
-            marginBottom: 4,
+            marginBottom: 2,
             display: 'flex',
             alignItems: 'center',
-            gap: 12,
+            gap: 8,
           }}>
-            <span style={{ fontSize: 28 }}>⛓️</span>
+            <span style={{ fontSize: isMobile ? 20 : 28 }}>⛓️</span>
             Task Chain
           </h1>
-          <div style={{ color: 'var(--text-secondary)', fontSize: 14 }}>
-            {new Date(selectedChainDate).toLocaleDateString('en-US', { 
-              weekday: 'long', 
+          <div style={{ color: 'var(--text-secondary)', fontSize: isMobile ? 12 : 14 }}>
+            {new Date(selectedChainDate).toLocaleDateString('en-US', {
+              weekday: 'long',
               year: 'numeric',
-              month: 'long', 
-              day: 'numeric' 
+              month: 'long',
+              day: 'numeric'
             })}
           </div>
         </div>
       </div>
 
-      {/* Template Actions */}
+      {/* Template Actions — horizontal scroll strip on mobile */}
       <div style={{
         display: 'flex',
-        flexWrap: 'wrap',
+        flexWrap: isMobile ? 'nowrap' : 'wrap',
         gap: 8,
-        marginBottom: 16,
+        marginBottom: 12,
         flexShrink: 0,
+        overflowX: isMobile ? 'auto' : 'visible',
+        paddingBottom: isMobile ? 4 : 0,
       }}>
         <button 
           className="btn btn-ghost btn-sm"
@@ -676,27 +678,26 @@ export function TaskChain() {
           </AnimatePresence>
         </div>
         
-        {currentChain && currentChain.links.length > 0 && (
+        {(currentChain && (currentChain.links.length > 0 || currentChain.groups?.some(g => g.links.length > 0))) && (
           <button
             className="btn btn-ghost btn-sm"
             onClick={() => setShowSaveTemplate(true)}
-            style={{ display: 'flex', alignItems: 'center', gap: 6 }}
+            style={{ display: 'flex', alignItems: 'center', gap: 6, flexShrink: 0 }}
           >
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
               <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/>
               <polyline points="17 21 17 13 7 13 7 21"/>
               <polyline points="7 3 7 8 15 8"/>
             </svg>
-            Save as Template
+            Save Template
           </button>
         )}
-
         <button
           className="btn btn-ghost btn-sm"
           onClick={() => setShowAddGroup(true)}
-          style={{ display: 'flex', alignItems: 'center', gap: 6 }}
+          style={{ display: 'flex', alignItems: 'center', gap: 6, flexShrink: 0 }}
         >
-          + Add Group
+          + Group
         </button>
       </div>
 
@@ -746,57 +747,45 @@ export function TaskChain() {
         <div style={{
           background: 'var(--bg-secondary)',
           borderRadius: 'var(--radius-lg)',
-          padding: '16px 20px',
-          marginBottom: 24,
+          padding: isMobile ? '10px 12px' : '16px 20px',
+          marginBottom: isMobile ? 12 : 24,
           border: '1px solid var(--border)',
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'space-between',
+          gap: 8,
+          flexWrap: 'wrap',
         }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-            <span style={{ fontSize: 20 }}>⛓️</span>
-            <span style={{ fontWeight: 600, fontSize: 15 }}>Workflow Chain</span>
-            <div style={{ display: 'flex', gap: 4 }}>
-              {Array.from({ length: chainStats.total }).map((_, i) => (
-                <div
-                  key={i}
-                  style={{
-                    width: 8,
-                    height: 8,
-                    borderRadius: '50%',
-                    background: i < chainStats.completed 
-                      ? 'hsl(140, 60%, 40%)' 
-                      : i === chainStats.completed 
-                        ? 'var(--accent)' 
-                        : 'var(--border)',
-                  }}
-                />
-              ))}
-            </div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <span style={{ fontSize: isMobile ? 16 : 20 }}>⛓️</span>
+            <span style={{ fontWeight: 600, fontSize: isMobile ? 13 : 15 }}>
+              {isMobile ? `${chainStats.completed}/${chainStats.total}` : 'Workflow Chain'}
+            </span>
+            {!isMobile && (
+              <div style={{ display: 'flex', gap: 4 }}>
+                {Array.from({ length: chainStats.total }).map((_, i) => (
+                  <div key={i} style={{
+                    width: 8, height: 8, borderRadius: '50%',
+                    background: i < chainStats.completed ? 'hsl(140, 60%, 40%)' : i === chainStats.completed ? 'var(--accent)' : 'var(--border)',
+                  }} />
+                ))}
+              </div>
+            )}
           </div>
-          
-          <div style={{ 
-            display: 'flex', 
-            alignItems: 'center', 
-            gap: 16,
-            fontSize: 13,
-            color: 'var(--text-secondary)',
-          }}>
-            <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-              <span style={{ width: 8, height: 8, borderRadius: '50%', background: 'hsl(140, 60%, 40%)' }} />
-              {chainStats.completed} Done
+          <div style={{ display: 'flex', alignItems: 'center', gap: isMobile ? 10 : 16, fontSize: isMobile ? 12 : 13, color: 'var(--text-secondary)' }}>
+            <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+              <span style={{ width: 7, height: 7, borderRadius: '50%', background: 'hsl(140, 60%, 40%)', flexShrink: 0 }} />
+              {chainStats.completed}{isMobile ? '' : ' Done'}
             </span>
-            <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-              <span style={{ width: 8, height: 8, borderRadius: '50%', background: 'var(--accent)' }} />
-              {chainStats.active} Active
+            <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+              <span style={{ width: 7, height: 7, borderRadius: '50%', background: 'var(--accent)', flexShrink: 0 }} />
+              {chainStats.active}{isMobile ? '' : ' Active'}
             </span>
-            <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-              <span style={{ width: 8, height: 8, borderRadius: '50%', background: 'var(--border)' }} />
-              {chainStats.pending} Pending
+            <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+              <span style={{ width: 7, height: 7, borderRadius: '50%', background: 'var(--border)', flexShrink: 0 }} />
+              {chainStats.pending}{isMobile ? '' : ' Pending'}
             </span>
-            <span style={{ fontWeight: 600, color: 'var(--text-primary)' }}>
-              {chainStats.completed}/{chainStats.total}
-            </span>
+            {!isMobile && <span style={{ fontWeight: 600, color: 'var(--text-primary)' }}>{chainStats.completed}/{chainStats.total}</span>}
           </div>
         </div>
       )}
@@ -872,7 +861,7 @@ export function TaskChain() {
           return (
             <div key={link.id} style={{ display: 'flex', alignItems: 'flex-start' }}>
               {/* Left connector column */}
-              <div style={{ width: 56, display: 'flex', flexDirection: 'column', alignItems: 'center', flexShrink: 0 }}>
+              <div style={{ width: isMobile ? 38 : 56, display: 'flex', flexDirection: 'column', alignItems: 'center', flexShrink: 0 }}>
                 {/* Top connector line */}
                 {nodeNumber > 1 && (
                   <div style={{ height: 16, width: 2, borderRadius: '9999px', backgroundColor: isCompleted || isActive ? accentColor : 'var(--border)', opacity: isCompleted ? 0.6 : 1 }} />
@@ -881,12 +870,12 @@ export function TaskChain() {
 
                 {/* Node circle */}
                 <div style={{
-                  width: 36, height: 36, borderRadius: '50%',
+                  width: isMobile ? 26 : 36, height: isMobile ? 26 : 36, borderRadius: '50%',
                   background: isCompleted ? 'hsl(140, 60%, 40%)' : isActive ? `${accentColor}18` : 'transparent',
                   border: isActive ? `2px solid ${accentColor}` : isCompleted ? '2px solid hsl(140, 60%, 40%)' : '2px solid #475569',
                   display: 'flex', alignItems: 'center', justifyContent: 'center',
                   color: isCompleted || isActive ? 'white' : 'var(--text-secondary)',
-                  fontWeight: 700, fontSize: 13, flexShrink: 0, transition: 'all 0.3s ease',
+                  fontWeight: 700, fontSize: isMobile ? 11 : 13, flexShrink: 0, transition: 'all 0.3s ease',
                   boxShadow: isActive ? `0 0 20px ${accentColor}40` : isCompleted ? '0 0 10px hsla(140, 60%, 40%, 0.4)' : '0 0 0 1px rgba(71, 85, 105, 0.3)',
                 }}>
                   {isCompleted ? (
@@ -1180,9 +1169,9 @@ export function TaskChain() {
                             <button className="btn btn-ghost btn-xs" onClick={() => { setAddingSubtaskForLinkId(null); setSubtaskTitle(''); setSelectedSubtaskMainTaskId(''); }}>×</button>
                           </div>
                           {subtaskType === 'ct' ? (
-                            <div style={{ display: 'flex', gap: 6 }}>
-                              <input type="text" value={subtaskTitle} onChange={(e) => setSubtaskTitle(e.target.value)} placeholder="New subtask..." autoFocus
-                                style={{ flex: 1, padding: '6px 10px', background: 'var(--bg-secondary)', border: '1px solid var(--border)', borderRadius: 6, color: 'var(--text-primary)', fontSize: 13 }}
+                            <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                              <input type="text" value={subtaskTitle} onChange={(e) => setSubtaskTitle(e.target.value)} placeholder="New subtask..." autoFocus={!isMobile}
+                                style={{ flex: '1 1 120px', padding: '6px 10px', background: 'var(--bg-secondary)', border: '1px solid var(--border)', borderRadius: 6, color: 'var(--text-primary)', fontSize: 13 }}
                                 onKeyDown={(e) => { if (e.key === 'Enter' && subtaskTitle.trim()) { addSubtaskToChain(selectedChainDate, link.id, subtaskTitle.trim(), 'ct'); setAddingSubtaskForLinkId(null); setSubtaskTitle(''); debouncedSave(); } }}
                               />
                               <button className="btn btn-primary btn-sm" disabled={!subtaskTitle.trim()}
