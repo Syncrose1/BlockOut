@@ -692,12 +692,22 @@ export function TaskChain() {
             Save Template
           </button>
         )}
+      </div>
+
+      {/* Task Groups Row */}
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8, flexShrink: 0 }}>
+        <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>
+          Task Groups
+        </span>
         <button
-          className="btn btn-ghost btn-sm"
+          className="btn btn-secondary btn-sm"
           onClick={() => setShowAddGroup(true)}
-          style={{ display: 'flex', alignItems: 'center', gap: 6, flexShrink: 0 }}
+          style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 12 }}
         >
-          + Group
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+            <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
+          </svg>
+          Add Group
         </button>
       </div>
 
