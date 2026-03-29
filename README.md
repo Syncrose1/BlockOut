@@ -144,13 +144,15 @@ This is the recommended approach for multi-user, multi-device sync. Users create
 
 #### 1. Set up Supabase (Auth)
 
-1. Create a free project at [supabase.com](https://supabase.com)
+BlockOut uses the shared **Syncratic** Supabase project for authentication. This is the same project used by [Binder](https://github.com/Syncrose1/Binder) and [Syncratic Wiki](https://github.com/Syncrose1/Syncratic-Wiki), so users have a single account across all three apps.
+
+1. Go to the **Syncratic** project in [supabase.com](https://supabase.com) (or create it if it doesn't exist yet)
 2. Go to **Project Settings → API**
 3. Copy your **Project URL** and **anon (public) key**
 4. Add to your `.env`:
 
 ```bash
-VITE_SUPABASE_URL=https://your-project-id.supabase.co
+VITE_SUPABASE_URL=https://your-syncratic-project.supabase.co
 VITE_SUPABASE_ANON_KEY=eyJhbGciOi...your-anon-key
 ```
 
@@ -161,6 +163,8 @@ SUPABASE_SERVICE_ROLE_KEY=eyJhbGciOi...your-service-role-key
 ```
 
 > **Note:** The `VITE_` prefixed keys are public and bundled into the frontend. The `SUPABASE_SERVICE_ROLE_KEY` is server-side only and should never be exposed to the client.
+>
+> BlockOut does not use any Supabase database tables — it only uses Supabase Auth. The Syncratic project's database hosts tables for Binder and Wiki, which coexist without conflicts.
 
 #### 2. Set up Cloudflare R2 (Storage)
 
