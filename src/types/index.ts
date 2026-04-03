@@ -2,7 +2,7 @@ export interface PomodoroSession {
   id: string;
   startTime: number;
   endTime: number;
-  mode: 'work' | 'break' | 'longBreak';
+  mode: 'work' | 'break' | 'longBreak' | 'stopwatch' | 'countdown';
   categoryId?: string;
 }
 
@@ -43,13 +43,17 @@ export interface TimeBlock {
   createdAt: number;
 }
 
+export type TimerMode = 'pomodoro' | 'stopwatch' | 'countdown';
+
 export interface PomodoroState {
   isRunning: boolean;
   mode: 'work' | 'break' | 'longBreak';
-  timeRemaining: number; // seconds
+  timerMode: TimerMode;
+  timeRemaining: number; // seconds (for countdown) or elapsed (for stopwatch)
   workDuration: number; // seconds
   breakDuration: number; // seconds
   longBreakDuration: number; // seconds
+  countdownDuration: number; // seconds (custom countdown time)
   sessionsCompleted: number;
   focusedTaskId?: string;
   focusedCategoryId?: string;
@@ -98,19 +102,19 @@ export interface ChainTask {
 export interface ChainLink {
   id: string;
   type: 'ct' | 'realtask' | 'subtask';
-  taskId: string; // For CT: chain task ID, for realtask: task ID
-  placeholder?: string; // For realtask placeholders: example task name
-  parentId?: string; // For subtasks: ID of the parent link
-  subType?: 'ct' | 'realtask'; // For subtasks: the actual type
-  expanded?: boolean; // For parent tasks: whether subtasks are expanded
+  taskId: string;
+  expanded?: boolean;
+  parentId?: string;
+  subType?: 'ct' | 'realtask';
+  placeholder?: string;
 }
 
 export interface TaskGroup {
   id: string;
   name: string;
-  color?: string;      // accent color for the group header
-  collapsed?: boolean;
+  color?: string;
   links: ChainLink[];
+  collapsed?: boolean;
 }
 
 export interface TaskChain {
@@ -119,68 +123,38 @@ export interface TaskChain {
   links: ChainLink[];
   groups?: TaskGroup[];
   createdAt: number;
-  completedAt?: number;
 }
 
 export interface ChainTemplate {
   id: string;
   name: string;
-  links: Array<{
-    type: 'ct' | 'realtask' | 'subtask';
-    ctTitle?: string; // For CT: the title
-    realTaskPlaceholder?: string; // For realtask: example task name
-    parentIndex?: number; // For subtasks: index of parent link
-    subType?: 'ct' | 'realtask'; // For subtasks: type of subtask
-  }>;
+  links: Array<
+    | { type: 'ct'; ctTitle: string }
+    | { type: 'realtask'; realTaskPlaceholder: string }
+    | { type: 'subtask'; subType: 'ct'; ctTitle: string; parentIndex?: number }
+    | { type: 'subtask'; subType: 'realtask'; realTaskPlaceholder: string; parentIndex?: number }
+  >;
   groups?: Array<{
     name: string;
     color?: string;
-    links: Array<{
-      type: 'ct' | 'realtask' | 'subtask';
-      ctTitle?: string;
-      realTaskPlaceholder?: string;
-      parentIndex?: number;
-      subType?: 'ct' | 'realtask';
-    }>;
+    links: Array<
+      | { type: 'ct'; ctTitle: string }
+      | { type: 'realtask'; realTaskPlaceholder: string }
+      | { type: 'subtask'; subType: 'ct'; ctTitle: string; parentIndex?: number }
+      | { type: 'subtask'; subType: 'realtask'; realTaskPlaceholder: string; parentIndex?: number }
+    >;
   }>;
   createdAt: number;
   updatedAt?: number;
 }
 
-// Overview Schedule Block types
-export type BlockType = 'placeholder' | 'mt' | 'ct';
-
 export interface ScheduleBlock {
   id: string;
-  dayIndex: number; // 0 = Monday, 6 = Sunday
-  startSlot: number; // 0 = 6:00 AM, 1 = 6:30 AM, etc.
-  endSlot: number; // exclusive
-  type: BlockType;
-  name: string;
-  taskId?: string; // For 'mt' type: reference to real task
-  color?: string; // For non-MT blocks: custom color
-  completed?: boolean; // Whether the block/task is completed
-  completedAt?: number; // When it was completed
-  actualDuration?: number; // Duration in minutes when completed
-  weekDate: string; // YYYY-MM-DD of the Monday of the week this block belongs to
-  selectedTaskIds?: string[]; // For placeholder blocks: IDs of selected CTs/MTs
-  createdAt: number;
-  updatedAt: number;
-}
-
-export interface TreemapNode {
-  id: string;
-  name: string;
-  value: number;
-  color: string;
-  completed: boolean;
-  locked?: boolean; // task has unmet dependencies
-  children?: TreemapNode[];
-  x?: number;
-  y?: number;
-  w?: number;
-  h?: number;
-  depth?: number;
-  categoryId?: string;
-  subcategoryId?: string;
+  title: string;
+  description?: string;
+  startTime: number; // minutes from midnight (e.g., 480 = 8:00 AM)
+  duration: number; // minutes
+  color?: string;
+  isMilestone?: boolean;
+  date: string; // YYYY-MM-DD
 }

@@ -603,12 +603,16 @@ function SessionRow({ session, categories }: { session: PomodoroSession; categor
     work: 'hsl(142, 72%, 62%)',
     break: 'hsl(35, 92%, 52%)',
     longBreak: 'hsl(210, 100%, 56%)',
+    stopwatch: 'hsl(280, 72%, 60%)',
+    countdown: 'hsl(180, 72%, 50%)',
   };
   
   const modeLabels = {
     work: 'Work',
     break: 'Break',
     longBreak: 'Long Break',
+    stopwatch: 'Stopwatch',
+    countdown: 'Countdown',
   };
 
   const category = session.categoryId ? categories[session.categoryId] : null;

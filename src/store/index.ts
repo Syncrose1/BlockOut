@@ -66,9 +66,9 @@ interface BlockOutState {
   showNewTaskModal: boolean;
   editingTaskId: string | null;
   focusMode: boolean;
-  completionSurveyTaskId: string | null; // task pending duration survey
-  chainTaskCompletionSurveyId: string | null; // CT pending duration survey
-  dependencyBlockedTaskId: string | null; // task that was blocked due to unmet deps
+  completionSurveyTaskId: string | null;
+  chainTaskCompletionSurveyId: string | null;
+  dependencyBlockedTaskId: string | null;
   pomodoroSettingsOpen: boolean;
 
   // Drag and drop
@@ -78,17 +78,15 @@ interface BlockOutState {
   selectedTaskIds: string[];
   lastSelectedTaskId: string | null;
 
-  // Pomodoro
+  // Pomodoro state
   pomodoro: PomodoroState;
 
   // Sync
   syncStatus: 'idle' | 'syncing' | 'synced' | 'error';
   syncSettingsOpen: boolean;
-  lastModified?: number; // Timestamp for cloud sync tracking
   conflictState: {
     local: Record<string, unknown>;
     remote: Record<string, unknown>;
-    // Present when auto-merge succeeded — describes what was combined
     merged?: Record<string, unknown>;
     mergeInfo?: {
       localTasksAdded: number;
@@ -103,71 +101,16 @@ interface BlockOutState {
   } | null;
 
   // Task Chains
-  taskChains: Record<string, TaskChain>; // key: YYYY-MM-DD
+  taskChains: Record<string, TaskChain>;
   chainTemplates: Record<string, ChainTemplate>;
-  chainTasks: Record<string, ChainTask>; // CTs that exist in chains
-  selectedChainDate: string; // YYYY-MM-DD, defaults to today
+  chainTasks: Record<string, ChainTask>;
+  selectedChainDate: string;
   showTaskChainModal: boolean;
 
-  // Actions — Categories
-  addCategory: (name: string) => string;
-  addSubcategory: (categoryId: string, name: string) => void;
-  deleteSubcategory: (categoryId: string, subcategoryId: string) => void;
-  renameCategory: (id: string, name: string) => void;
-  deleteCategory: (id: string) => void;
+  // Overview blocks
+  overviewBlocks: ScheduleBlock[];
 
-  // Actions — Tasks
-  addTask: (task: Omit<Task, 'id' | 'createdAt' | 'completed' | 'completedAt'>) => string;
-  toggleTask: (id: string) => void;
-  updateTask: (id: string, updates: Partial<Task>) => void;
-  deleteTask: (id: string) => void;
-  setTaskActualDuration: (taskId: string, minutes: number | null) => void;
-
-  // Actions — Time Blocks
-  addTimeBlock: (block: Omit<TimeBlock, 'id' | 'createdAt' | 'taskIds'>) => string;
-  deleteTimeBlock: (id: string) => void;
-  renameTimeBlock: (id: string, name: string) => void;
-  assignTaskToBlock: (taskId: string, blockId: string) => void;
-  removeTaskFromBlock: (taskId: string, blockId: string) => void;
-  setActiveBlock: (id: string | null) => void;
-
-  // Actions — UI
-  setViewMode: (mode: ViewMode) => void;
-  setSelectedCategory: (id: string | null) => void;
-  setShowTimelessPool: (show: boolean) => void;
-  setPoolViewMode: (mode: 'all' | 'unassigned') => void;
-  setShowNewBlockModal: (show: boolean) => void;
-  setShowNewCategoryModal: (show: boolean) => void;
-  setShowNewTaskModal: (show: boolean) => void;
-  setEditingTaskId: (id: string | null) => void;
-  setCompletionSurveyTask: (id: string | null) => void;
-  setChainTaskCompletionSurveyId: (id: string | null) => void;
-  setDependencyBlockedTaskId: (id: string | null) => void;
-  setPomodoroSettingsOpen: (open: boolean) => void;
-
-  // Actions — Focus mode
-  enterFocusMode: (categoryId: string) => void;
-  exitFocusMode: () => void;
-
-  // Actions — Drag and drop
-  setDraggedTask: (taskId: string | null) => void;
-  setDraggedTasks: (taskIds: string[]) => void;
-  setDragOverBlock: (blockId: string | null) => void;
-  setDragOverPool: (over: boolean) => void;
-  setIsDragging: (isDragging: boolean) => void;
-
-  // Actions — Selection
-  toggleTaskSelection: (taskId: string, isShiftClick?: boolean, isCtrlClick?: boolean) => void;
-  selectAllTasksInCategory: (categoryId: string) => void;
-  clearTaskSelection: () => void;
-  setLastSelectedTask: (taskId: string | null) => void;
-
-  // Actions — Bulk Operations
-  bulkMoveTasksToCategory: (taskIds: string[], categoryId: string, subcategoryId?: string) => void;
-  bulkDeleteTasks: (taskIds: string[]) => void;
-  bulkAssignTasksToBlock: (taskIds: string[], blockId: string) => void;
-
-  // Actions — Pomodoro
+  // Pomodoro actions
   startPomodoro: () => void;
   pausePomodoro: () => void;
   resetPomodoro: () => void;
@@ -176,6 +119,8 @@ interface BlockOutState {
   tickPomodoro: () => void;
   setPomodoroDurations: (work: number, brk: number, longBrk: number) => void;
   setFocusedTask: (taskId: string | undefined) => void;
+  setTimerMode: (mode: import('../types').TimerMode) => void;
+  setCountdownDuration: (seconds: number) => void;
 
   // Actions — Sync
   setSyncStatus: (status: 'idle' | 'syncing' | 'synced' | 'error') => void;
@@ -214,8 +159,7 @@ interface BlockOutState {
   toggleTaskGroupCollapsed: (chainDate: string, groupId: string) => void;
   migrateChainToGroups: (chainDate: string) => void;
 
-  // Overview blocks
-  overviewBlocks: ScheduleBlock[];
+  // Overview blocks actions
   setOverviewBlocks: (blocks: ScheduleBlock[]) => void;
 
   // Persistence
@@ -288,10 +232,12 @@ export const useStore = create<BlockOutState>((set, get) => ({
   pomodoro: {
     isRunning: false,
     mode: 'work',
+    timerMode: 'pomodoro',
     timeRemaining: 25 * 60,
     workDuration: 25 * 60,
     breakDuration: 5 * 60,
     longBreakDuration: 15 * 60,
+    countdownDuration: 25 * 60,
     sessionsCompleted: 0,
     focusedTaskId: undefined,
     focusedCategoryId: undefined,
@@ -773,19 +719,53 @@ export const useStore = create<BlockOutState>((set, get) => ({
     set((state) => {
       const p = state.pomodoro;
       if (!p.isRunning) return state;
+
+      if (p.timerMode === 'stopwatch') {
+        // Stopwatch: increment time
+        return { pomodoro: { ...p, timeRemaining: p.timeRemaining + 1 } };
+      }
+
+      if (p.timerMode === 'countdown') {
+        // Countdown: decrement until 0
+        const next = p.timeRemaining - 1;
+        if (next <= 0) {
+          import('../utils/pomodoroNotifications').then(({ playCompletionSound, sendPomodoroNotification }) => {
+            playCompletionSound();
+            sendPomodoroNotification('work');
+          });
+
+          const completedSession: PomodoroSession = {
+            id: uuid(),
+            startTime: p.currentSessionStart ?? (Date.now() - p.countdownDuration * 1000),
+            endTime: Date.now(),
+            mode: 'countdown',
+            categoryId: p.focusedCategoryId,
+          };
+
+          return {
+            pomodoro: {
+              ...p,
+              isRunning: false,
+              timeRemaining: p.countdownDuration,
+              sessions: [...p.sessions, completedSession],
+              currentSessionStart: undefined,
+            },
+          };
+        }
+        return { pomodoro: { ...p, timeRemaining: next } };
+      }
+
+      // Pomodoro mode: decrement and handle mode switches
       const next = p.timeRemaining - 1;
       if (next <= 0) {
-        // Timer completed - play sound and send notification
         import('../utils/pomodoroNotifications').then(({ playCompletionSound, sendPomodoroNotification }) => {
           playCompletionSound();
-          // Determine next mode for notification
-          const nextMode = p.mode === 'work' 
+          const nextMode = p.mode === 'work'
             ? (p.sessionsCompleted + 1) % 4 === 0 ? 'longBreak' : 'break'
             : 'work';
           sendPomodoroNotification(nextMode);
         });
 
-        // Record the completed session
         const completedSession: PomodoroSession = {
           id: uuid(),
           startTime: p.currentSessionStart ?? (Date.now() - (p.mode === 'work' ? p.workDuration : p.mode === 'break' ? p.breakDuration : p.longBreakDuration) * 1000),
@@ -838,6 +818,35 @@ export const useStore = create<BlockOutState>((set, get) => ({
 
   setFocusedTask: (taskId) =>
     set((state) => ({ pomodoro: { ...state.pomodoro, focusedTaskId: taskId } })),
+
+  setTimerMode: (mode) =>
+    set((state) => ({
+      pomodoro: {
+        ...state.pomodoro,
+        timerMode: mode,
+        isRunning: false,
+        currentSessionStart: undefined,
+        timeRemaining:
+          mode === 'pomodoro'
+            ? state.pomodoro.workDuration
+            : mode === 'countdown'
+            ? state.pomodoro.countdownDuration
+            : 0,
+        mode: mode === 'pomodoro' ? 'work' : 'work',
+      },
+    })),
+
+  setCountdownDuration: (seconds) =>
+    set((state) => ({
+      pomodoro: {
+        ...state.pomodoro,
+        countdownDuration: seconds,
+        timeRemaining:
+          state.pomodoro.timerMode === 'countdown' && !state.pomodoro.isRunning
+            ? seconds
+            : state.pomodoro.timeRemaining,
+      },
+    })),
 
   // Task Chains
   setSelectedChainDate: (date) => set({ selectedChainDate: date }),
@@ -1580,10 +1589,12 @@ export const useStore = create<BlockOutState>((set, get) => ({
         ...(pomodoroData && {
           isRunning: pomodoroData.isRunning ?? false,
           mode: pomodoroData.mode ?? 'work',
+          timerMode: pomodoroData.timerMode ?? 'pomodoro',
           timeRemaining: pomodoroData.timeRemaining ?? 25 * 60,
           workDuration: pomodoroData.workDuration ?? 25 * 60,
           breakDuration: pomodoroData.breakDuration ?? 5 * 60,
           longBreakDuration: pomodoroData.longBreakDuration ?? 15 * 60,
+          countdownDuration: pomodoroData.countdownDuration ?? 25 * 60,
           sessionsCompleted: pomodoroData.sessionsCompleted ?? 0,
           focusedTaskId: pomodoroData.focusedTaskId,
           focusedCategoryId: pomodoroData.focusedCategoryId,
@@ -1614,10 +1625,12 @@ export const useStore = create<BlockOutState>((set, get) => ({
       pomodoro: {
         isRunning: s.pomodoro.isRunning,
         mode: s.pomodoro.mode,
+        timerMode: s.pomodoro.timerMode,
         timeRemaining: s.pomodoro.timeRemaining,
         workDuration: s.pomodoro.workDuration,
         breakDuration: s.pomodoro.breakDuration,
         longBreakDuration: s.pomodoro.longBreakDuration,
+        countdownDuration: s.pomodoro.countdownDuration,
         sessionsCompleted: s.pomodoro.sessionsCompleted,
         focusedTaskId: s.pomodoro.focusedTaskId,
         focusedCategoryId: s.pomodoro.focusedCategoryId,

@@ -2,6 +2,7 @@ import { useEffect, useRef, useState, useCallback } from 'react';
 import { useStore } from '../store';
 import { motion, AnimatePresence, useMotionValue } from 'framer-motion';
 import { PomodoroModal } from './PomodoroModal';
+import type { TimerMode } from '../types';
 
 function formatTime(seconds: number): string {
   const m = Math.floor(seconds / 60);
@@ -19,6 +20,8 @@ export function Pomodoro() {
   const tickPomodoro = useStore((s) => s.tickPomodoro);
   const exitFocusMode = useStore((s) => s.exitFocusMode);
   const setPomodoroSettingsOpen = useStore((s) => s.setPomodoroSettingsOpen);
+  const setTimerMode = useStore((s) => s.setTimerMode);
+  const setCountdownDuration = useStore((s) => s.setCountdownDuration);
 
   // Modal state
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -153,12 +156,16 @@ export function Pomodoro() {
   const focusedCategory = pomodoro.focusedCategoryId ? categories[pomodoro.focusedCategoryId] : null;
 
   const totalTime =
-    pomodoro.mode === 'work'
-      ? pomodoro.workDuration
-      : pomodoro.mode === 'break'
-      ? pomodoro.breakDuration
-      : pomodoro.longBreakDuration;
-  const progress = 1 - pomodoro.timeRemaining / totalTime;
+    pomodoro.timerMode === 'pomodoro'
+      ? pomodoro.mode === 'work'
+        ? pomodoro.workDuration
+        : pomodoro.mode === 'break'
+        ? pomodoro.breakDuration
+        : pomodoro.longBreakDuration
+      : pomodoro.countdownDuration;
+  const progress = pomodoro.timerMode === 'stopwatch' 
+    ? 0 
+    : 1 - pomodoro.timeRemaining / totalTime;
 
   const ringColor = focusedCategory
     ? focusedCategory.color
@@ -168,8 +175,16 @@ export function Pomodoro() {
 
   const todayStr = new Date().toISOString().slice(0, 10);
   const todaySessions = pomodoro.sessions.filter(
-    (s) => s.mode === 'work' && new Date(s.endTime).toISOString().slice(0, 10) === todayStr
+    (s) => (s.mode === 'work' || s.mode === 'stopwatch' || s.mode === 'countdown') && new Date(s.endTime).toISOString().slice(0, 10) === todayStr
   ).length;
+
+  // Countdown time adjustment
+  const adjustCountdownTime = (minutes: number) => {
+    const newDuration = pomodoro.countdownDuration + minutes * 60;
+    if (newDuration > 0) {
+      setCountdownDuration(newDuration);
+    }
+  };
 
   return (
     <AnimatePresence>
@@ -268,7 +283,9 @@ export function Pomodoro() {
 
         <div style={{ flex: 1 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-            <span className={`pomodoro-mode ${pomodoro.mode}`}>{modeLabel}</span>
+            <span className={`pomodoro-mode ${pomodoro.mode}`}>
+              {pomodoro.timerMode === 'pomodoro' ? modeLabel : pomodoro.timerMode === 'stopwatch' ? 'Stopwatch' : 'Countdown'}
+            </span>
             {focusMode && focusedCategory && (
               <span style={{
                 fontSize: 9,
@@ -284,7 +301,7 @@ export function Pomodoro() {
           <div className="pomodoro-timer">{formatTime(pomodoro.timeRemaining)}</div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
             <div className="pomodoro-sessions">
-              {Array.from({ length: 4 }).map((_, i) => (
+              {pomodoro.timerMode === 'pomodoro' && Array.from({ length: 4 }).map((_, i) => (
                 <div
                   key={i}
                   className={`pip ${i < pomodoro.sessionsCompleted % 4 ? 'filled' : ''}`}
@@ -324,6 +341,75 @@ export function Pomodoro() {
             </button>
           )}
         </div>
+
+        {/* Mode switcher */}
+        <div
+          style={{
+            position: 'absolute',
+            top: -28,
+            right: 0,
+            display: 'flex',
+            gap: 4,
+            background: 'var(--bg-secondary)',
+            padding: '4px',
+            borderRadius: 'var(--radius-md)',
+            border: '1px solid var(--border)',
+            boxShadow: '0 2px 8px rgba(0,0,0,0.15)',
+          }}
+        >
+          {(['pomodoro', 'countdown', 'stopwatch'] as TimerMode[]).map((mode) => (
+            <button
+              key={mode}
+              onClick={() => setTimerMode(mode)}
+              style={{
+                padding: '4px 8px',
+                fontSize: 11,
+                fontWeight: pomodoro.timerMode === mode ? 600 : 500,
+                background: pomodoro.timerMode === mode ? 'var(--accent)' : 'transparent',
+                color: pomodoro.timerMode === mode ? 'white' : 'var(--text-secondary)',
+                border: 'none',
+                borderRadius: 'var(--radius-sm)',
+                cursor: 'pointer',
+                textTransform: 'capitalize',
+                transition: 'all 0.2s',
+              }}
+              title={mode === 'pomodoro' ? 'Pomodoro timer' : mode === 'countdown' ? 'Countdown timer' : 'Stopwatch'}
+            >
+              {mode === 'pomodoro' ? 'Pomo' : mode === 'countdown' ? 'Timer' : 'Stop'}
+            </button>
+          ))}
+        </div>
+
+        {/* Countdown time adjustment (only show for countdown mode) */}
+        {pomodoro.timerMode === 'countdown' && (
+          <div
+            style={{
+              position: 'absolute',
+              bottom: -24,
+              right: 0,
+              display: 'flex',
+              gap: 4,
+            }}
+          >
+            {[1, 5, 10].map((min) => (
+              <button
+                key={min}
+                onClick={() => adjustCountdownTime(min)}
+                style={{
+                  padding: '2px 6px',
+                  fontSize: 10,
+                  background: 'var(--bg-tertiary)',
+                  color: 'var(--text-secondary)',
+                  border: '1px solid var(--border)',
+                  borderRadius: 'var(--radius-sm)',
+                  cursor: 'pointer',
+                }}
+              >
+                +{min}m
+              </button>
+            ))}
+          </div>
+        )}
 
         {/* Resize handle */}
         <div
