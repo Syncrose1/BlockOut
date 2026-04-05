@@ -6,6 +6,37 @@ export interface PomodoroSession {
   categoryId?: string;
 }
 
+// Unified session type for timer and stopwatch modes
+export interface TimerSession {
+  id: string;
+  startTime: number;
+  endTime: number;
+  timerType: 'timer' | 'stopwatch';
+  duration: number; // seconds elapsed
+  categoryId?: string;
+  label?: string;
+  laps?: number[]; // elapsed seconds at each lap (stopwatch only)
+}
+
+export type ActiveTimerMode = 'pomodoro' | 'timer' | 'stopwatch';
+
+export interface TimerCountdownState {
+  isRunning: boolean;
+  timeRemaining: number; // seconds
+  duration: number; // set duration in seconds (default 5min)
+  currentSessionStart?: number;
+  sessions: TimerSession[];
+  presets: number[]; // preset durations in seconds
+}
+
+export interface StopwatchState {
+  isRunning: boolean;
+  elapsed: number; // seconds
+  currentSessionStart?: number;
+  laps: number[]; // elapsed seconds at each lap mark
+  sessions: TimerSession[];
+}
+
 export interface Task {
   id: string;
   title: string;
@@ -59,6 +90,10 @@ export interface PomodoroState {
   widgetX?: number;
   widgetY?: number;
   widgetScale?: number;
+  // Multi-mode support
+  activeTimerMode: ActiveTimerMode;
+  timer: TimerCountdownState;
+  stopwatch: StopwatchState;
 }
 
 export interface StreakData {

@@ -2,12 +2,27 @@ import { useEffect, useRef, useState, useCallback } from 'react';
 import { useStore } from '../store';
 import { motion, AnimatePresence, useMotionValue } from 'framer-motion';
 import { PomodoroModal } from './PomodoroModal';
+import type { ActiveTimerMode } from '../types';
 
 function formatTime(seconds: number): string {
-  const m = Math.floor(seconds / 60);
+  const h = Math.floor(seconds / 3600);
+  const m = Math.floor((seconds % 3600) / 60);
   const s = seconds % 60;
+  if (h > 0) return `${h}:${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
   return `${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
 }
+
+const MODE_LABELS: Record<ActiveTimerMode, string> = {
+  pomodoro: 'Pomodoro',
+  timer: 'Timer',
+  stopwatch: 'Stopwatch',
+};
+
+const MODE_COLORS: Record<ActiveTimerMode, string> = {
+  pomodoro: 'hsl(0, 72%, 62%)',
+  timer: 'hsl(265, 72%, 62%)',
+  stopwatch: 'hsl(35, 92%, 52%)',
+};
 
 export function Pomodoro() {
   const pomodoro = useStore((s) => s.pomodoro);
@@ -19,6 +34,23 @@ export function Pomodoro() {
   const tickPomodoro = useStore((s) => s.tickPomodoro);
   const exitFocusMode = useStore((s) => s.exitFocusMode);
   const setPomodoroSettingsOpen = useStore((s) => s.setPomodoroSettingsOpen);
+  const setActiveTimerMode = useStore((s) => s.setActiveTimerMode);
+
+  // Timer actions
+  const startTimer = useStore((s) => s.startTimer);
+  const pauseTimer = useStore((s) => s.pauseTimer);
+  const resetTimer = useStore((s) => s.resetTimer);
+  const tickTimer = useStore((s) => s.tickTimer);
+  const setTimerDuration = useStore((s) => s.setTimerDuration);
+
+  // Stopwatch actions
+  const startStopwatch = useStore((s) => s.startStopwatch);
+  const pauseStopwatch = useStore((s) => s.pauseStopwatch);
+  const resetStopwatch = useStore((s) => s.resetStopwatch);
+  const tickStopwatch = useStore((s) => s.tickStopwatch);
+  const lapStopwatch = useStore((s) => s.lapStopwatch);
+
+  const activeMode = pomodoro.activeTimerMode;
 
   // Modal state
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -28,19 +60,22 @@ export function Pomodoro() {
   const y = useMotionValue(pomodoro.widgetY || 0);
   const widgetRef = useRef<HTMLDivElement>(null);
   const [dragConstraints, setDragConstraints] = useState({ top: -800, left: -1200, right: 0, bottom: 0 });
-  
+
   // Resize state
   const [scale, setScale] = useState(pomodoro.widgetScale || 1);
   const [isResizing, setIsResizing] = useState(false);
   const resizeStartRef = useRef({ x: 0, scale: 1 });
-  
+
+  // Timer preset picker state
+  const [showPresets, setShowPresets] = useState(false);
+
   // Save position and scale to store
   const saveWidgetPosition = useCallback((newX: number, newY: number) => {
     useStore.setState((state) => ({
       pomodoro: { ...state.pomodoro, widgetX: newX, widgetY: newY },
     }));
   }, []);
-  
+
   const saveWidgetScale = useCallback((newScale: number) => {
     useStore.setState((state) => ({
       pomodoro: { ...state.pomodoro, widgetScale: newScale },
@@ -51,11 +86,9 @@ export function Pomodoro() {
     const el = widgetRef.current;
     if (!el) return;
     const { offsetWidth, offsetHeight } = el;
-    // Account for CSS zoom when calculating constraints
     const html = document.documentElement;
     const zoomStyle = (html as any).style?.zoom || getComputedStyle(html).zoom;
     const zoom = zoomStyle ? parseFloat(zoomStyle) : 1;
-    // The widget is fixed at bottom:20px right:20px — allow dragging to all four edges with an 8px margin
     setDragConstraints({
       right: 0,
       bottom: 0,
@@ -70,12 +103,26 @@ export function Pomodoro() {
     return () => window.removeEventListener('resize', updateConstraints);
   }, [updateConstraints]);
 
-  // Timer tick
+  // Pomodoro tick
   useEffect(() => {
-    if (!pomodoro.isRunning) return;
+    if (activeMode !== 'pomodoro' || !pomodoro.isRunning) return;
     const interval = setInterval(tickPomodoro, 1000);
     return () => clearInterval(interval);
-  }, [pomodoro.isRunning, tickPomodoro]);
+  }, [activeMode, pomodoro.isRunning, tickPomodoro]);
+
+  // Timer tick
+  useEffect(() => {
+    if (activeMode !== 'timer' || !pomodoro.timer.isRunning) return;
+    const interval = setInterval(tickTimer, 1000);
+    return () => clearInterval(interval);
+  }, [activeMode, pomodoro.timer.isRunning, tickTimer]);
+
+  // Stopwatch tick
+  useEffect(() => {
+    if (activeMode !== 'stopwatch' || !pomodoro.stopwatch.isRunning) return;
+    const interval = setInterval(tickStopwatch, 1000);
+    return () => clearInterval(interval);
+  }, [activeMode, pomodoro.stopwatch.isRunning, tickStopwatch]);
 
   // Resize handlers
   const handleResizeStart = (e: React.MouseEvent) => {
@@ -87,27 +134,17 @@ export function Pomodoro() {
 
   useEffect(() => {
     if (!isResizing) {
-      // Save scale when resizing ends
-      if (scale !== pomodoro.widgetScale) {
-        saveWidgetScale(scale);
-      }
+      if (scale !== pomodoro.widgetScale) saveWidgetScale(scale);
       return;
     }
-
     const handleMouseMove = (e: MouseEvent) => {
       const deltaX = e.clientX - resizeStartRef.current.x;
-      // Scale based on drag distance (100px drag = 0.5 scale change)
       const scaleDelta = deltaX / 200;
       const newScale = Math.min(1.75, Math.max(1, resizeStartRef.current.scale + scaleDelta));
       setScale(newScale);
     };
-
-    const handleMouseUp = () => {
-      setIsResizing(false);
-    };
-
+    const handleMouseUp = () => setIsResizing(false);
     const handleBlur = () => setIsResizing(false);
-
     window.addEventListener('mousemove', handleMouseMove);
     window.addEventListener('mouseup', handleMouseUp);
     window.addEventListener('blur', handleBlur);
@@ -118,9 +155,9 @@ export function Pomodoro() {
     };
   }, [isResizing, scale, pomodoro.widgetScale, saveWidgetScale]);
 
-  // Audio notification on timer end
+  // Audio notification on pomodoro timer end
   useEffect(() => {
-    if (pomodoro.timeRemaining === 0 && !pomodoro.isRunning) {
+    if (activeMode === 'pomodoro' && pomodoro.timeRemaining === 0 && !pomodoro.isRunning) {
       try {
         const ctx = new AudioContext();
         const playNote = (freq: number, delay: number) => {
@@ -147,29 +184,76 @@ export function Pomodoro() {
         // Audio not available
       }
     }
-  }, [pomodoro.timeRemaining, pomodoro.isRunning, pomodoro.mode]);
+  }, [activeMode, pomodoro.timeRemaining, pomodoro.isRunning, pomodoro.mode]);
 
-  const modeLabel = pomodoro.mode === 'work' ? 'Focus' : pomodoro.mode === 'break' ? 'Break' : 'Long Break';
+  // Close presets dropdown on outside click
+  useEffect(() => {
+    if (!showPresets) return;
+    const handler = () => setShowPresets(false);
+    window.addEventListener('click', handler);
+    return () => window.removeEventListener('click', handler);
+  }, [showPresets]);
+
+  // Derived values for each mode
   const focusedCategory = pomodoro.focusedCategoryId ? categories[pomodoro.focusedCategoryId] : null;
 
-  const totalTime =
-    pomodoro.mode === 'work'
-      ? pomodoro.workDuration
-      : pomodoro.mode === 'break'
-      ? pomodoro.breakDuration
-      : pomodoro.longBreakDuration;
-  const progress = 1 - pomodoro.timeRemaining / totalTime;
+  // Get current display time, progress, running state per mode
+  let displayTime = 0;
+  let progress = 0;
+  let isRunning = false;
+  let ringColor = MODE_COLORS[activeMode];
 
-  const ringColor = focusedCategory
-    ? focusedCategory.color
-    : pomodoro.mode === 'work'
-    ? 'hsl(0, 72%, 62%)'
-    : 'hsl(120, 60%, 50%)';
+  if (activeMode === 'pomodoro') {
+    const totalTime = pomodoro.mode === 'work' ? pomodoro.workDuration
+      : pomodoro.mode === 'break' ? pomodoro.breakDuration : pomodoro.longBreakDuration;
+    displayTime = pomodoro.timeRemaining;
+    progress = 1 - pomodoro.timeRemaining / totalTime;
+    isRunning = pomodoro.isRunning;
+    ringColor = focusedCategory ? focusedCategory.color
+      : pomodoro.mode === 'work' ? 'hsl(0, 72%, 62%)' : 'hsl(120, 60%, 50%)';
+  } else if (activeMode === 'timer') {
+    displayTime = pomodoro.timer.timeRemaining;
+    progress = pomodoro.timer.duration > 0 ? 1 - pomodoro.timer.timeRemaining / pomodoro.timer.duration : 0;
+    isRunning = pomodoro.timer.isRunning;
+  } else {
+    displayTime = pomodoro.stopwatch.elapsed;
+    // Stopwatch: progress cycles every 60 seconds for visual effect
+    progress = (pomodoro.stopwatch.elapsed % 60) / 60;
+    isRunning = pomodoro.stopwatch.isRunning;
+  }
+
+  const modeLabel = activeMode === 'pomodoro'
+    ? (pomodoro.mode === 'work' ? 'Focus' : pomodoro.mode === 'break' ? 'Break' : 'Long Break')
+    : activeMode === 'timer' ? 'Countdown' : 'Elapsed';
 
   const todayStr = new Date().toISOString().slice(0, 10);
-  const todaySessions = pomodoro.sessions.filter(
-    (s) => s.mode === 'work' && new Date(s.endTime).toISOString().slice(0, 10) === todayStr
-  ).length;
+  const todaySessions = activeMode === 'pomodoro'
+    ? pomodoro.sessions.filter((s) => s.mode === 'work' && new Date(s.endTime).toISOString().slice(0, 10) === todayStr).length
+    : activeMode === 'timer'
+    ? pomodoro.timer.sessions.filter((s) => new Date(s.endTime).toISOString().slice(0, 10) === todayStr).length
+    : pomodoro.stopwatch.sessions.filter((s) => new Date(s.endTime).toISOString().slice(0, 10) === todayStr).length;
+
+  // Play/pause/reset handlers per mode
+  const handlePlay = () => {
+    if (activeMode === 'pomodoro') startPomodoro();
+    else if (activeMode === 'timer') startTimer();
+    else startStopwatch();
+  };
+
+  const handlePause = () => {
+    if (activeMode === 'pomodoro') pausePomodoro();
+    else if (activeMode === 'timer') pauseTimer();
+    else pauseStopwatch();
+  };
+
+  const handleReset = () => {
+    if (activeMode === 'pomodoro') resetPomodoro();
+    else if (activeMode === 'timer') resetTimer();
+    else resetStopwatch();
+  };
+
+  // Check if any mode has something running (for indicator)
+  const anyRunning = pomodoro.isRunning || pomodoro.timer.isRunning || pomodoro.stopwatch.isRunning;
 
   return (
     <AnimatePresence>
@@ -182,17 +266,16 @@ export function Pomodoro() {
         dragConstraints={dragConstraints}
         onDragStart={updateConstraints}
         onDragEnd={() => {
-          // Use the motion values (accumulated position) not info.offset (delta from drag start)
           saveWidgetPosition(x.get(), y.get());
         }}
-        style={{ 
-          x, 
-          y, 
-          cursor: isResizing ? 'ew-resize' : 'grab', 
+        style={{
+          x,
+          y,
+          cursor: isResizing ? 'ew-resize' : 'grab',
           touchAction: 'none',
         }}
-        animate={{ 
-          opacity: 1, 
+        animate={{
+          opacity: 1,
           y: 0,
           scale: scale,
         }}
@@ -200,37 +283,69 @@ export function Pomodoro() {
         whileDrag={{ cursor: 'grabbing' }}
         transition={{ type: 'spring', damping: 20, stiffness: 300 }}
       >
-        {/* Burger menu — opens Pomodoro analytics modal */}
-        <div
-          className="pomodoro-grip"
-          title="View Pomodoro analytics"
-          onClick={() => setIsModalOpen(true)}
-          style={{
-            display: 'flex',
-            flexDirection: 'column',
-            gap: 3,
-            padding: '2px 4px',
-            marginRight: -4,
-            opacity: 0.5,
-            flexShrink: 0,
-            userSelect: 'none',
-            cursor: 'pointer',
-            transition: 'opacity 0.2s',
-          }}
-          onMouseEnter={(e) => (e.currentTarget.style.opacity = '0.8')}
-          onMouseLeave={(e) => (e.currentTarget.style.opacity = '0.5')}
-        >
-          {[0, 1, 2].map((i) => (
-            <div
-              key={i}
-              style={{
-                width: 14,
-                height: 2,
-                borderRadius: 1,
-                background: 'var(--text-tertiary)',
-              }}
-            />
-          ))}
+        {/* Left column: burger + mode tabs */}
+        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6, flexShrink: 0 }}>
+          {/* Burger menu — opens analytics modal */}
+          <div
+            className="pomodoro-grip"
+            title="View analytics"
+            onClick={() => setIsModalOpen(true)}
+            style={{
+              display: 'flex',
+              flexDirection: 'column',
+              gap: 3,
+              padding: '2px 4px',
+              opacity: 0.5,
+              userSelect: 'none',
+              cursor: 'pointer',
+              transition: 'opacity 0.2s',
+            }}
+            onMouseEnter={(e) => (e.currentTarget.style.opacity = '0.8')}
+            onMouseLeave={(e) => (e.currentTarget.style.opacity = '0.5')}
+          >
+            {[0, 1, 2].map((i) => (
+              <div
+                key={i}
+                style={{
+                  width: 14,
+                  height: 2,
+                  borderRadius: 1,
+                  background: 'var(--text-tertiary)',
+                }}
+              />
+            ))}
+          </div>
+
+          {/* Mode tabs */}
+          <div className="timer-mode-tabs">
+            {(['pomodoro', 'timer', 'stopwatch'] as ActiveTimerMode[]).map((mode) => {
+              const isActive = activeMode === mode;
+              const modeRunning = mode === 'pomodoro' ? pomodoro.isRunning
+                : mode === 'timer' ? pomodoro.timer.isRunning
+                : pomodoro.stopwatch.isRunning;
+              return (
+                <button
+                  key={mode}
+                  className={`timer-mode-tab ${isActive ? 'active' : ''}`}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setActiveTimerMode(mode);
+                  }}
+                  title={MODE_LABELS[mode]}
+                  style={{
+                    background: isActive ? MODE_COLORS[mode] + '25' : 'transparent',
+                    color: isActive ? MODE_COLORS[mode] : 'var(--text-tertiary)',
+                    borderColor: isActive ? MODE_COLORS[mode] + '40' : 'transparent',
+                  }}
+                >
+                  {mode === 'pomodoro' ? '🍅' : mode === 'timer' ? '⏱' : '⏲'}
+                  {modeRunning && !isActive && (
+                    <span className="timer-mode-running-dot" style={{ background: MODE_COLORS[mode] }} />
+                  )}
+                </button>
+              );
+            })}
+          </div>
         </div>
 
         {/* Mini progress ring */}
@@ -247,7 +362,7 @@ export function Pomodoro() {
             transform="rotate(-90 22 22)"
             style={{ transition: 'stroke-dashoffset 1s linear' }}
           />
-          {pomodoro.isRunning && (
+          {isRunning && (
             <circle
               cx="22" cy="22" r="18"
               fill="none"
@@ -266,9 +381,13 @@ export function Pomodoro() {
           )}
         </svg>
 
-        <div style={{ flex: 1 }}>
+        <div style={{ flex: 1, minWidth: 0 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-            <span className={`pomodoro-mode ${pomodoro.mode}`}>{modeLabel}</span>
+            <span className={`pomodoro-mode ${activeMode === 'pomodoro' ? pomodoro.mode : activeMode}`}
+              style={activeMode !== 'pomodoro' ? { color: MODE_COLORS[activeMode] } : {}}
+            >
+              {modeLabel}
+            </span>
             {focusMode && focusedCategory && (
               <span style={{
                 fontSize: 9,
@@ -281,20 +400,60 @@ export function Pomodoro() {
               </span>
             )}
           </div>
-          <div className="pomodoro-timer">{formatTime(pomodoro.timeRemaining)}</div>
+          <div className="pomodoro-timer">{formatTime(displayTime)}</div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-            <div className="pomodoro-sessions">
-              {Array.from({ length: 4 }).map((_, i) => (
-                <div
-                  key={i}
-                  className={`pip ${i < pomodoro.sessionsCompleted % 4 ? 'filled' : ''}`}
-                  style={i < pomodoro.sessionsCompleted % 4 && focusedCategory
-                    ? { background: focusedCategory.color }
-                    : {}
-                  }
-                />
-              ))}
-            </div>
+            {/* Pomodoro: session pips */}
+            {activeMode === 'pomodoro' && (
+              <div className="pomodoro-sessions">
+                {Array.from({ length: 4 }).map((_, i) => (
+                  <div
+                    key={i}
+                    className={`pip ${i < pomodoro.sessionsCompleted % 4 ? 'filled' : ''}`}
+                    style={i < pomodoro.sessionsCompleted % 4 && focusedCategory
+                      ? { background: focusedCategory.color }
+                      : {}
+                    }
+                  />
+                ))}
+              </div>
+            )}
+            {/* Timer: show set duration */}
+            {activeMode === 'timer' && !pomodoro.timer.isRunning && (
+              <div style={{ position: 'relative' }}>
+                <button
+                  className="timer-preset-btn"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setShowPresets(!showPresets);
+                  }}
+                  title="Choose duration"
+                >
+                  {formatTime(pomodoro.timer.duration)} ▾
+                </button>
+                {showPresets && (
+                  <div className="timer-preset-dropdown" onClick={(e) => e.stopPropagation()}>
+                    {pomodoro.timer.presets.map((preset) => (
+                      <button
+                        key={preset}
+                        className={`timer-preset-option ${preset === pomodoro.timer.duration ? 'active' : ''}`}
+                        onClick={() => {
+                          setTimerDuration(preset);
+                          setShowPresets(false);
+                        }}
+                      >
+                        {formatTime(preset)}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
+            {/* Stopwatch: lap count */}
+            {activeMode === 'stopwatch' && pomodoro.stopwatch.laps.length > 0 && (
+              <span style={{ fontSize: 9, color: 'var(--text-tertiary)', fontFamily: 'var(--font-mono)' }}>
+                {pomodoro.stopwatch.laps.length} lap{pomodoro.stopwatch.laps.length !== 1 ? 's' : ''}
+              </span>
+            )}
             {todaySessions > 0 && (
               <span style={{ fontSize: 9, color: 'var(--text-tertiary)', fontFamily: 'var(--font-mono)' }}>
                 {todaySessions} today
@@ -304,12 +463,18 @@ export function Pomodoro() {
         </div>
 
         <div className="pomodoro-controls">
-          {pomodoro.isRunning ? (
-            <button className="pomodoro-btn" onClick={pausePomodoro} title="Pause">&#x23F8;</button>
+          {isRunning ? (
+            <button className="pomodoro-btn" onClick={handlePause} title="Pause">&#x23F8;</button>
           ) : (
-            <button className="pomodoro-btn" onClick={startPomodoro} title="Start">&#x25B6;</button>
+            <button className="pomodoro-btn" onClick={handlePlay} title="Start">&#x25B6;</button>
           )}
-          <button className="pomodoro-btn" onClick={resetPomodoro} title="Reset">&#x21BA;</button>
+          {/* Stopwatch: lap button when running */}
+          {activeMode === 'stopwatch' && isRunning && (
+            <button className="pomodoro-btn" onClick={lapStopwatch} title="Lap" style={{ fontSize: 10 }}>
+              LAP
+            </button>
+          )}
+          <button className="pomodoro-btn" onClick={handleReset} title="Reset">&#x21BA;</button>
           <button
             className="pomodoro-btn"
             onClick={() => setPomodoroSettingsOpen(true)}
@@ -355,8 +520,8 @@ export function Pomodoro() {
           </svg>
         </div>
       </motion.div>
-      
-      {/* Pomodoro Analytics Modal */}
+
+      {/* Analytics Modal */}
       <PomodoroModal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} />
     </AnimatePresence>
   );
