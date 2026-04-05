@@ -4,6 +4,44 @@ import { motion, AnimatePresence, useMotionValue } from 'framer-motion';
 import { PomodoroModal } from './PomodoroModal';
 import type { ActiveTimerMode } from '../types';
 
+// ── SVG Icons ─────────────────────────────────────────────────────────────
+
+function AppleIcon({ size = 14, color = 'currentColor' }: { size?: number; color?: string }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M12 3c-1.5-1.5-4-2-6-1 0 0-.5 3 1.5 5.5" />
+      <path d="M17.5 7.5C19.5 6 20 4 20 4c-2.5-1-5 .5-6 2" />
+      <path d="M12 6C9 6 6 8.5 6 13c0 5 3 8 6 8s6-3 6-8c0-4.5-3-7-6-7Z" />
+    </svg>
+  );
+}
+
+function LightningIcon({ size = 14, color = 'currentColor' }: { size?: number; color?: string }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill={color} stroke="none">
+      <path d="M13 2L4.5 13.5H11.5L11 22L19.5 10.5H12.5L13 2Z" />
+    </svg>
+  );
+}
+
+function StopwatchIcon({ size = 14, color = 'currentColor' }: { size?: number; color?: string }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <circle cx="12" cy="14" r="8" />
+      <line x1="12" y1="14" x2="12" y2="10" />
+      <line x1="10" y1="2" x2="14" y2="2" />
+      <line x1="12" y1="2" x2="12" y2="4" />
+      <line x1="19.5" y1="7.5" x2="18" y2="9" />
+    </svg>
+  );
+}
+
+export const TimerModeIcon = ({ mode, size = 14, color = 'currentColor' }: { mode: ActiveTimerMode; size?: number; color?: string }) => {
+  if (mode === 'pomodoro') return <AppleIcon size={size} color={color} />;
+  if (mode === 'timer') return <LightningIcon size={size} color={color} />;
+  return <StopwatchIcon size={size} color={color} />;
+};
+
 function formatTime(seconds: number): string {
   const h = Math.floor(seconds / 3600);
   const m = Math.floor((seconds % 3600) / 60);
@@ -338,7 +376,7 @@ export function Pomodoro() {
                     borderColor: isActive ? MODE_COLORS[mode] + '40' : 'transparent',
                   }}
                 >
-                  {mode === 'pomodoro' ? '🍅' : mode === 'timer' ? '⏱' : '⏲'}
+                  <TimerModeIcon mode={mode} size={13} color={isActive ? MODE_COLORS[mode] : 'var(--text-tertiary)'} />
                   {modeRunning && !isActive && (
                     <span className="timer-mode-running-dot" style={{ background: MODE_COLORS[mode] }} />
                   )}

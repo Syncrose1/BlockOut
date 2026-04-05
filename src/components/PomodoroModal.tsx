@@ -3,6 +3,7 @@ import { useStore } from '../store';
 import { motion, AnimatePresence } from 'framer-motion';
 import type { PomodoroSession, TimerSession, ActiveTimerMode } from '../types';
 import { requestNotificationPermission } from '../utils/pomodoroNotifications';
+import { TimerModeIcon } from './Pomodoro';
 
 interface PomodoroModalProps {
   isOpen: boolean;
@@ -231,7 +232,7 @@ export function PomodoroModal({ isOpen, onClose }: PomodoroModalProps) {
                           textTransform: 'capitalize',
                         }}
                       >
-                        {mode === 'pomodoro' ? '🍅' : mode === 'timer' ? '⏱' : '⏲'} {mode}
+                        <TimerModeIcon mode={mode} size={12} color={activeMode === mode ? MODE_COLORS[mode] : 'var(--text-tertiary)'} /> {mode}
                       </button>
                     ))}
                   </div>
@@ -293,25 +294,64 @@ export function PomodoroModal({ isOpen, onClose }: PomodoroModalProps) {
                   </div>
                 )}
 
-                {/* Stopwatch laps in header */}
+                {/* Stopwatch laps table */}
                 {activeMode === 'stopwatch' && pomodoro.stopwatch.laps.length > 0 && (
                   <div style={{
-                    display: 'flex', gap: 8, flexWrap: 'wrap',
-                    justifyContent: 'center', marginTop: 8,
+                    marginTop: 16, width: '100%', maxWidth: 400,
+                    background: 'rgba(0,0,0,0.2)', borderRadius: 8,
+                    overflow: 'hidden',
                   }}>
-                    {pomodoro.stopwatch.laps.map((lap, i) => {
-                      const prevLap = i > 0 ? pomodoro.stopwatch.laps[i - 1] : 0;
-                      const split = lap - prevLap;
-                      return (
-                        <span key={i} style={{
-                          fontSize: 12, color: 'white', opacity: 0.8,
-                          background: 'rgba(255,255,255,0.15)',
-                          padding: '2px 8px', borderRadius: 8,
-                        }}>
-                          Lap {i + 1}: {formatTime(split)}
-                        </span>
-                      );
-                    })}
+                    {/* Lap table header */}
+                    <div style={{
+                      display: 'grid', gridTemplateColumns: '48px 1fr 1fr',
+                      padding: '6px 12px',
+                      borderBottom: '1px solid rgba(255,255,255,0.15)',
+                      fontSize: 10, fontWeight: 600, textTransform: 'uppercase',
+                      letterSpacing: 1, color: 'rgba(255,255,255,0.5)',
+                    }}>
+                      <span>#</span>
+                      <span style={{ textAlign: 'right' }}>Split</span>
+                      <span style={{ textAlign: 'right' }}>Total</span>
+                    </div>
+                    {/* Lap rows - show most recent first, scrollable */}
+                    <div style={{ maxHeight: 120, overflowY: 'auto' }}>
+                      {[...pomodoro.stopwatch.laps].reverse().map((lap, revIdx) => {
+                        const i = pomodoro.stopwatch.laps.length - 1 - revIdx;
+                        const prevLap = i > 0 ? pomodoro.stopwatch.laps[i - 1] : 0;
+                        const split = lap - prevLap;
+                        // Find best/worst splits for highlighting
+                        const allSplits = pomodoro.stopwatch.laps.map((l, idx) =>
+                          l - (idx > 0 ? pomodoro.stopwatch.laps[idx - 1] : 0)
+                        );
+                        const bestSplit = Math.min(...allSplits);
+                        const worstSplit = Math.max(...allSplits);
+                        const isBest = allSplits.length > 1 && split === bestSplit;
+                        const isWorst = allSplits.length > 1 && split === worstSplit;
+                        return (
+                          <div key={i} style={{
+                            display: 'grid', gridTemplateColumns: '48px 1fr 1fr',
+                            padding: '5px 12px',
+                            borderBottom: revIdx < pomodoro.stopwatch.laps.length - 1 ? '1px solid rgba(255,255,255,0.06)' : 'none',
+                            fontSize: 13, fontFamily: 'var(--font-mono)',
+                            color: 'white',
+                            background: isBest ? 'rgba(100,255,100,0.08)' : isWorst ? 'rgba(255,100,100,0.08)' : 'transparent',
+                          }}>
+                            <span style={{ opacity: 0.5, fontSize: 11 }}>
+                              {i + 1}
+                            </span>
+                            <span style={{
+                              textAlign: 'right', fontWeight: 600,
+                              color: isBest ? 'hsl(142, 80%, 70%)' : isWorst ? 'hsl(0, 80%, 70%)' : 'white',
+                            }}>
+                              {isBest && allSplits.length > 2 ? '▲ ' : ''}{isWorst && allSplits.length > 2 ? '▼ ' : ''}{formatTime(split)}
+                            </span>
+                            <span style={{ textAlign: 'right', opacity: 0.7 }}>
+                              {formatTime(lap)}
+                            </span>
+                          </div>
+                        );
+                      })}
+                    </div>
                   </div>
                 )}
 
@@ -758,51 +798,117 @@ function PomodoroSessionRow({ session, categories }: { session: PomodoroSession;
 }
 
 function TimerSessionRow({ session, mode }: { session: TimerSession; mode: ActiveTimerMode }) {
+  const [expanded, setExpanded] = useState(false);
   const duration = Math.round(session.duration / 60);
   const date = new Date(session.startTime);
   const dateStr = date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
   const timeStr = date.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
+  const hasLaps = session.laps && session.laps.length > 0;
 
   return (
     <div style={{
-      display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-      padding: '12px 16px', background: 'var(--bg-tertiary)',
+      background: 'var(--bg-tertiary)',
       borderRadius: 'var(--radius-md)', border: '1px solid var(--border)',
+      overflow: 'hidden',
     }}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-        <div style={{ width: 10, height: 10, borderRadius: '50%', background: MODE_COLORS[mode] }} />
-        <div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-            <span style={{ fontSize: 14, fontWeight: 600, color: 'var(--text-primary)' }}>
-              {mode === 'timer' ? 'Timer' : 'Stopwatch'}
-            </span>
-            {session.laps && session.laps.length > 0 && (
-              <span style={{
-                fontSize: 11, color: MODE_COLORS[mode],
-                background: `${MODE_COLORS[mode]}20`,
-                padding: '2px 6px', borderRadius: '4px',
-              }}>
-                {session.laps.length} laps
+      {/* Main row */}
+      <div
+        style={{
+          display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+          padding: '12px 16px',
+          cursor: hasLaps ? 'pointer' : 'default',
+        }}
+        onClick={() => hasLaps && setExpanded(!expanded)}
+      >
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+          <div style={{ width: 10, height: 10, borderRadius: '50%', background: MODE_COLORS[mode] }} />
+          <div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              <span style={{ fontSize: 14, fontWeight: 600, color: 'var(--text-primary)' }}>
+                {mode === 'timer' ? 'Timer' : 'Stopwatch'}
               </span>
-            )}
-            {session.label && (
-              <span style={{
-                fontSize: 11, color: 'var(--text-secondary)',
-                background: 'var(--bg-secondary)',
-                padding: '2px 6px', borderRadius: '4px',
-              }}>
-                {session.label}
-              </span>
-            )}
-          </div>
-          <div style={{ fontSize: 12, color: 'var(--text-secondary)' }}>
-            {dateStr} at {timeStr}
+              {hasLaps && (
+                <span style={{
+                  fontSize: 11, color: MODE_COLORS[mode],
+                  background: `${MODE_COLORS[mode]}20`,
+                  padding: '2px 6px', borderRadius: '4px',
+                  cursor: 'pointer',
+                }}>
+                  {session.laps!.length} lap{session.laps!.length !== 1 ? 's' : ''} {expanded ? '▾' : '▸'}
+                </span>
+              )}
+              {session.label && (
+                <span style={{
+                  fontSize: 11, color: 'var(--text-secondary)',
+                  background: 'var(--bg-secondary)',
+                  padding: '2px 6px', borderRadius: '4px',
+                }}>
+                  {session.label}
+                </span>
+              )}
+            </div>
+            <div style={{ fontSize: 12, color: 'var(--text-secondary)' }}>
+              {dateStr} at {timeStr}
+            </div>
           </div>
         </div>
+        <div style={{ fontSize: 16, fontWeight: 600, color: 'var(--text-primary)' }}>
+          {duration < 1 ? `${session.duration}s` : `${duration}m`}
+        </div>
       </div>
-      <div style={{ fontSize: 16, fontWeight: 600, color: 'var(--text-primary)' }}>
-        {duration < 1 ? `${session.duration}s` : `${duration}m`}
-      </div>
+
+      {/* Expanded lap table */}
+      {expanded && hasLaps && (
+        <div style={{
+          borderTop: '1px solid var(--border)',
+          padding: '0',
+        }}>
+          {/* Header */}
+          <div style={{
+            display: 'grid', gridTemplateColumns: '40px 1fr 1fr',
+            padding: '6px 16px',
+            fontSize: 10, fontWeight: 600, textTransform: 'uppercase',
+            letterSpacing: 1, color: 'var(--text-tertiary)',
+            borderBottom: '1px solid var(--border)',
+          }}>
+            <span>#</span>
+            <span style={{ textAlign: 'right' }}>Split</span>
+            <span style={{ textAlign: 'right' }}>Total</span>
+          </div>
+          {/* Rows */}
+          {session.laps!.map((lap, i) => {
+            const prevLap = i > 0 ? session.laps![i - 1] : 0;
+            const split = lap - prevLap;
+            const allSplits = session.laps!.map((l, idx) =>
+              l - (idx > 0 ? session.laps![idx - 1] : 0)
+            );
+            const bestSplit = Math.min(...allSplits);
+            const worstSplit = Math.max(...allSplits);
+            const isBest = allSplits.length > 1 && split === bestSplit;
+            const isWorst = allSplits.length > 1 && split === worstSplit;
+            return (
+              <div key={i} style={{
+                display: 'grid', gridTemplateColumns: '40px 1fr 1fr',
+                padding: '4px 16px',
+                fontSize: 12, fontFamily: 'var(--font-mono)',
+                borderBottom: i < session.laps!.length - 1 ? '1px solid var(--border-light, rgba(255,255,255,0.04))' : 'none',
+                background: isBest ? `${MODE_COLORS[mode]}10` : isWorst ? 'hsl(0, 60%, 50%, 0.06)' : 'transparent',
+              }}>
+                <span style={{ color: 'var(--text-tertiary)', fontSize: 11 }}>{i + 1}</span>
+                <span style={{
+                  textAlign: 'right', fontWeight: 600,
+                  color: isBest ? 'hsl(142, 72%, 62%)' : isWorst ? 'hsl(0, 72%, 62%)' : 'var(--text-primary)',
+                }}>
+                  {isBest && allSplits.length > 2 ? '▲ ' : ''}{isWorst && allSplits.length > 2 ? '▼ ' : ''}{formatTime(split)}
+                </span>
+                <span style={{ textAlign: 'right', color: 'var(--text-secondary)' }}>
+                  {formatTime(lap)}
+                </span>
+              </div>
+            );
+          })}
+        </div>
+      )}
     </div>
   );
 }
