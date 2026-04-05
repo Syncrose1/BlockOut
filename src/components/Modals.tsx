@@ -975,19 +975,25 @@ export function PomodoroSettingsModal() {
   const setPomodoroSettingsOpen = useStore((s) => s.setPomodoroSettingsOpen);
   const pomodoro = useStore((s) => s.pomodoro);
   const setPomodoroDurations = useStore((s) => s.setPomodoroDurations);
+  const addTimerPreset = useStore((s) => s.addTimerPreset);
+  const removeTimerPreset = useStore((s) => s.removeTimerPreset);
+  const activeMode = pomodoro.activeTimerMode;
 
   const [work, setWork] = useState(Math.round(pomodoro.workDuration / 60));
   const [brk, setBrk] = useState(Math.round(pomodoro.breakDuration / 60));
   const [longBrk, setLongBrk] = useState(Math.round(pomodoro.longBreakDuration / 60));
+  const [newPresetMin, setNewPresetMin] = useState('');
 
   if (!open) return null;
 
   const handleSave = () => {
-    setPomodoroDurations(
-      Math.max(1, work) * 60,
-      Math.max(1, brk) * 60,
-      Math.max(1, longBrk) * 60
-    );
+    if (activeMode === 'pomodoro') {
+      setPomodoroDurations(
+        Math.max(1, work) * 60,
+        Math.max(1, brk) * 60,
+        Math.max(1, longBrk) * 60
+      );
+    }
     debouncedSave();
     setPomodoroSettingsOpen(false);
   };
@@ -999,6 +1005,21 @@ export function PomodoroSettingsModal() {
       .filter((s) => s.mode === 'work')
       .reduce((sum, s) => sum + (s.endTime - s.startTime) / 60000, 0)
   );
+
+  const timerSessionCount = pomodoro.timer.sessions.length;
+  const timerTotalMinutes = Math.round(
+    pomodoro.timer.sessions.reduce((sum, s) => sum + s.duration / 60, 0)
+  );
+  const stopwatchSessionCount = pomodoro.stopwatch.sessions.length;
+  const stopwatchTotalMinutes = Math.round(
+    pomodoro.stopwatch.sessions.reduce((sum, s) => sum + s.duration / 60, 0)
+  );
+
+  const formatPresetTime = (seconds: number) => {
+    const m = Math.floor(seconds / 60);
+    const s = seconds % 60;
+    return s > 0 ? `${m}m ${s}s` : `${m}m`;
+  };
 
   return (
     <AnimatePresence>
@@ -1017,10 +1038,14 @@ export function PomodoroSettingsModal() {
           transition={{ type: 'spring', damping: 28, stiffness: 380 }}
           onClick={(e) => e.stopPropagation()}
         >
-          <h2>Pomodoro Settings</h2>
+          <h2>
+            {activeMode === 'pomodoro' ? 'Pomodoro Settings'
+              : activeMode === 'timer' ? 'Timer Settings'
+              : 'Stopwatch Settings'}
+          </h2>
 
           {/* Analytics summary */}
-          {totalSessions > 0 && (
+          {activeMode === 'pomodoro' && totalSessions > 0 && (
             <div className="pomo-stats">
               <div className="pomo-stat">
                 <span className="pomo-stat-value">{workSessions}</span>
@@ -1037,55 +1062,178 @@ export function PomodoroSettingsModal() {
             </div>
           )}
 
-          <div className="modal-field">
-            <label>Focus duration (minutes)</label>
-            <div className="duration-input-row">
-              <input
-                type="range"
-                min={5}
-                max={60}
-                step={5}
-                value={work}
-                onChange={(e) => setWork(parseInt(e.target.value))}
-                className="duration-slider"
-              />
-              <span className="duration-value">{work}m</span>
+          {activeMode === 'timer' && timerSessionCount > 0 && (
+            <div className="pomo-stats">
+              <div className="pomo-stat">
+                <span className="pomo-stat-value">{timerSessionCount}</span>
+                <span className="pomo-stat-label">sessions</span>
+              </div>
+              <div className="pomo-stat">
+                <span className="pomo-stat-value">{timerTotalMinutes}</span>
+                <span className="pomo-stat-label">total mins</span>
+              </div>
             </div>
-          </div>
-          <div className="modal-field">
-            <label>Short break (minutes)</label>
-            <div className="duration-input-row">
-              <input
-                type="range"
-                min={1}
-                max={30}
-                step={1}
-                value={brk}
-                onChange={(e) => setBrk(parseInt(e.target.value))}
-                className="duration-slider"
-              />
-              <span className="duration-value">{brk}m</span>
+          )}
+
+          {activeMode === 'stopwatch' && stopwatchSessionCount > 0 && (
+            <div className="pomo-stats">
+              <div className="pomo-stat">
+                <span className="pomo-stat-value">{stopwatchSessionCount}</span>
+                <span className="pomo-stat-label">sessions</span>
+              </div>
+              <div className="pomo-stat">
+                <span className="pomo-stat-value">{stopwatchTotalMinutes}</span>
+                <span className="pomo-stat-label">total mins</span>
+              </div>
             </div>
-          </div>
-          <div className="modal-field">
-            <label>Long break (minutes)</label>
-            <div className="duration-input-row">
-              <input
-                type="range"
-                min={5}
-                max={60}
-                step={5}
-                value={longBrk}
-                onChange={(e) => setLongBrk(parseInt(e.target.value))}
-                className="duration-slider"
-              />
-              <span className="duration-value">{longBrk}m</span>
+          )}
+
+          {/* Pomodoro duration settings */}
+          {activeMode === 'pomodoro' && (
+            <>
+              <div className="modal-field">
+                <label>Focus duration (minutes)</label>
+                <div className="duration-input-row">
+                  <input
+                    type="range"
+                    min={5}
+                    max={60}
+                    step={5}
+                    value={work}
+                    onChange={(e) => setWork(parseInt(e.target.value))}
+                    className="duration-slider"
+                  />
+                  <span className="duration-value">{work}m</span>
+                </div>
+              </div>
+              <div className="modal-field">
+                <label>Short break (minutes)</label>
+                <div className="duration-input-row">
+                  <input
+                    type="range"
+                    min={1}
+                    max={30}
+                    step={1}
+                    value={brk}
+                    onChange={(e) => setBrk(parseInt(e.target.value))}
+                    className="duration-slider"
+                  />
+                  <span className="duration-value">{brk}m</span>
+                </div>
+              </div>
+              <div className="modal-field">
+                <label>Long break (minutes)</label>
+                <div className="duration-input-row">
+                  <input
+                    type="range"
+                    min={5}
+                    max={60}
+                    step={5}
+                    value={longBrk}
+                    onChange={(e) => setLongBrk(parseInt(e.target.value))}
+                    className="duration-slider"
+                  />
+                  <span className="duration-value">{longBrk}m</span>
+                </div>
+              </div>
+            </>
+          )}
+
+          {/* Timer preset management */}
+          {activeMode === 'timer' && (
+            <div className="modal-field">
+              <label>Quick Presets</label>
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginTop: 8 }}>
+                {pomodoro.timer.presets.map((preset) => (
+                  <div
+                    key={preset}
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: 4,
+                      padding: '4px 10px',
+                      background: 'var(--bg-tertiary)',
+                      borderRadius: 'var(--radius-md)',
+                      border: '1px solid var(--border)',
+                      fontSize: 13,
+                      color: 'var(--text-primary)',
+                    }}
+                  >
+                    {formatPresetTime(preset)}
+                    <button
+                      onClick={() => removeTimerPreset(preset)}
+                      style={{
+                        background: 'none',
+                        border: 'none',
+                        color: 'var(--text-tertiary)',
+                        cursor: 'pointer',
+                        fontSize: 14,
+                        padding: '0 2px',
+                        lineHeight: 1,
+                      }}
+                      title="Remove preset"
+                    >
+                      ×
+                    </button>
+                  </div>
+                ))}
+              </div>
+              <div style={{ display: 'flex', gap: 8, marginTop: 12 }}>
+                <input
+                  type="number"
+                  min={1}
+                  max={180}
+                  placeholder="Minutes"
+                  value={newPresetMin}
+                  onChange={(e) => setNewPresetMin(e.target.value)}
+                  style={{
+                    flex: 1,
+                    padding: '6px 10px',
+                    background: 'var(--bg-tertiary)',
+                    border: '1px solid var(--border)',
+                    borderRadius: 'var(--radius-md)',
+                    color: 'var(--text-primary)',
+                    fontSize: 13,
+                  }}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' && newPresetMin) {
+                      addTimerPreset(Math.max(1, parseInt(newPresetMin)) * 60);
+                      setNewPresetMin('');
+                    }
+                  }}
+                />
+                <button
+                  className="btn btn-ghost"
+                  onClick={() => {
+                    if (newPresetMin) {
+                      addTimerPreset(Math.max(1, parseInt(newPresetMin)) * 60);
+                      setNewPresetMin('');
+                    }
+                  }}
+                  style={{ fontSize: 13 }}
+                >
+                  Add
+                </button>
+              </div>
             </div>
-          </div>
+          )}
+
+          {/* Stopwatch info */}
+          {activeMode === 'stopwatch' && (
+            <div className="modal-field">
+              <label>Stopwatch</label>
+              <p style={{ fontSize: 13, color: 'var(--text-secondary)', margin: '8px 0 0' }}>
+                The stopwatch counts up from zero. Use the LAP button to mark split times.
+                Sessions are recorded when you reset the stopwatch.
+              </p>
+            </div>
+          )}
 
           <div className="modal-actions">
             <button className="btn btn-ghost" onClick={() => setPomodoroSettingsOpen(false)}>Cancel</button>
-            <button className="btn btn-primary" onClick={handleSave}>Save</button>
+            <button className="btn btn-primary" onClick={handleSave}>
+              {activeMode === 'pomodoro' ? 'Save' : 'Done'}
+            </button>
           </div>
         </motion.div>
       </motion.div>

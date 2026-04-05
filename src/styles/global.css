@@ -1190,6 +1190,102 @@ select {
   box-shadow: 0 0 4px var(--accent-glow);
 }
 
+/* ─── Timer Mode Tabs ───────────────────────────────────────────────── */
+.timer-mode-tabs {
+  display: flex;
+  gap: 2px;
+  flex-direction: column;
+}
+
+.timer-mode-tab {
+  width: 24px;
+  height: 22px;
+  border-radius: 5px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 11px;
+  cursor: pointer;
+  border: 1px solid transparent;
+  padding: 0;
+  transition: all var(--transition-fast);
+  position: relative;
+  line-height: 1;
+}
+
+.timer-mode-tab:hover {
+  transform: scale(1.1);
+}
+
+.timer-mode-running-dot {
+  position: absolute;
+  top: -1px;
+  right: -1px;
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  animation: pulse 2s infinite;
+}
+
+/* ─── Timer Preset Picker ───────────────────────────────────────────── */
+.timer-preset-btn {
+  font-size: 9px;
+  font-family: var(--font-mono);
+  color: var(--text-tertiary);
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 1px 6px;
+  cursor: pointer;
+  transition: all var(--transition-fast);
+  white-space: nowrap;
+}
+
+.timer-preset-btn:hover {
+  background: var(--bg-hover);
+  color: var(--text-secondary);
+}
+
+.timer-preset-dropdown {
+  position: absolute;
+  bottom: 100%;
+  left: 0;
+  margin-bottom: 4px;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-lg);
+  padding: 4px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  z-index: 100;
+  min-width: 80px;
+}
+
+.timer-preset-option {
+  font-size: 12px;
+  font-family: var(--font-mono);
+  color: var(--text-secondary);
+  background: transparent;
+  border: none;
+  border-radius: var(--radius-sm);
+  padding: 4px 8px;
+  cursor: pointer;
+  text-align: left;
+  transition: all var(--transition-fast);
+}
+
+.timer-preset-option:hover {
+  background: var(--bg-hover);
+  color: var(--text-primary);
+}
+
+.timer-preset-option.active {
+  background: var(--accent);
+  color: white;
+}
+
 /* ─── Timeline ───────────────────────────────────────────────────────────── */
 
 .timeline-container {

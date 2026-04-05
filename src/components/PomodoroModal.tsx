@@ -1,8 +1,8 @@
 import { useState, useMemo, useEffect } from 'react';
 import { useStore } from '../store';
 import { motion, AnimatePresence } from 'framer-motion';
-import type { PomodoroSession } from '../types';
-import { requestNotificationPermission, sendPomodoroNotification, playCompletionSound } from '../utils/pomodoroNotifications';
+import type { PomodoroSession, TimerSession, ActiveTimerMode } from '../types';
+import { requestNotificationPermission } from '../utils/pomodoroNotifications';
 
 interface PomodoroModalProps {
   isOpen: boolean;
@@ -17,45 +17,58 @@ function formatDuration(minutes: number): string {
 }
 
 function formatTime(seconds: number): string {
-  const m = Math.floor(seconds / 60);
+  const h = Math.floor(seconds / 3600);
+  const m = Math.floor((seconds % 3600) / 60);
   const s = seconds % 60;
+  if (h > 0) return `${h}:${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
   return `${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
 }
+
+const MODE_COLORS: Record<ActiveTimerMode, string> = {
+  pomodoro: 'hsl(142, 72%, 62%)',
+  timer: 'hsl(265, 72%, 62%)',
+  stopwatch: 'hsl(35, 92%, 52%)',
+};
+
+const MODE_GRADIENT: Record<ActiveTimerMode, string> = {
+  pomodoro: 'linear-gradient(135deg, hsl(142, 72%, 62%) 0%, hsl(142, 72%, 40%) 100%)',
+  timer: 'linear-gradient(135deg, hsl(265, 72%, 62%) 0%, hsl(265, 72%, 40%) 100%)',
+  stopwatch: 'linear-gradient(135deg, hsl(35, 92%, 52%) 0%, hsl(35, 82%, 40%) 100%)',
+};
 
 export function PomodoroModal({ isOpen, onClose }: PomodoroModalProps) {
   const pomodoro = useStore((s) => s.pomodoro);
   const categories = useStore((s) => s.categories);
   const skipPomodoro = useStore((s) => s.skipPomodoro);
   const resetAllPomodoro = useStore((s) => s.resetAllPomodoro);
-  const sessions = pomodoro.sessions;
+  const activeMode = pomodoro.activeTimerMode;
   const [selectedView, setSelectedView] = useState<'overview' | 'history' | 'stats'>('overview');
 
-  // Request notification permission on mount
   useEffect(() => {
     requestNotificationPermission();
   }, []);
 
-  const analytics = useMemo(() => {
+  // ── Pomodoro Analytics ──────────────────────────────────────────────────
+  const pomodoroAnalytics = useMemo(() => {
+    const sessions = pomodoro.sessions;
     const now = Date.now();
     const today = new Date().setHours(0, 0, 0, 0);
-    
+
     const todaySessions = sessions.filter(s => s.startTime >= today);
     const todayMinutes = todaySessions.reduce((acc, s) => acc + ((s.endTime - s.startTime) / 60000), 0);
-    
+
     const weekAgo = now - (7 * 24 * 60 * 60 * 1000);
     const weekSessions = sessions.filter(s => s.startTime >= weekAgo);
     const weekMinutes = weekSessions.reduce((acc, s) => acc + ((s.endTime - s.startTime) / 60000), 0);
-    
+
     const totalMinutes = sessions.reduce((acc, s) => acc + ((s.endTime - s.startTime) / 60000), 0);
     const totalSessions = sessions.length;
-    
     const avgMinutes = totalSessions > 0 ? totalMinutes / totalSessions : 0;
-    
+
     const workSessions = sessions.filter(s => s.mode === 'work').length;
     const breakSessions = sessions.filter(s => s.mode === 'break').length;
     const longBreakSessions = sessions.filter(s => s.mode === 'longBreak').length;
 
-    // Category breakdown
     const categoryStats: Record<string, { count: number; minutes: number; color: string; name: string }> = {};
     sessions.forEach(s => {
       if (s.categoryId && categories[s.categoryId]) {
@@ -82,30 +95,72 @@ export function PomodoroModal({ isOpen, onClose }: PomodoroModalProps) {
         sessions: daySessions.length
       });
     }
-    
+
     return {
       todayMinutes: Math.round(todayMinutes),
+      todaySessions: todaySessions.length,
       weekMinutes: Math.round(weekMinutes),
+      weekSessions: weekSessions.length,
       totalMinutes: Math.round(totalMinutes),
-      totalSessions,
-      avgMinutes: Math.round(avgMinutes),
-      workSessions,
-      breakSessions,
-      longBreakSessions,
+      totalSessions, avgMinutes: Math.round(avgMinutes),
+      workSessions, breakSessions, longBreakSessions,
       categoryStats: Object.values(categoryStats).sort((a, b) => b.minutes - a.minutes),
-      dailyStats
+      dailyStats,
+      longestSession: 0,
+      shortestSession: 0,
     };
-  }, [sessions, categories]);
+  }, [pomodoro.sessions, categories]);
+
+  // ── Timer Analytics ─────────────────────────────────────────────────────
+  const timerAnalytics = useMemo(() => {
+    const sessions = pomodoro.timer.sessions;
+    return computeGenericAnalytics(sessions);
+  }, [pomodoro.timer.sessions]);
+
+  // ── Stopwatch Analytics ─────────────────────────────────────────────────
+  const stopwatchAnalytics = useMemo(() => {
+    const sessions = pomodoro.stopwatch.sessions;
+    return computeGenericAnalytics(sessions);
+  }, [pomodoro.stopwatch.sessions]);
 
   const recentSessions = useMemo(() => {
-    return [...sessions]
-      .sort((a, b) => b.startTime - a.startTime)
-      .slice(0, 10);
-  }, [sessions]);
+    if (activeMode === 'pomodoro') {
+      return [...pomodoro.sessions].sort((a, b) => b.startTime - a.startTime).slice(0, 10);
+    } else if (activeMode === 'timer') {
+      return [...pomodoro.timer.sessions].sort((a, b) => b.startTime - a.startTime).slice(0, 10);
+    } else {
+      return [...pomodoro.stopwatch.sessions].sort((a, b) => b.startTime - a.startTime).slice(0, 10);
+    }
+  }, [activeMode, pomodoro.sessions, pomodoro.timer.sessions, pomodoro.stopwatch.sessions]);
+
+  const analytics = activeMode === 'pomodoro' ? pomodoroAnalytics
+    : activeMode === 'timer' ? timerAnalytics : stopwatchAnalytics;
 
   const currentTimeRemaining = pomodoro.timeRemaining;
   const currentMode = pomodoro.mode;
-  const isRunning = pomodoro.isRunning;
+  const pomodoroIsRunning = pomodoro.isRunning;
+
+  // Header display per mode
+  const headerTime = activeMode === 'pomodoro' ? formatTime(currentTimeRemaining)
+    : activeMode === 'timer' ? formatTime(pomodoro.timer.timeRemaining)
+    : formatTime(pomodoro.stopwatch.elapsed);
+
+  const headerLabel = activeMode === 'pomodoro'
+    ? (currentMode === 'work' ? 'Focus Time' : currentMode === 'break' ? 'Short Break' : 'Long Break')
+    : activeMode === 'timer' ? 'Timer' : 'Stopwatch';
+
+  const headerIsRunning = activeMode === 'pomodoro' ? pomodoroIsRunning
+    : activeMode === 'timer' ? pomodoro.timer.isRunning
+    : pomodoro.stopwatch.isRunning;
+
+  // Gradient based on current mode
+  const headerGradient = activeMode === 'pomodoro'
+    ? (currentMode === 'work'
+      ? 'linear-gradient(135deg, hsl(142, 72%, 62%) 0%, hsl(142, 72%, 40%) 100%)'
+      : currentMode === 'break'
+      ? 'linear-gradient(135deg, hsl(35, 92%, 52%) 0%, hsl(35, 92%, 40%) 100%)'
+      : 'linear-gradient(135deg, hsl(210, 100%, 56%) 0%, hsl(210, 100%, 40%) 100%)')
+    : MODE_GRADIENT[activeMode];
 
   return (
     <AnimatePresence>
@@ -124,51 +179,63 @@ export function PomodoroModal({ isOpen, onClose }: PomodoroModalProps) {
               zIndex: 9998,
             }}
           />
-          
-          <div
-            style={{
-              position: 'fixed',
-              top: 0,
-              left: 0,
-              right: 0,
-              bottom: 0,
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              zIndex: 9999,
-              pointerEvents: 'none',
-            }}
-          >
+
+          <div style={{
+            position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            zIndex: 9999, pointerEvents: 'none',
+          }}>
             <motion.div
               initial={{ opacity: 0, scale: 0.95 }}
               animate={{ opacity: 1, scale: 1 }}
               exit={{ opacity: 0, scale: 0.95 }}
               transition={{ type: 'spring', damping: 25, stiffness: 300 }}
               style={{
-                width: '90vw',
-                maxWidth: '900px',
-                height: '85vh',
-                maxHeight: '700px',
+                width: '90vw', maxWidth: '900px',
+                height: '85vh', maxHeight: '700px',
                 background: 'var(--bg-secondary)',
                 borderRadius: 'var(--radius-lg)',
                 border: '1px solid var(--border)',
                 boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.5)',
-                display: 'flex',
-                flexDirection: 'column',
-                pointerEvents: 'auto',
-                overflow: 'hidden',
+                display: 'flex', flexDirection: 'column',
+                pointerEvents: 'auto', overflow: 'hidden',
               }}
             >
+              {/* Title bar with mode switcher */}
               <div style={{
                 padding: '24px 32px',
                 borderBottom: '1px solid var(--border)',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'space-between',
+                display: 'flex', alignItems: 'center', justifyContent: 'space-between',
               }}>
-                <h2 style={{ margin: 0, fontSize: 24, fontWeight: 700, color: 'var(--text-primary)' }}>
-                  Pomodoro Focus
-                </h2>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
+                  <h2 style={{ margin: 0, fontSize: 24, fontWeight: 700, color: 'var(--text-primary)' }}>
+                    {activeMode === 'pomodoro' ? 'Pomodoro Focus' : activeMode === 'timer' ? 'Timer' : 'Stopwatch'}
+                  </h2>
+                  {/* Mode pills in modal header */}
+                  <div style={{ display: 'flex', gap: 4 }}>
+                    {(['pomodoro', 'timer', 'stopwatch'] as ActiveTimerMode[]).map((mode) => (
+                      <button
+                        key={mode}
+                        onClick={() => useStore.getState().setActiveTimerMode(mode)}
+                        style={{
+                          padding: '4px 10px',
+                          borderRadius: 12,
+                          border: '1px solid',
+                          borderColor: activeMode === mode ? MODE_COLORS[mode] + '60' : 'var(--border)',
+                          background: activeMode === mode ? MODE_COLORS[mode] + '20' : 'transparent',
+                          color: activeMode === mode ? MODE_COLORS[mode] : 'var(--text-tertiary)',
+                          fontSize: 12,
+                          fontWeight: 600,
+                          cursor: 'pointer',
+                          transition: 'all 0.2s',
+                          textTransform: 'capitalize',
+                        }}
+                      >
+                        {mode === 'pomodoro' ? '🍅' : mode === 'timer' ? '⏱' : '⏲'} {mode}
+                      </button>
+                    ))}
+                  </div>
+                </div>
                 <button
                   onClick={onClose}
                   style={{
@@ -194,122 +261,116 @@ export function PomodoroModal({ isOpen, onClose }: PomodoroModalProps) {
                 </button>
               </div>
 
+              {/* Timer display banner */}
               <div style={{
                 padding: '32px',
-                background: currentMode === 'work' 
-                  ? 'linear-gradient(135deg, hsl(142, 72%, 62%) 0%, hsl(142, 72%, 40%) 100%)'
-                  : currentMode === 'break'
-                  ? 'linear-gradient(135deg, hsl(35, 92%, 52%) 0%, hsl(35, 92%, 40%) 100%)'
-                  : 'linear-gradient(135deg, hsl(210, 100%, 56%) 0%, hsl(210, 100%, 40%) 100%)',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                flexDirection: 'column',
-                gap: 12,
+                background: headerGradient,
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                flexDirection: 'column', gap: 12,
               }}>
                 <div style={{
-                  fontSize: 72,
-                  fontWeight: 700,
-                  color: 'white',
-                  fontFamily: 'var(--font-mono)',
-                  letterSpacing: -2,
+                  fontSize: 72, fontWeight: 700, color: 'white',
+                  fontFamily: 'var(--font-mono)', letterSpacing: -2,
                   textShadow: '0 2px 10px rgba(0,0,0,0.2)',
                 }}>
-                  {formatTime(currentTimeRemaining)}
+                  {headerTime}
                 </div>
                 <div style={{
-                  fontSize: 18,
-                  color: 'white',
-                  opacity: 0.9,
-                  textTransform: 'uppercase',
-                  letterSpacing: 2,
-                  fontWeight: 500,
+                  fontSize: 18, color: 'white', opacity: 0.9,
+                  textTransform: 'uppercase', letterSpacing: 2, fontWeight: 500,
                 }}>
-                  {currentMode === 'work' ? 'Focus Time' : currentMode === 'break' ? 'Short Break' : 'Long Break'}
+                  {headerLabel}
                 </div>
-                {isRunning && (
-                  <div style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: 8,
-                    marginTop: 8,
-                  }}>
+                {headerIsRunning && (
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 8 }}>
                     <span style={{
-                      width: 8,
-                      height: 8,
-                      borderRadius: '50%',
-                      background: 'white',
-                      animation: 'pulse 2s infinite',
+                      width: 8, height: 8, borderRadius: '50%',
+                      background: 'white', animation: 'pulse 2s infinite',
                     }} />
                     <span style={{ color: 'white', fontSize: 14, opacity: 0.9 }}>
-                      Timer Running
+                      {activeMode === 'stopwatch' ? 'Running' : 'Timer Running'}
                     </span>
                   </div>
                 )}
-                
-                {/* Skip button - subtle but accessible */}
-                {/* Action buttons row */}
-                <div style={{ display: 'flex', gap: 12, marginTop: 16 }}>
-                  <button
-                    onClick={() => {
-                      skipPomodoro();
-                    }}
-                    style={{
-                      padding: '8px 16px',
-                      background: 'rgba(255, 255, 255, 0.15)',
-                      border: '1px solid rgba(255, 255, 255, 0.3)',
-                      borderRadius: 'var(--radius-md)',
-                      color: 'white',
-                      fontSize: 13,
-                      cursor: 'pointer',
-                      opacity: 0.8,
-                      transition: 'all 0.2s',
-                    }}
-                    onMouseEnter={(e) => {
-                      e.currentTarget.style.opacity = '1';
-                      e.currentTarget.style.background = 'rgba(255, 255, 255, 0.25)';
-                    }}
-                    onMouseLeave={(e) => {
-                      e.currentTarget.style.opacity = '0.8';
-                      e.currentTarget.style.background = 'rgba(255, 255, 255, 0.15)';
-                    }}
-                    title="Skip current session (not counted)"
-                  >
-                    Skip {currentMode === 'work' ? 'Focus' : currentMode === 'break' ? 'Break' : 'Long Break'} →
-                  </button>
 
-                  <button
-                    onClick={() => {
-                      if (confirm('Reset Pomodoro to beginning? This will clear the current cycle.')) {
-                        resetAllPomodoro();
-                      }
-                    }}
-                    style={{
-                      padding: '8px 16px',
-                      background: 'rgba(255, 255, 255, 0.1)',
-                      border: '1px solid rgba(255, 255, 255, 0.2)',
-                      borderRadius: 'var(--radius-md)',
-                      color: 'white',
-                      fontSize: 13,
-                      cursor: 'pointer',
-                      opacity: 0.7,
-                      transition: 'all 0.2s',
-                    }}
-                    onMouseEnter={(e) => {
-                      e.currentTarget.style.opacity = '0.9';
-                      e.currentTarget.style.background = 'rgba(255, 255, 255, 0.2)';
-                    }}
-                    onMouseLeave={(e) => {
-                      e.currentTarget.style.opacity = '0.7';
-                      e.currentTarget.style.background = 'rgba(255, 255, 255, 0.1)';
-                    }}
-                    title="Reset entire Pomodoro session to beginning"
-                  >
-                    ↺ Reset All
-                  </button>
-                </div>
+                {/* Stopwatch laps in header */}
+                {activeMode === 'stopwatch' && pomodoro.stopwatch.laps.length > 0 && (
+                  <div style={{
+                    display: 'flex', gap: 8, flexWrap: 'wrap',
+                    justifyContent: 'center', marginTop: 8,
+                  }}>
+                    {pomodoro.stopwatch.laps.map((lap, i) => {
+                      const prevLap = i > 0 ? pomodoro.stopwatch.laps[i - 1] : 0;
+                      const split = lap - prevLap;
+                      return (
+                        <span key={i} style={{
+                          fontSize: 12, color: 'white', opacity: 0.8,
+                          background: 'rgba(255,255,255,0.15)',
+                          padding: '2px 8px', borderRadius: 8,
+                        }}>
+                          Lap {i + 1}: {formatTime(split)}
+                        </span>
+                      );
+                    })}
+                  </div>
+                )}
+
+                {/* Action buttons - pomodoro only */}
+                {activeMode === 'pomodoro' && (
+                  <div style={{ display: 'flex', gap: 12, marginTop: 16 }}>
+                    <button
+                      onClick={() => skipPomodoro()}
+                      style={{
+                        padding: '8px 16px',
+                        background: 'rgba(255, 255, 255, 0.15)',
+                        border: '1px solid rgba(255, 255, 255, 0.3)',
+                        borderRadius: 'var(--radius-md)',
+                        color: 'white', fontSize: 13, cursor: 'pointer',
+                        opacity: 0.8, transition: 'all 0.2s',
+                      }}
+                      onMouseEnter={(e) => {
+                        e.currentTarget.style.opacity = '1';
+                        e.currentTarget.style.background = 'rgba(255, 255, 255, 0.25)';
+                      }}
+                      onMouseLeave={(e) => {
+                        e.currentTarget.style.opacity = '0.8';
+                        e.currentTarget.style.background = 'rgba(255, 255, 255, 0.15)';
+                      }}
+                      title="Skip current session (not counted)"
+                    >
+                      Skip {currentMode === 'work' ? 'Focus' : currentMode === 'break' ? 'Break' : 'Long Break'} →
+                    </button>
+                    <button
+                      onClick={() => {
+                        if (confirm('Reset Pomodoro to beginning? This will clear the current cycle.')) {
+                          resetAllPomodoro();
+                        }
+                      }}
+                      style={{
+                        padding: '8px 16px',
+                        background: 'rgba(255, 255, 255, 0.1)',
+                        border: '1px solid rgba(255, 255, 255, 0.2)',
+                        borderRadius: 'var(--radius-md)',
+                        color: 'white', fontSize: 13, cursor: 'pointer',
+                        opacity: 0.7, transition: 'all 0.2s',
+                      }}
+                      onMouseEnter={(e) => {
+                        e.currentTarget.style.opacity = '0.9';
+                        e.currentTarget.style.background = 'rgba(255, 255, 255, 0.2)';
+                      }}
+                      onMouseLeave={(e) => {
+                        e.currentTarget.style.opacity = '0.7';
+                        e.currentTarget.style.background = 'rgba(255, 255, 255, 0.1)';
+                      }}
+                      title="Reset entire Pomodoro session to beginning"
+                    >
+                      ↺ Reset All
+                    </button>
+                  </div>
+                )}
               </div>
 
+              {/* Tab bar */}
               <div style={{
                 display: 'flex',
                 borderBottom: '1px solid var(--border)',
@@ -320,16 +381,14 @@ export function PomodoroModal({ isOpen, onClose }: PomodoroModalProps) {
                     key={view}
                     onClick={() => setSelectedView(view)}
                     style={{
-                      flex: 1,
-                      padding: '16px',
+                      flex: 1, padding: '16px',
                       background: selectedView === view ? 'var(--bg-secondary)' : 'transparent',
                       border: 'none',
-                      borderBottom: selectedView === view ? '2px solid var(--accent)' : '2px solid transparent',
+                      borderBottom: selectedView === view ? `2px solid ${MODE_COLORS[activeMode]}` : '2px solid transparent',
                       color: selectedView === view ? 'var(--text-primary)' : 'var(--text-secondary)',
                       fontSize: 14,
                       fontWeight: selectedView === view ? 600 : 500,
-                      cursor: 'pointer',
-                      textTransform: 'capitalize',
+                      cursor: 'pointer', textTransform: 'capitalize',
                       transition: 'all 0.2s',
                     }}
                   >
@@ -338,36 +397,18 @@ export function PomodoroModal({ isOpen, onClose }: PomodoroModalProps) {
                 ))}
               </div>
 
-              <div style={{
-                flex: 1,
-                overflow: 'auto',
-                padding: '24px 32px',
-              }}>
+              {/* Tab content */}
+              <div style={{ flex: 1, overflow: 'auto', padding: '24px 32px' }}>
                 {selectedView === 'overview' && (
                   <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
                     <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: 16 }}>
-                      <StatCard
-                        label="Today"
-                        value={formatDuration(analytics.todayMinutes)}
-                        subvalue={`${analytics.dailyStats[6]?.sessions || 0} sessions`}
-                      />
-                      <StatCard
-                        label="This Week"
-                        value={formatDuration(analytics.weekMinutes)}
-                        subvalue={`${analytics.dailyStats.reduce((acc, day) => acc + day.sessions, 0)} sessions`}
-                      />
-                      <StatCard
-                        label="Total"
-                        value={formatDuration(analytics.totalMinutes)}
-                        subvalue={`${analytics.totalSessions} sessions`}
-                      />
-                      <StatCard
-                        label="Average"
-                        value={formatDuration(analytics.avgMinutes)}
-                        subvalue="per session"
-                      />
+                      <StatCard label="Today" value={formatDuration(analytics.todayMinutes)} subvalue={`${analytics.todaySessions} sessions`} />
+                      <StatCard label="This Week" value={formatDuration(analytics.weekMinutes)} subvalue={`${analytics.weekSessions} sessions`} />
+                      <StatCard label="Total" value={formatDuration(analytics.totalMinutes)} subvalue={`${analytics.totalSessions} sessions`} />
+                      <StatCard label="Average" value={formatDuration(analytics.avgMinutes)} subvalue="per session" />
                     </div>
 
+                    {/* Bar chart */}
                     <div style={{
                       background: 'var(--bg-tertiary)',
                       borderRadius: 'var(--radius-md)',
@@ -387,20 +428,16 @@ export function PomodoroModal({ isOpen, onClose }: PomodoroModalProps) {
                                 <div style={{
                                   width: '100%',
                                   height: `${Math.max(height, 4)}%`,
-                                  background: stat.minutes > 0 ? 'var(--accent)' : 'var(--bg-primary)',
+                                  background: stat.minutes > 0 ? MODE_COLORS[activeMode] : 'var(--bg-primary)',
                                   borderRadius: '4px 4px 0 0',
                                   minHeight: 4,
                                   transition: 'height 0.3s ease',
                                 }} />
                                 {stat.minutes > 0 && (
                                   <div style={{
-                                    position: 'absolute',
-                                    top: -20,
-                                    left: '50%',
+                                    position: 'absolute', top: -20, left: '50%',
                                     transform: 'translateX(-50%)',
-                                    fontSize: 11,
-                                    color: 'var(--text-secondary)',
-                                    whiteSpace: 'nowrap',
+                                    fontSize: 11, color: 'var(--text-secondary)', whiteSpace: 'nowrap',
                                   }}>
                                     {stat.minutes}m
                                   </div>
@@ -413,21 +450,24 @@ export function PomodoroModal({ isOpen, onClose }: PomodoroModalProps) {
                       </div>
                     </div>
 
-                    <div style={{
-                      background: 'var(--bg-tertiary)',
-                      borderRadius: 'var(--radius-md)',
-                      padding: 20,
-                      border: '1px solid var(--border)',
-                    }}>
-                      <h3 style={{ margin: '0 0 16px 0', fontSize: 16, color: 'var(--text-primary)' }}>
-                        Session Types
-                      </h3>
-                      <div style={{ display: 'flex', gap: 24, flexWrap: 'wrap' }}>
-                        <ModeBadge count={analytics.workSessions} label="Work" color="hsl(142, 72%, 62%)" />
-                        <ModeBadge count={analytics.breakSessions} label="Break" color="hsl(35, 92%, 52%)" />
-                        <ModeBadge count={analytics.longBreakSessions} label="Long Break" color="hsl(210, 100%, 56%)" />
+                    {/* Session types - pomodoro only */}
+                    {activeMode === 'pomodoro' && (
+                      <div style={{
+                        background: 'var(--bg-tertiary)',
+                        borderRadius: 'var(--radius-md)',
+                        padding: 20,
+                        border: '1px solid var(--border)',
+                      }}>
+                        <h3 style={{ margin: '0 0 16px 0', fontSize: 16, color: 'var(--text-primary)' }}>
+                          Session Types
+                        </h3>
+                        <div style={{ display: 'flex', gap: 24, flexWrap: 'wrap' }}>
+                          <ModeBadge count={pomodoroAnalytics.workSessions} label="Work" color="hsl(142, 72%, 62%)" />
+                          <ModeBadge count={pomodoroAnalytics.breakSessions} label="Break" color="hsl(35, 92%, 52%)" />
+                          <ModeBadge count={pomodoroAnalytics.longBreakSessions} label="Long Break" color="hsl(210, 100%, 56%)" />
+                        </div>
                       </div>
-                    </div>
+                    )}
                   </div>
                 )}
 
@@ -435,11 +475,15 @@ export function PomodoroModal({ isOpen, onClose }: PomodoroModalProps) {
                   <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
                     {recentSessions.length === 0 ? (
                       <div style={{ textAlign: 'center', padding: 40, color: 'var(--text-tertiary)' }}>
-                        No sessions yet. Start your first Pomodoro!
+                        {activeMode === 'pomodoro' ? 'No sessions yet. Start your first Pomodoro!'
+                          : activeMode === 'timer' ? 'No timer sessions yet. Set a duration and go!'
+                          : 'No stopwatch sessions yet. Hit start to begin!'}
                       </div>
                     ) : (
                       recentSessions.map((session) => (
-                        <SessionRow key={session.id} session={session} categories={categories} />
+                        activeMode === 'pomodoro'
+                          ? <PomodoroSessionRow key={session.id} session={session as PomodoroSession} categories={categories} />
+                          : <TimerSessionRow key={session.id} session={session as TimerSession} mode={activeMode} />
                       ))
                     )}
                   </div>
@@ -459,13 +503,12 @@ export function PomodoroModal({ isOpen, onClose }: PomodoroModalProps) {
                       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 20 }}>
                         <div>
                           <div style={{ fontSize: 12, color: 'var(--text-tertiary)', textTransform: 'uppercase', letterSpacing: 1, marginBottom: 4 }}>
-                            Total Focus Time
+                            Total Time
                           </div>
                           <div style={{ fontSize: 32, fontWeight: 700, color: 'var(--text-primary)' }}>
                             {formatDuration(analytics.totalMinutes)}
                           </div>
                         </div>
-                        
                         <div>
                           <div style={{ fontSize: 12, color: 'var(--text-tertiary)', textTransform: 'uppercase', letterSpacing: 1, marginBottom: 4 }}>
                             Total Sessions
@@ -474,7 +517,6 @@ export function PomodoroModal({ isOpen, onClose }: PomodoroModalProps) {
                             {analytics.totalSessions}
                           </div>
                         </div>
-                        
                         <div>
                           <div style={{ fontSize: 12, color: 'var(--text-tertiary)', textTransform: 'uppercase', letterSpacing: 1, marginBottom: 4 }}>
                             Average Session
@@ -483,7 +525,6 @@ export function PomodoroModal({ isOpen, onClose }: PomodoroModalProps) {
                             {formatDuration(analytics.avgMinutes)}
                           </div>
                         </div>
-                        
                         <div>
                           <div style={{ fontSize: 12, color: 'var(--text-tertiary)', textTransform: 'uppercase', letterSpacing: 1, marginBottom: 4 }}>
                             This Week
@@ -495,8 +536,8 @@ export function PomodoroModal({ isOpen, onClose }: PomodoroModalProps) {
                       </div>
                     </div>
 
-                    {/* Category Breakdown */}
-                    {analytics.categoryStats.length > 0 && (
+                    {/* Category Breakdown - pomodoro only */}
+                    {activeMode === 'pomodoro' && pomodoroAnalytics.categoryStats.length > 0 && (
                       <div style={{
                         background: 'var(--bg-tertiary)',
                         borderRadius: 'var(--radius-md)',
@@ -507,23 +548,14 @@ export function PomodoroModal({ isOpen, onClose }: PomodoroModalProps) {
                           Focus by Category
                         </h3>
                         <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-                          {analytics.categoryStats.map((cat) => (
+                          {pomodoroAnalytics.categoryStats.map((cat) => (
                             <div key={cat.name} style={{
-                              display: 'flex',
-                              alignItems: 'center',
-                              justifyContent: 'space-between',
-                              padding: '12px 16px',
-                              background: 'var(--bg-secondary)',
-                              borderRadius: 'var(--radius-md)',
-                              border: '1px solid var(--border)',
+                              display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                              padding: '12px 16px', background: 'var(--bg-secondary)',
+                              borderRadius: 'var(--radius-md)', border: '1px solid var(--border)',
                             }}>
                               <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-                                <div style={{
-                                  width: 12,
-                                  height: 12,
-                                  borderRadius: '50%',
-                                  background: cat.color,
-                                }} />
+                                <div style={{ width: 12, height: 12, borderRadius: '50%', background: cat.color }} />
                                 <span style={{ fontSize: 14, fontWeight: 600, color: 'var(--text-primary)' }}>
                                   {cat.name}
                                 </span>
@@ -541,6 +573,38 @@ export function PomodoroModal({ isOpen, onClose }: PomodoroModalProps) {
                         </div>
                       </div>
                     )}
+
+                    {/* Longest session - timer/stopwatch */}
+                    {activeMode !== 'pomodoro' && analytics.longestSession > 0 && (
+                      <div style={{
+                        background: 'var(--bg-tertiary)',
+                        borderRadius: 'var(--radius-md)',
+                        padding: 24,
+                        border: '1px solid var(--border)',
+                      }}>
+                        <h3 style={{ margin: '0 0 12px 0', fontSize: 18, color: 'var(--text-primary)' }}>
+                          Records
+                        </h3>
+                        <div style={{ display: 'flex', gap: 24 }}>
+                          <div>
+                            <div style={{ fontSize: 12, color: 'var(--text-tertiary)', textTransform: 'uppercase', letterSpacing: 1, marginBottom: 4 }}>
+                              Longest Session
+                            </div>
+                            <div style={{ fontSize: 28, fontWeight: 700, color: MODE_COLORS[activeMode] }}>
+                              {formatDuration(Math.round(analytics.longestSession))}
+                            </div>
+                          </div>
+                          <div>
+                            <div style={{ fontSize: 12, color: 'var(--text-tertiary)', textTransform: 'uppercase', letterSpacing: 1, marginBottom: 4 }}>
+                              Shortest Session
+                            </div>
+                            <div style={{ fontSize: 28, fontWeight: 700, color: 'var(--text-primary)' }}>
+                              {formatDuration(Math.round(analytics.shortestSession))}
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    )}
                   </div>
                 )}
               </div>
@@ -551,6 +615,58 @@ export function PomodoroModal({ isOpen, onClose }: PomodoroModalProps) {
     </AnimatePresence>
   );
 }
+
+// ── Shared analytics computation for timer/stopwatch ──────────────────────
+
+function computeGenericAnalytics(sessions: TimerSession[]) {
+  const now = Date.now();
+  const today = new Date().setHours(0, 0, 0, 0);
+
+  const todaySess = sessions.filter(s => s.startTime >= today);
+  const todayMinutes = todaySess.reduce((acc, s) => acc + s.duration / 60, 0);
+
+  const weekAgo = now - (7 * 24 * 60 * 60 * 1000);
+  const weekSess = sessions.filter(s => s.startTime >= weekAgo);
+  const weekMinutes = weekSess.reduce((acc, s) => acc + s.duration / 60, 0);
+
+  const totalMinutes = sessions.reduce((acc, s) => acc + s.duration / 60, 0);
+  const totalSessions = sessions.length;
+  const avgMinutes = totalSessions > 0 ? totalMinutes / totalSessions : 0;
+
+  const longestSession = sessions.length > 0
+    ? Math.max(...sessions.map(s => s.duration / 60)) : 0;
+  const shortestSession = sessions.length > 0
+    ? Math.min(...sessions.map(s => s.duration / 60)) : 0;
+
+  const dailyStats = [];
+  for (let i = 6; i >= 0; i--) {
+    const date = new Date(now - (i * 24 * 60 * 60 * 1000));
+    const dayStart = date.setHours(0, 0, 0, 0);
+    const dayEnd = dayStart + (24 * 60 * 60 * 1000);
+    const daySessions = sessions.filter(s => s.startTime >= dayStart && s.startTime < dayEnd);
+    const dayMinutes = daySessions.reduce((acc, s) => acc + s.duration / 60, 0);
+    dailyStats.push({
+      day: date.toLocaleDateString('en-US', { weekday: 'short' }),
+      minutes: Math.round(dayMinutes),
+      sessions: daySessions.length,
+    });
+  }
+
+  return {
+    todayMinutes: Math.round(todayMinutes),
+    todaySessions: todaySess.length,
+    weekMinutes: Math.round(weekMinutes),
+    weekSessions: weekSess.length,
+    totalMinutes: Math.round(totalMinutes),
+    totalSessions,
+    avgMinutes: Math.round(avgMinutes),
+    longestSession,
+    shortestSession,
+    dailyStats,
+  };
+}
+
+// ── Sub-components ────────────────────────────────────────────────────────
 
 function StatCard({ label, value, subvalue }: { label: string; value: string; subvalue: string }) {
   return (
@@ -577,12 +693,7 @@ function StatCard({ label, value, subvalue }: { label: string; value: string; su
 function ModeBadge({ count, label, color }: { count: number; label: string; color: string }) {
   return (
     <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-      <div style={{
-        width: 12,
-        height: 12,
-        borderRadius: '50%',
-        background: color,
-      }} />
+      <div style={{ width: 12, height: 12, borderRadius: '50%', background: color }} />
       <div>
         <div style={{ fontSize: 20, fontWeight: 700, color: 'var(--text-primary)' }}>{count}</div>
         <div style={{ fontSize: 12, color: 'var(--text-secondary)' }}>{label}</div>
@@ -593,43 +704,32 @@ function ModeBadge({ count, label, color }: { count: number; label: string; colo
 
 import type { Category } from '../types';
 
-function SessionRow({ session, categories }: { session: PomodoroSession; categories: Record<string, Category> }) {
+function PomodoroSessionRow({ session, categories }: { session: PomodoroSession; categories: Record<string, Category> }) {
   const duration = Math.round((session.endTime - session.startTime) / 60000);
   const date = new Date(session.startTime);
   const dateStr = date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
   const timeStr = date.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
-  
+
   const modeColors = {
     work: 'hsl(142, 72%, 62%)',
     break: 'hsl(35, 92%, 52%)',
     longBreak: 'hsl(210, 100%, 56%)',
   };
-  
   const modeLabels = {
     work: 'Work',
     break: 'Break',
     longBreak: 'Long Break',
   };
-
   const category = session.categoryId ? categories[session.categoryId] : null;
 
   return (
     <div style={{
-      display: 'flex',
-      alignItems: 'center',
-      justifyContent: 'space-between',
-      padding: '12px 16px',
-      background: 'var(--bg-tertiary)',
-      borderRadius: 'var(--radius-md)',
-      border: '1px solid var(--border)',
+      display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+      padding: '12px 16px', background: 'var(--bg-tertiary)',
+      borderRadius: 'var(--radius-md)', border: '1px solid var(--border)',
     }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-        <div style={{
-          width: 10,
-          height: 10,
-          borderRadius: '50%',
-          background: modeColors[session.mode],
-        }} />
+        <div style={{ width: 10, height: 10, borderRadius: '50%', background: modeColors[session.mode] }} />
         <div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
             <span style={{ fontSize: 14, fontWeight: 600, color: 'var(--text-primary)' }}>
@@ -637,11 +737,9 @@ function SessionRow({ session, categories }: { session: PomodoroSession; categor
             </span>
             {category && (
               <span style={{
-                fontSize: 11,
-                color: category.color,
+                fontSize: 11, color: category.color,
                 background: `${category.color}20`,
-                padding: '2px 6px',
-                borderRadius: '4px',
+                padding: '2px 6px', borderRadius: '4px',
               }}>
                 {category.name}
               </span>
@@ -654,6 +752,56 @@ function SessionRow({ session, categories }: { session: PomodoroSession; categor
       </div>
       <div style={{ fontSize: 16, fontWeight: 600, color: 'var(--text-primary)' }}>
         {duration}m
+      </div>
+    </div>
+  );
+}
+
+function TimerSessionRow({ session, mode }: { session: TimerSession; mode: ActiveTimerMode }) {
+  const duration = Math.round(session.duration / 60);
+  const date = new Date(session.startTime);
+  const dateStr = date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+  const timeStr = date.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
+
+  return (
+    <div style={{
+      display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+      padding: '12px 16px', background: 'var(--bg-tertiary)',
+      borderRadius: 'var(--radius-md)', border: '1px solid var(--border)',
+    }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+        <div style={{ width: 10, height: 10, borderRadius: '50%', background: MODE_COLORS[mode] }} />
+        <div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <span style={{ fontSize: 14, fontWeight: 600, color: 'var(--text-primary)' }}>
+              {mode === 'timer' ? 'Timer' : 'Stopwatch'}
+            </span>
+            {session.laps && session.laps.length > 0 && (
+              <span style={{
+                fontSize: 11, color: MODE_COLORS[mode],
+                background: `${MODE_COLORS[mode]}20`,
+                padding: '2px 6px', borderRadius: '4px',
+              }}>
+                {session.laps.length} laps
+              </span>
+            )}
+            {session.label && (
+              <span style={{
+                fontSize: 11, color: 'var(--text-secondary)',
+                background: 'var(--bg-secondary)',
+                padding: '2px 6px', borderRadius: '4px',
+              }}>
+                {session.label}
+              </span>
+            )}
+          </div>
+          <div style={{ fontSize: 12, color: 'var(--text-secondary)' }}>
+            {dateStr} at {timeStr}
+          </div>
+        </div>
+      </div>
+      <div style={{ fontSize: 16, fontWeight: 600, color: 'var(--text-primary)' }}>
+        {duration < 1 ? `${session.duration}s` : `${duration}m`}
       </div>
     </div>
   );

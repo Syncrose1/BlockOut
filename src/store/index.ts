@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import { v4 as uuid } from 'uuid';
-import type { Task, Category, TimeBlock, PomodoroState, PomodoroSession, ViewMode, StreakData, DragState, TaskChain, ChainTask, ChainTemplate, ChainLink, TaskGroup, ScheduleBlock } from '../types';
+import type { Task, Category, TimeBlock, PomodoroState, PomodoroSession, TimerSession, ActiveTimerMode, ViewMode, StreakData, DragState, TaskChain, ChainTask, ChainTemplate, ChainLink, TaskGroup, ScheduleBlock } from '../types';
 import { getCategoryColor } from '../utils/colors';
 // Safe circular dep: analytics.ts uses useStore only inside function bodies,
 // so by the time any action below runs, both modules are fully initialized.
@@ -177,6 +177,25 @@ interface BlockOutState {
   setPomodoroDurations: (work: number, brk: number, longBrk: number) => void;
   setFocusedTask: (taskId: string | undefined) => void;
 
+  // Actions — Timer Mode Switching
+  setActiveTimerMode: (mode: ActiveTimerMode) => void;
+
+  // Actions — Timer Countdown
+  startTimer: () => void;
+  pauseTimer: () => void;
+  resetTimer: () => void;
+  tickTimer: () => void;
+  setTimerDuration: (seconds: number) => void;
+  addTimerPreset: (seconds: number) => void;
+  removeTimerPreset: (seconds: number) => void;
+
+  // Actions — Stopwatch
+  startStopwatch: () => void;
+  pauseStopwatch: () => void;
+  resetStopwatch: () => void;
+  tickStopwatch: () => void;
+  lapStopwatch: () => void;
+
   // Actions — Sync
   setSyncStatus: (status: 'idle' | 'syncing' | 'synced' | 'error') => void;
   setSyncSettingsOpen: (open: boolean) => void;
@@ -300,6 +319,22 @@ export const useStore = create<BlockOutState>((set, get) => ({
     widgetX: 0,
     widgetY: 0,
     widgetScale: 1,
+    activeTimerMode: 'pomodoro',
+    timer: {
+      isRunning: false,
+      timeRemaining: 5 * 60,
+      duration: 5 * 60,
+      currentSessionStart: undefined,
+      sessions: [],
+      presets: [1 * 60, 5 * 60, 10 * 60, 15 * 60, 30 * 60, 60 * 60],
+    },
+    stopwatch: {
+      isRunning: false,
+      elapsed: 0,
+      currentSessionStart: undefined,
+      laps: [],
+      sessions: [],
+    },
   },
 
   // Categories
@@ -838,6 +873,206 @@ export const useStore = create<BlockOutState>((set, get) => ({
 
   setFocusedTask: (taskId) =>
     set((state) => ({ pomodoro: { ...state.pomodoro, focusedTaskId: taskId } })),
+
+  // ── Timer Mode Switching ──────────────────────────────────────────────────
+  setActiveTimerMode: (mode) =>
+    set((state) => {
+      // Pause the currently running mode before switching (no cross-contamination)
+      const p = state.pomodoro;
+      let updated = { ...p, activeTimerMode: mode } as PomodoroState;
+      if (p.isRunning) updated = { ...updated, isRunning: false };
+      if (p.timer.isRunning) updated = { ...updated, timer: { ...updated.timer, isRunning: false } };
+      if (p.stopwatch.isRunning) updated = { ...updated, stopwatch: { ...updated.stopwatch, isRunning: false } };
+      return { pomodoro: updated };
+    }),
+
+  // ── Timer Countdown ───────────────────────────────────────────────────────
+  startTimer: () =>
+    set((state) => ({
+      pomodoro: {
+        ...state.pomodoro,
+        timer: {
+          ...state.pomodoro.timer,
+          isRunning: true,
+          currentSessionStart: state.pomodoro.timer.currentSessionStart ?? Date.now(),
+        },
+      },
+    })),
+
+  pauseTimer: () =>
+    set((state) => ({
+      pomodoro: {
+        ...state.pomodoro,
+        timer: { ...state.pomodoro.timer, isRunning: false },
+      },
+    })),
+
+  resetTimer: () =>
+    set((state) => ({
+      pomodoro: {
+        ...state.pomodoro,
+        timer: {
+          ...state.pomodoro.timer,
+          isRunning: false,
+          timeRemaining: state.pomodoro.timer.duration,
+          currentSessionStart: undefined,
+        },
+      },
+    })),
+
+  tickTimer: () =>
+    set((state) => {
+      const t = state.pomodoro.timer;
+      if (!t.isRunning) return state;
+      const next = t.timeRemaining - 1;
+      if (next <= 0) {
+        // Timer completed - play sound and notify
+        import('../utils/pomodoroNotifications').then(({ playCompletionSound }) => {
+          playCompletionSound();
+        });
+        // Record session
+        const session: TimerSession = {
+          id: uuid(),
+          startTime: t.currentSessionStart ?? (Date.now() - t.duration * 1000),
+          endTime: Date.now(),
+          timerType: 'timer',
+          duration: t.duration,
+          categoryId: state.pomodoro.focusedCategoryId,
+        };
+        return {
+          pomodoro: {
+            ...state.pomodoro,
+            timer: {
+              ...t,
+              isRunning: false,
+              timeRemaining: t.duration,
+              currentSessionStart: undefined,
+              sessions: [...t.sessions, session],
+            },
+          },
+        };
+      }
+      return { pomodoro: { ...state.pomodoro, timer: { ...t, timeRemaining: next } } };
+    }),
+
+  setTimerDuration: (seconds) =>
+    set((state) => ({
+      pomodoro: {
+        ...state.pomodoro,
+        timer: {
+          ...state.pomodoro.timer,
+          duration: seconds,
+          // Only update timeRemaining if not currently running
+          ...(!state.pomodoro.timer.isRunning && { timeRemaining: seconds }),
+        },
+      },
+    })),
+
+  addTimerPreset: (seconds) =>
+    set((state) => {
+      const presets = state.pomodoro.timer.presets;
+      if (presets.includes(seconds)) return state;
+      return {
+        pomodoro: {
+          ...state.pomodoro,
+          timer: {
+            ...state.pomodoro.timer,
+            presets: [...presets, seconds].sort((a, b) => a - b),
+          },
+        },
+      };
+    }),
+
+  removeTimerPreset: (seconds) =>
+    set((state) => ({
+      pomodoro: {
+        ...state.pomodoro,
+        timer: {
+          ...state.pomodoro.timer,
+          presets: state.pomodoro.timer.presets.filter((p) => p !== seconds),
+        },
+      },
+    })),
+
+  // ── Stopwatch ─────────────────────────────────────────────────────────────
+  startStopwatch: () =>
+    set((state) => ({
+      pomodoro: {
+        ...state.pomodoro,
+        stopwatch: {
+          ...state.pomodoro.stopwatch,
+          isRunning: true,
+          currentSessionStart: state.pomodoro.stopwatch.currentSessionStart ?? Date.now(),
+        },
+      },
+    })),
+
+  pauseStopwatch: () =>
+    set((state) => ({
+      pomodoro: {
+        ...state.pomodoro,
+        stopwatch: { ...state.pomodoro.stopwatch, isRunning: false },
+      },
+    })),
+
+  resetStopwatch: () =>
+    set((state) => {
+      const sw = state.pomodoro.stopwatch;
+      // If there was an active session with elapsed time, record it
+      let sessions = sw.sessions;
+      if (sw.elapsed > 0 && sw.currentSessionStart) {
+        const session: TimerSession = {
+          id: uuid(),
+          startTime: sw.currentSessionStart,
+          endTime: Date.now(),
+          timerType: 'stopwatch',
+          duration: sw.elapsed,
+          categoryId: state.pomodoro.focusedCategoryId,
+          laps: sw.laps.length > 0 ? sw.laps : undefined,
+        };
+        sessions = [...sessions, session];
+      }
+      return {
+        pomodoro: {
+          ...state.pomodoro,
+          stopwatch: {
+            ...sw,
+            isRunning: false,
+            elapsed: 0,
+            currentSessionStart: undefined,
+            laps: [],
+            sessions,
+          },
+        },
+      };
+    }),
+
+  tickStopwatch: () =>
+    set((state) => {
+      const sw = state.pomodoro.stopwatch;
+      if (!sw.isRunning) return state;
+      return {
+        pomodoro: {
+          ...state.pomodoro,
+          stopwatch: { ...sw, elapsed: sw.elapsed + 1 },
+        },
+      };
+    }),
+
+  lapStopwatch: () =>
+    set((state) => {
+      const sw = state.pomodoro.stopwatch;
+      if (!sw.isRunning && sw.elapsed === 0) return state;
+      return {
+        pomodoro: {
+          ...state.pomodoro,
+          stopwatch: {
+            ...sw,
+            laps: [...sw.laps, sw.elapsed],
+          },
+        },
+      };
+    }),
 
   // Task Chains
   setSelectedChainDate: (date) => set({ selectedChainDate: date }),
@@ -1590,6 +1825,21 @@ export const useStore = create<BlockOutState>((set, get) => ({
           widgetX: pomodoroData.widgetX ?? 0,
           widgetY: pomodoroData.widgetY ?? 0,
           widgetScale: pomodoroData.widgetScale ?? 1,
+          activeTimerMode: pomodoroData.activeTimerMode ?? 'pomodoro',
+          ...(pomodoroData.timer && {
+            timer: {
+              ...state.pomodoro.timer,
+              ...pomodoroData.timer,
+              isRunning: false, // Never restore running state
+            },
+          }),
+          ...(pomodoroData.stopwatch && {
+            stopwatch: {
+              ...state.pomodoro.stopwatch,
+              ...pomodoroData.stopwatch,
+              isRunning: false,
+            },
+          }),
         }),
       },
       // Task chains - load if provided, otherwise keep existing
@@ -1624,6 +1874,20 @@ export const useStore = create<BlockOutState>((set, get) => ({
         widgetX: s.pomodoro.widgetX,
         widgetY: s.pomodoro.widgetY,
         widgetScale: s.pomodoro.widgetScale,
+        activeTimerMode: s.pomodoro.activeTimerMode,
+        timer: {
+          isRunning: false,
+          timeRemaining: s.pomodoro.timer.timeRemaining,
+          duration: s.pomodoro.timer.duration,
+          sessions: s.pomodoro.timer.sessions,
+          presets: s.pomodoro.timer.presets,
+        },
+        stopwatch: {
+          isRunning: false,
+          elapsed: 0,
+          laps: [],
+          sessions: s.pomodoro.stopwatch.sessions,
+        },
       },
       taskChains: s.taskChains,
       chainTemplates: s.chainTemplates,
