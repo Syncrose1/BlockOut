@@ -1886,21 +1886,36 @@ export function SyncSettingsModal() {
                     <button className="btn btn-ghost btn-sm" onClick={handleSignOut}>Sign Out</button>
                   </div>
 
-                  {/* Dropbox → BlockOut Account sync */}
-                  {isDropboxConfigured() && (
-                    <div style={{ marginTop: 14, paddingTop: 14, borderTop: '1px solid var(--border)' }}>
-                      <button
-                        className="btn btn-ghost btn-sm"
-                        onClick={() => { setShowDropboxSync(true); setDropboxSyncState('idle'); setDropboxSyncError(null); }}
-                        style={{ width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}
-                      >
-                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                          <path d="M12 5l-7 4 7 4 7-4-7-4Z" /><path d="M5 9l7 4 7-4" /><path d="M5 13l7 4 7-4" />
-                        </svg>
-                        Sync Dropbox data to BlockOut Account
-                      </button>
-                    </div>
-                  )}
+                  {/* Dropbox section — always visible when signed in */}
+                  <div style={{ marginTop: 14, paddingTop: 14, borderTop: '1px solid var(--border)' }}>
+                    <button
+                      onClick={() => setShowDropbox(!showDropbox)}
+                      style={{ width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: 12, color: 'var(--text-tertiary)', padding: '2px 0' }}
+                    >
+                      <span>Dropbox Sync</span>
+                      <span style={{ transition: 'transform 200ms', transform: showDropbox ? 'rotate(180deg)' : 'none', fontSize: 10 }}>▾</span>
+                    </button>
+                    {showDropbox && (
+                      <>
+                        {dropboxSection}
+                        {/* Sync Dropbox → BlockOut Account (only when Dropbox is connected) */}
+                        {isDropboxConfigured() && (
+                          <div style={{ marginTop: 10 }}>
+                            <button
+                              className="btn btn-ghost btn-sm"
+                              onClick={() => { setShowDropboxSync(true); setDropboxSyncState('idle'); setDropboxSyncError(null); }}
+                              style={{ width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}
+                            >
+                              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                <path d="M12 5l-7 4 7 4 7-4-7-4Z" /><path d="M5 9l7 4 7-4" /><path d="M5 13l7 4 7-4" />
+                              </svg>
+                              Sync Dropbox data to BlockOut Account
+                            </button>
+                          </div>
+                        )}
+                      </>
+                    )}
+                  </div>
                 </div>
               ) : (
                 /* Not signed in — show auth form */
