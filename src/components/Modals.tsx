@@ -19,7 +19,7 @@ import {
   startDropboxAuth,
   forceReauth,
 } from '../utils/dropbox';
-import { isR2SyncAvailable, saveToR2 } from '../utils/r2sync';
+import { isR2SyncAvailable, saveToR2, loadFromR2 } from '../utils/r2sync';
 import {
   isSupabaseConfigured, signIn, signUp, signOut,
   resetPassword, getSession, onAuthStateChange,
@@ -1716,6 +1716,11 @@ export function SyncSettingsModal() {
   // Dropbox accordion (secondary option)
   const [showDropbox, setShowDropbox] = useState(false);
 
+  // Dropbox → BlockOut sync modal
+  const [showDropboxSync, setShowDropboxSync] = useState(false);
+  const [dropboxSyncState, setDropboxSyncState] = useState<'idle' | 'pulling' | 'pushing' | 'done' | 'error'>('idle');
+  const [dropboxSyncError, setDropboxSyncError] = useState<string | null>(null);
+
   // Load session when modal opens
   useEffect(() => {
     if (!open) return;
@@ -1832,6 +1837,7 @@ export function SyncSettingsModal() {
   const _unused_syncProvider = null;
 
   return (
+    <>
     <AnimatePresence>
       <motion.div
         className="modal-overlay"
@@ -1879,6 +1885,22 @@ export function SyncSettingsModal() {
                     </button>
                     <button className="btn btn-ghost btn-sm" onClick={handleSignOut}>Sign Out</button>
                   </div>
+
+                  {/* Dropbox → BlockOut Account sync */}
+                  {isDropboxConfigured() && (
+                    <div style={{ marginTop: 14, paddingTop: 14, borderTop: '1px solid var(--border)' }}>
+                      <button
+                        className="btn btn-ghost btn-sm"
+                        onClick={() => { setShowDropboxSync(true); setDropboxSyncState('idle'); setDropboxSyncError(null); }}
+                        style={{ width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}
+                      >
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                          <path d="M12 5l-7 4 7 4 7-4-7-4Z" /><path d="M5 9l7 4 7-4" /><path d="M5 13l7 4 7-4" />
+                        </svg>
+                        Sync Dropbox data to BlockOut Account
+                      </button>
+                    </div>
+                  )}
                 </div>
               ) : (
                 /* Not signed in — show auth form */
@@ -1965,6 +1987,191 @@ export function SyncSettingsModal() {
         </motion.div>
       </motion.div>
     </AnimatePresence>
+
+    {/* ── Dropbox → BlockOut Account Sync Modal ── */}
+    <AnimatePresence>
+      {showDropboxSync && (
+        <>
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            onClick={() => dropboxSyncState !== 'pulling' && dropboxSyncState !== 'pushing' && setShowDropboxSync(false)}
+            style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(4px)', zIndex: 10001 }}
+          />
+          <div style={{ position: 'fixed', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 10002, pointerEvents: 'none' }}>
+            <motion.div
+              initial={{ scale: 0.92, opacity: 0, y: 20 }}
+              animate={{ scale: 1, opacity: 1, y: 0 }}
+              exit={{ scale: 0.92, opacity: 0, y: 20 }}
+              transition={{ type: 'spring', damping: 28, stiffness: 380 }}
+              style={{
+                width: 420, maxWidth: '90vw',
+                background: 'var(--bg-secondary)', borderRadius: 'var(--radius-lg)',
+                border: '1px solid var(--border)', boxShadow: '0 25px 50px rgba(0,0,0,0.4)',
+                padding: 28, pointerEvents: 'auto',
+              }}
+            >
+              <h3 style={{ margin: '0 0 20px', fontSize: 18, fontWeight: 700, color: 'var(--text-primary)' }}>
+                Sync Dropbox → BlockOut Account
+              </h3>
+
+              {dropboxSyncState === 'idle' && (
+                <>
+                  {/* Flow diagram */}
+                  <div style={{
+                    display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 16,
+                    padding: '20px 0', marginBottom: 20,
+                  }}>
+                    {/* Dropbox */}
+                    <div style={{ textAlign: 'center' }}>
+                      <div style={{
+                        width: 52, height: 52, borderRadius: 12,
+                        background: 'hsla(210, 80%, 55%, 0.12)', border: '1px solid hsla(210, 80%, 55%, 0.25)',
+                        display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 8px',
+                      }}>
+                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="hsl(210, 80%, 55%)" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                          <path d="M12 5l-7 4 7 4 7-4-7-4Z" /><path d="M5 9l7 4 7-4" /><path d="M5 13l7 4 7-4" />
+                        </svg>
+                      </div>
+                      <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-primary)' }}>Dropbox</div>
+                      <div style={{ fontSize: 10, color: 'var(--text-tertiary)' }}>Source</div>
+                    </div>
+
+                    {/* Arrow */}
+                    <svg width="40" height="20" viewBox="0 0 40 20" fill="none" style={{ flexShrink: 0 }}>
+                      <path d="M0 10H32M32 10L26 4M32 10L26 16" stroke="var(--text-tertiary)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                    </svg>
+
+                    {/* BlockOut */}
+                    <div style={{ textAlign: 'center' }}>
+                      <div style={{
+                        width: 52, height: 52, borderRadius: 12,
+                        background: 'hsla(140, 60%, 50%, 0.12)', border: '1px solid hsla(140, 60%, 50%, 0.25)',
+                        display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 8px',
+                      }}>
+                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="hsl(140, 60%, 50%)" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                          <rect x="3" y="3" width="18" height="18" rx="3" /><path d="M9 12l2 2 4-4" />
+                        </svg>
+                      </div>
+                      <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-primary)' }}>BlockOut</div>
+                      <div style={{ fontSize: 10, color: 'var(--text-tertiary)' }}>Account</div>
+                    </div>
+                  </div>
+
+                  <p style={{ fontSize: 13, color: 'var(--text-secondary)', lineHeight: 1.6, marginBottom: 20 }}>
+                    This will pull your data from Dropbox and upload it to your BlockOut account.
+                    Your existing BlockOut account data will be <strong style={{ color: 'var(--text-primary)' }}>replaced</strong> with the Dropbox data.
+                  </p>
+
+                  <div style={{ display: 'flex', gap: 8 }}>
+                    <button className="btn btn-ghost" style={{ flex: 1 }} onClick={() => setShowDropboxSync(false)}>
+                      Cancel
+                    </button>
+                    <button
+                      className="btn btn-primary"
+                      style={{ flex: 1 }}
+                      onClick={async () => {
+                        setDropboxSyncState('pulling');
+                        setDropboxSyncError(null);
+                        try {
+                          const remote = await syncFromDropbox();
+                          if (!remote) { setDropboxSyncError('No data found in Dropbox.'); setDropboxSyncState('error'); return; }
+                          // Load into local state first
+                          useStore.getState().loadData(remote as any);
+                          setDropboxSyncState('pushing');
+                          // Now push to R2
+                          const result = await saveToR2(useStore.getState().getSerializableState());
+                          if (result.success) {
+                            setDropboxSyncState('done');
+                            setSyncStatus('synced');
+                            setLastSynced(Date.now());
+                          } else {
+                            setDropboxSyncError(result.error || 'Failed to upload to BlockOut account.');
+                            setDropboxSyncState('error');
+                          }
+                        } catch (err: any) {
+                          setDropboxSyncError(err?.message || 'An unexpected error occurred.');
+                          setDropboxSyncState('error');
+                        }
+                      }}
+                    >
+                      Synchronise
+                    </button>
+                  </div>
+                </>
+              )}
+
+              {(dropboxSyncState === 'pulling' || dropboxSyncState === 'pushing') && (
+                <div style={{ textAlign: 'center', padding: '24px 0' }}>
+                  <div style={{
+                    width: 40, height: 40, margin: '0 auto 16px',
+                    border: '3px solid var(--border)', borderTopColor: 'var(--accent)',
+                    borderRadius: '50%', animation: 'spin 0.8s linear infinite',
+                  }} />
+                  <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--text-primary)', marginBottom: 4 }}>
+                    {dropboxSyncState === 'pulling' ? 'Pulling from Dropbox…' : 'Pushing to BlockOut Account…'}
+                  </div>
+                  <div style={{ fontSize: 12, color: 'var(--text-tertiary)' }}>
+                    Please don't close this window.
+                  </div>
+                </div>
+              )}
+
+              {dropboxSyncState === 'done' && (
+                <div style={{ textAlign: 'center', padding: '24px 0' }}>
+                  <div style={{
+                    width: 48, height: 48, margin: '0 auto 16px',
+                    borderRadius: '50%', background: 'hsla(140, 60%, 50%, 0.12)',
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  }}>
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="hsl(140, 60%, 50%)" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M5 12l5 5L20 7" />
+                    </svg>
+                  </div>
+                  <div style={{ fontSize: 15, fontWeight: 600, color: 'hsl(140, 60%, 50%)', marginBottom: 4 }}>
+                    Sync Complete
+                  </div>
+                  <div style={{ fontSize: 13, color: 'var(--text-secondary)', marginBottom: 20 }}>
+                    Your Dropbox data is now in your BlockOut account.
+                  </div>
+                  <button className="btn btn-primary" onClick={() => setShowDropboxSync(false)}>
+                    Done
+                  </button>
+                </div>
+              )}
+
+              {dropboxSyncState === 'error' && (
+                <div style={{ textAlign: 'center', padding: '24px 0' }}>
+                  <div style={{
+                    width: 48, height: 48, margin: '0 auto 16px',
+                    borderRadius: '50%', background: 'hsla(0, 72%, 62%, 0.12)',
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  }}>
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="hsl(0, 72%, 62%)" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M18 6L6 18M6 6l12 12" />
+                    </svg>
+                  </div>
+                  <div style={{ fontSize: 15, fontWeight: 600, color: 'hsl(0, 72%, 62%)', marginBottom: 4 }}>
+                    Sync Failed
+                  </div>
+                  {dropboxSyncError && (
+                    <div style={{ fontSize: 12, color: 'var(--text-secondary)', marginBottom: 20 }}>
+                      {dropboxSyncError}
+                    </div>
+                  )}
+                  <div style={{ display: 'flex', gap: 8, justifyContent: 'center' }}>
+                    <button className="btn btn-ghost" onClick={() => setShowDropboxSync(false)}>Close</button>
+                    <button className="btn btn-primary" onClick={() => setDropboxSyncState('idle')}>Try Again</button>
+                  </div>
+                </div>
+              )}
+            </motion.div>
+          </div>
+        </>
+      )}
+    </AnimatePresence>
+    </>
   );
 }
 

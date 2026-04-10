@@ -104,8 +104,9 @@ export function Pomodoro() {
   const [isResizing, setIsResizing] = useState(false);
   const resizeStartRef = useRef({ x: 0, scale: 1 });
 
-  // Timer preset picker state
+  // Dropdown states
   const [showPresets, setShowPresets] = useState(false);
+  const [showModeDropdown, setShowModeDropdown] = useState(false);
 
   // Save position and scale to store
   const saveWidgetPosition = useCallback((newX: number, newY: number) => {
@@ -224,13 +225,13 @@ export function Pomodoro() {
     }
   }, [activeMode, pomodoro.timeRemaining, pomodoro.isRunning, pomodoro.mode]);
 
-  // Close presets dropdown on outside click
+  // Close dropdowns on outside click
   useEffect(() => {
-    if (!showPresets) return;
-    const handler = () => setShowPresets(false);
+    if (!showPresets && !showModeDropdown) return;
+    const handler = () => { setShowPresets(false); setShowModeDropdown(false); };
     window.addEventListener('click', handler);
     return () => window.removeEventListener('click', handler);
-  }, [showPresets]);
+  }, [showPresets, showModeDropdown]);
 
   // Derived values for each mode
   const focusedCategory = pomodoro.focusedCategoryId ? categories[pomodoro.focusedCategoryId] : null;
@@ -321,69 +322,36 @@ export function Pomodoro() {
         whileDrag={{ cursor: 'grabbing' }}
         transition={{ type: 'spring', damping: 20, stiffness: 300 }}
       >
-        {/* Left column: burger + mode tabs */}
-        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6, flexShrink: 0 }}>
-          {/* Burger menu — opens analytics modal */}
-          <div
-            className="pomodoro-grip"
-            title="View analytics"
-            onClick={() => setIsModalOpen(true)}
-            style={{
-              display: 'flex',
-              flexDirection: 'column',
-              gap: 3,
-              padding: '2px 4px',
-              opacity: 0.5,
-              userSelect: 'none',
-              cursor: 'pointer',
-              transition: 'opacity 0.2s',
-            }}
-            onMouseEnter={(e) => (e.currentTarget.style.opacity = '0.8')}
-            onMouseLeave={(e) => (e.currentTarget.style.opacity = '0.5')}
-          >
-            {[0, 1, 2].map((i) => (
-              <div
-                key={i}
-                style={{
-                  width: 14,
-                  height: 2,
-                  borderRadius: 1,
-                  background: 'var(--text-tertiary)',
-                }}
-              />
-            ))}
-          </div>
-
-          {/* Mode tabs */}
-          <div className="timer-mode-tabs">
-            {(['pomodoro', 'timer', 'stopwatch'] as ActiveTimerMode[]).map((mode) => {
-              const isActive = activeMode === mode;
-              const modeRunning = mode === 'pomodoro' ? pomodoro.isRunning
-                : mode === 'timer' ? pomodoro.timer.isRunning
-                : pomodoro.stopwatch.isRunning;
-              return (
-                <button
-                  key={mode}
-                  className={`timer-mode-tab ${isActive ? 'active' : ''}`}
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    setActiveTimerMode(mode);
-                  }}
-                  title={MODE_LABELS[mode]}
-                  style={{
-                    background: isActive ? MODE_COLORS[mode] + '25' : 'transparent',
-                    color: isActive ? MODE_COLORS[mode] : 'var(--text-tertiary)',
-                    borderColor: isActive ? MODE_COLORS[mode] + '40' : 'transparent',
-                  }}
-                >
-                  <TimerModeIcon mode={mode} size={13} color={isActive ? MODE_COLORS[mode] : 'var(--text-tertiary)'} />
-                  {modeRunning && !isActive && (
-                    <span className="timer-mode-running-dot" style={{ background: MODE_COLORS[mode] }} />
-                  )}
-                </button>
-              );
-            })}
-          </div>
+        {/* Burger menu — opens analytics modal */}
+        <div
+          className="pomodoro-grip"
+          title="View analytics"
+          onClick={() => setIsModalOpen(true)}
+          style={{
+            display: 'flex',
+            flexDirection: 'column',
+            gap: 3,
+            padding: '2px 4px',
+            opacity: 0.5,
+            flexShrink: 0,
+            userSelect: 'none',
+            cursor: 'pointer',
+            transition: 'opacity 0.2s',
+          }}
+          onMouseEnter={(e) => (e.currentTarget.style.opacity = '0.8')}
+          onMouseLeave={(e) => (e.currentTarget.style.opacity = '0.5')}
+        >
+          {[0, 1, 2].map((i) => (
+            <div
+              key={i}
+              style={{
+                width: 14,
+                height: 2,
+                borderRadius: 1,
+                background: 'var(--text-tertiary)',
+              }}
+            />
+          ))}
         </div>
 
         {/* Mini progress ring */}
@@ -420,12 +388,63 @@ export function Pomodoro() {
         </svg>
 
         <div style={{ flex: 1, minWidth: 0 }}>
+          {/* Mode label as dropdown trigger */}
           <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-            <span className={`pomodoro-mode ${activeMode === 'pomodoro' ? pomodoro.mode : activeMode}`}
-              style={activeMode !== 'pomodoro' ? { color: MODE_COLORS[activeMode] } : {}}
-            >
-              {modeLabel}
-            </span>
+            <div style={{ position: 'relative' }}>
+              <button
+                className="timer-mode-dropdown-trigger"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setShowModeDropdown(!showModeDropdown);
+                }}
+                style={{ color: activeMode === 'pomodoro'
+                  ? (pomodoro.mode === 'work' ? 'hsl(0, 72%, 62%)' : pomodoro.mode === 'break' ? 'hsl(120, 60%, 50%)' : 'hsl(210, 80%, 65%)')
+                  : MODE_COLORS[activeMode]
+                }}
+              >
+                <TimerModeIcon mode={activeMode} size={11} />
+                {modeLabel}
+                <span style={{ fontSize: 8, opacity: 0.6 }}>▾</span>
+                {/* Running indicators for background modes */}
+                {(activeMode !== 'pomodoro' && pomodoro.isRunning) ||
+                 (activeMode !== 'timer' && pomodoro.timer.isRunning) ||
+                 (activeMode !== 'stopwatch' && pomodoro.stopwatch.isRunning) ? (
+                  <span style={{
+                    width: 5, height: 5, borderRadius: '50%',
+                    background: 'hsl(35, 92%, 52%)',
+                    animation: 'pulse 2s infinite',
+                    marginLeft: 2,
+                  }} />
+                ) : null}
+              </button>
+              {showModeDropdown && (
+                <div className="timer-mode-dropdown" onClick={(e) => e.stopPropagation()}>
+                  {(['pomodoro', 'timer', 'stopwatch'] as ActiveTimerMode[]).map((mode) => {
+                    const modeRunning = mode === 'pomodoro' ? pomodoro.isRunning
+                      : mode === 'timer' ? pomodoro.timer.isRunning
+                      : pomodoro.stopwatch.isRunning;
+                    return (
+                      <button
+                        key={mode}
+                        className={`timer-mode-dropdown-option ${mode === activeMode ? 'active' : ''}`}
+                        onClick={() => { setActiveTimerMode(mode); setShowModeDropdown(false); }}
+                      >
+                        <TimerModeIcon mode={mode} size={12} color={mode === activeMode ? MODE_COLORS[mode] : 'var(--text-secondary)'} />
+                        <span>{MODE_LABELS[mode]}</span>
+                        {modeRunning && mode !== activeMode && (
+                          <span style={{
+                            width: 5, height: 5, borderRadius: '50%',
+                            background: MODE_COLORS[mode],
+                            animation: 'pulse 2s infinite',
+                            marginLeft: 'auto',
+                          }} />
+                        )}
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
             {focusMode && focusedCategory && (
               <span style={{
                 fontSize: 9,
@@ -500,32 +519,36 @@ export function Pomodoro() {
           </div>
         </div>
 
-        <div className="pomodoro-controls">
-          {isRunning ? (
-            <button className="pomodoro-btn" onClick={handlePause} title="Pause">&#x23F8;</button>
-          ) : (
-            <button className="pomodoro-btn" onClick={handlePlay} title="Start">&#x25B6;</button>
-          )}
-          {/* Stopwatch: lap button when running */}
-          {activeMode === 'stopwatch' && isRunning && (
-            <button className="pomodoro-btn" onClick={lapStopwatch} title="Lap" style={{ fontSize: 10 }}>
-              LAP
-            </button>
-          )}
-          <button className="pomodoro-btn" onClick={handleReset} title="Reset">&#x21BA;</button>
+        {/* Controls — reverse-L layout: 3 vertical, settings offset left */}
+        <div className="pomodoro-controls-grid">
+          {/* Right column: main actions */}
+          <div className="pomodoro-controls-col">
+            {isRunning ? (
+              <button className="pomodoro-btn" onClick={handlePause} title="Pause">&#x23F8;</button>
+            ) : (
+              <button className="pomodoro-btn" onClick={handlePlay} title="Start">&#x25B6;</button>
+            )}
+            <button className="pomodoro-btn" onClick={handleReset} title="Reset">&#x21BA;</button>
+            {/* Bottom row: settings + conditional button */}
+            {activeMode === 'stopwatch' && isRunning ? (
+              <button className="pomodoro-btn" onClick={lapStopwatch} title="Lap" style={{ fontSize: 10 }}>
+                LAP
+              </button>
+            ) : focusMode ? (
+              <button className="pomodoro-btn" onClick={exitFocusMode} title="Exit focus mode" style={{ fontSize: 12 }}>
+                &times;
+              </button>
+            ) : null}
+          </div>
+          {/* Settings button offset to the left of the bottom */}
           <button
-            className="pomodoro-btn"
+            className="pomodoro-btn pomodoro-btn-settings"
             onClick={() => setPomodoroSettingsOpen(true)}
             title="Settings"
             style={{ fontSize: 13 }}
           >
             ⚙
           </button>
-          {focusMode && (
-            <button className="pomodoro-btn" onClick={exitFocusMode} title="Exit focus mode" style={{ fontSize: 12 }}>
-              &times;
-            </button>
-          )}
         </div>
 
         {/* Resize handle */}
