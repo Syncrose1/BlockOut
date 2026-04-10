@@ -20,8 +20,8 @@ export function ActivityHeatmap() {
   const pomodoro = useStore((s) => s.pomodoro);
 
   const dailyStats = useMemo(() => {
-    return calculateDailyStats(pomodoro.sessions, tasks, timeBlocks);
-  }, [pomodoro.sessions, tasks, timeBlocks]);
+    return calculateDailyStats(pomodoro.sessions, tasks, timeBlocks, pomodoro.timer.sessions, pomodoro.stopwatch.sessions);
+  }, [pomodoro.sessions, pomodoro.timer.sessions, pomodoro.stopwatch.sessions, tasks, timeBlocks]);
 
   // Generate last 365 days
   const days = useMemo(() => {
@@ -43,7 +43,7 @@ export function ActivityHeatmap() {
   // Calculate activity level for each day
   const getActivityLevel = (stats: typeof dailyStats[string] | null): number => {
     if (!stats) return 0;
-    const score = stats.tasksCompleted + Math.floor(stats.pomodoroSessions / 2);
+    const score = stats.tasksCompleted + Math.floor(stats.pomodoroSessions / 2) + Math.floor((stats.timerSessions || 0) / 2) + Math.floor((stats.stopwatchSessions || 0) / 2);
     if (score === 0) return 0;
     if (score === 1) return 1;
     if (score <= 3) return 2;

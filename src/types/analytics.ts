@@ -20,6 +20,10 @@ export interface DailyStats {
   tasksCreated: number;
   pomodoroSessions: number;
   pomodoroMinutes: number;
+  timerSessions: number;
+  timerMinutes: number;
+  stopwatchSessions: number;
+  stopwatchMinutes: number;
   categoriesWorked: string[];
   blocksWorked: string[];
 }

@@ -1,6 +1,6 @@
 import { useStore } from '../store';
 import type { BlockOutExport, UserAnalytics, TaskActivity, DailyStats } from '../types/analytics';
-import type { PomodoroSession, Task, Category, TimeBlock, StreakData } from '../types';
+import type { PomodoroSession, TimerSession, Task, Category, TimeBlock, StreakData } from '../types';
 
 const EXPORT_VERSION = '1.0.0';
 
@@ -171,71 +171,78 @@ export function logActivity(
 }
 
 // Calculate daily stats for heatmap
+function emptyDailyStats(date: string): DailyStats {
+  return {
+    date,
+    tasksCompleted: 0,
+    tasksCreated: 0,
+    pomodoroSessions: 0,
+    pomodoroMinutes: 0,
+    timerSessions: 0,
+    timerMinutes: 0,
+    stopwatchSessions: 0,
+    stopwatchMinutes: 0,
+    categoriesWorked: [],
+    blocksWorked: [],
+  };
+}
+
 export function calculateDailyStats(
   pomodoroSessions: PomodoroSession[],
   tasks: Record<string, { completed: boolean; completedAt?: number; createdAt: number; categoryId: string }>,
-  timeBlocks: Record<string, { taskIds: string[] }>
+  timeBlocks: Record<string, { taskIds: string[] }>,
+  timerSessions?: TimerSession[],
+  stopwatchSessions?: TimerSession[],
 ): Record<string, DailyStats> {
   const dailyStats: Record<string, DailyStats> = {};
-  
+
   // Process pomodoro sessions
   pomodoroSessions.forEach(session => {
     const date = new Date(session.startTime).toISOString().slice(0, 10);
-    if (!dailyStats[date]) {
-      dailyStats[date] = {
-        date,
-        tasksCompleted: 0,
-        tasksCreated: 0,
-        pomodoroSessions: 0,
-        pomodoroMinutes: 0,
-        categoriesWorked: [],
-        blocksWorked: [],
-      };
-    }
-    
+    if (!dailyStats[date]) dailyStats[date] = emptyDailyStats(date);
     dailyStats[date].pomodoroSessions++;
     if (session.mode === 'work') {
       dailyStats[date].pomodoroMinutes += Math.round((session.endTime - session.startTime) / 60000);
     }
   });
-  
+
+  // Process timer sessions
+  if (timerSessions) {
+    timerSessions.forEach(session => {
+      const date = new Date(session.startTime).toISOString().slice(0, 10);
+      if (!dailyStats[date]) dailyStats[date] = emptyDailyStats(date);
+      dailyStats[date].timerSessions++;
+      dailyStats[date].timerMinutes += Math.round(session.duration / 60);
+    });
+  }
+
+  // Process stopwatch sessions
+  if (stopwatchSessions) {
+    stopwatchSessions.forEach(session => {
+      const date = new Date(session.startTime).toISOString().slice(0, 10);
+      if (!dailyStats[date]) dailyStats[date] = emptyDailyStats(date);
+      dailyStats[date].stopwatchSessions++;
+      dailyStats[date].stopwatchMinutes += Math.round(session.duration / 60);
+    });
+  }
+
   // Process task completions
   Object.values(tasks).forEach(task => {
     if (task.completed && task.completedAt) {
       const date = new Date(task.completedAt).toISOString().slice(0, 10);
-      if (!dailyStats[date]) {
-        dailyStats[date] = {
-          date,
-          tasksCompleted: 0,
-          tasksCreated: 0,
-          pomodoroSessions: 0,
-          pomodoroMinutes: 0,
-          categoriesWorked: [],
-          blocksWorked: [],
-        };
-      }
+      if (!dailyStats[date]) dailyStats[date] = emptyDailyStats(date);
       dailyStats[date].tasksCompleted++;
       if (!dailyStats[date].categoriesWorked.includes(task.categoryId)) {
         dailyStats[date].categoriesWorked.push(task.categoryId);
       }
     }
-    
+
     // Track creations
     const createdDate = new Date(task.createdAt).toISOString().slice(0, 10);
-    if (!dailyStats[createdDate]) {
-      dailyStats[createdDate] = {
-        date: createdDate,
-        tasksCompleted: 0,
-        tasksCreated: 0,
-        pomodoroSessions: 0,
-        pomodoroMinutes: 0,
-        categoriesWorked: [],
-        blocksWorked: [],
-      };
-    }
+    if (!dailyStats[createdDate]) dailyStats[createdDate] = emptyDailyStats(createdDate);
     dailyStats[createdDate].tasksCreated++;
   });
-  
+
   return dailyStats;
 }
 
