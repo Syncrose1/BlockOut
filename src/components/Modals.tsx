@@ -1898,18 +1898,40 @@ export function SyncSettingsModal() {
                     {showDropbox && (
                       <>
                         {dropboxSection}
-                        {/* Sync Dropbox → BlockOut Account (only when Dropbox is connected) */}
+                        {/* Import Dropbox data → BlockOut Account card (only when Dropbox is connected) */}
                         {isDropboxConfigured() && (
-                          <div style={{ marginTop: 10 }}>
+                          <div style={{
+                            marginTop: 12, padding: 14,
+                            background: 'hsla(210, 80%, 55%, 0.06)',
+                            border: '1px solid hsla(210, 80%, 55%, 0.15)',
+                            borderRadius: 'var(--radius-sm)',
+                          }}>
+                            {/* Inline flow diagram */}
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 10 }}>
+                              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="hsl(210, 80%, 55%)" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }}>
+                                <path d="M12 5l-7 4 7 4 7-4-7-4Z" /><path d="M5 9l7 4 7-4" /><path d="M5 13l7 4 7-4" />
+                              </svg>
+                              <svg width="16" height="12" viewBox="0 0 16 12" fill="none" style={{ flexShrink: 0 }}>
+                                <path d="M0 6H12M12 6L8 2M12 6L8 10" stroke="var(--text-tertiary)" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                              </svg>
+                              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="hsl(140, 60%, 50%)" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }}>
+                                <rect x="3" y="3" width="18" height="18" rx="3" /><path d="M9 12l2 2 4-4" />
+                              </svg>
+                              <span style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-primary)' }}>
+                                Import Dropbox data
+                              </span>
+                            </div>
+
+                            <p style={{ fontSize: 12, color: 'var(--text-secondary)', lineHeight: 1.5, margin: '0 0 12px' }}>
+                              Already been using Dropbox sync? Import your Dropbox data into your BlockOut account so everything is backed up to the cloud. This <strong style={{ color: 'var(--text-primary)' }}>replaces</strong> your current account data with what's in Dropbox.
+                            </p>
+
                             <button
                               className="btn btn-ghost btn-sm"
                               onClick={() => { setShowDropboxSync(true); setDropboxSyncState('idle'); setDropboxSyncError(null); }}
-                              style={{ width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}
+                              style={{ width: '100%' }}
                             >
-                              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                                <path d="M12 5l-7 4 7 4 7-4-7-4Z" /><path d="M5 9l7 4 7-4" /><path d="M5 13l7 4 7-4" />
-                              </svg>
-                              Sync Dropbox data to BlockOut Account
+                              Import from Dropbox
                             </button>
                           </div>
                         )}
@@ -2027,57 +2049,27 @@ export function SyncSettingsModal() {
                 padding: 28, pointerEvents: 'auto',
               }}
             >
-              <h3 style={{ margin: '0 0 20px', fontSize: 18, fontWeight: 700, color: 'var(--text-primary)' }}>
-                Sync Dropbox → BlockOut Account
+              <h3 style={{ margin: '0 0 6px', fontSize: 18, fontWeight: 700, color: 'var(--text-primary)' }}>
+                Confirm Import
               </h3>
 
               {dropboxSyncState === 'idle' && (
                 <>
-                  {/* Flow diagram */}
                   <div style={{
-                    display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 16,
-                    padding: '20px 0', marginBottom: 20,
+                    padding: '14px 16px', marginBottom: 16,
+                    background: 'hsla(40, 80%, 55%, 0.08)',
+                    border: '1px solid hsla(40, 80%, 55%, 0.2)',
+                    borderRadius: 'var(--radius-sm)',
                   }}>
-                    {/* Dropbox */}
-                    <div style={{ textAlign: 'center' }}>
-                      <div style={{
-                        width: 52, height: 52, borderRadius: 12,
-                        background: 'hsla(210, 80%, 55%, 0.12)', border: '1px solid hsla(210, 80%, 55%, 0.25)',
-                        display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 8px',
-                      }}>
-                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="hsl(210, 80%, 55%)" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-                          <path d="M12 5l-7 4 7 4 7-4-7-4Z" /><path d="M5 9l7 4 7-4" /><path d="M5 13l7 4 7-4" />
-                        </svg>
-                      </div>
-                      <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-primary)' }}>Dropbox</div>
-                      <div style={{ fontSize: 10, color: 'var(--text-tertiary)' }}>Source</div>
-                    </div>
-
-                    {/* Arrow */}
-                    <svg width="40" height="20" viewBox="0 0 40 20" fill="none" style={{ flexShrink: 0 }}>
-                      <path d="M0 10H32M32 10L26 4M32 10L26 16" stroke="var(--text-tertiary)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-                    </svg>
-
-                    {/* BlockOut */}
-                    <div style={{ textAlign: 'center' }}>
-                      <div style={{
-                        width: 52, height: 52, borderRadius: 12,
-                        background: 'hsla(140, 60%, 50%, 0.12)', border: '1px solid hsla(140, 60%, 50%, 0.25)',
-                        display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 8px',
-                      }}>
-                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="hsl(140, 60%, 50%)" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-                          <rect x="3" y="3" width="18" height="18" rx="3" /><path d="M9 12l2 2 4-4" />
-                        </svg>
-                      </div>
-                      <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-primary)' }}>BlockOut</div>
-                      <div style={{ fontSize: 10, color: 'var(--text-tertiary)' }}>Account</div>
+                    <div style={{ display: 'flex', alignItems: 'flex-start', gap: 10 }}>
+                      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="hsl(40, 80%, 55%)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0, marginTop: 1 }}>
+                        <circle cx="12" cy="12" r="10" /><path d="M12 8v4M12 16h.01" />
+                      </svg>
+                      <p style={{ fontSize: 13, color: 'var(--text-secondary)', lineHeight: 1.6, margin: 0 }}>
+                        Your current BlockOut account data will be <strong style={{ color: 'var(--text-primary)' }}>overwritten</strong> with whatever is stored in your Dropbox. This cannot be undone.
+                      </p>
                     </div>
                   </div>
-
-                  <p style={{ fontSize: 13, color: 'var(--text-secondary)', lineHeight: 1.6, marginBottom: 20 }}>
-                    This will pull your data from Dropbox and upload it to your BlockOut account.
-                    Your existing BlockOut account data will be <strong style={{ color: 'var(--text-primary)' }}>replaced</strong> with the Dropbox data.
-                  </p>
 
                   <div style={{ display: 'flex', gap: 8 }}>
                     <button className="btn btn-ghost" style={{ flex: 1 }} onClick={() => setShowDropboxSync(false)}>
