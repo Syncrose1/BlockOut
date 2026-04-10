@@ -12,6 +12,7 @@ import { Timeline } from './components/Timeline';
 import { TaskChain } from './components/TaskChain';
 import { Overview } from './components/Overview';
 import { Pomodoro } from './components/Pomodoro';
+import { MonsterWidget } from './components/MonsterWidget';
 import { OnboardingTour } from './components/Onboarding';
 import { WelcomeModal } from './components/WelcomeModal';
 import {
@@ -312,6 +313,7 @@ export function App() {
           {viewMode === 'overview' && <Overview />}
         </div>
         {!isMobile && <Pomodoro />}
+        <MonsterWidget />
         <NewBlockModal />
         <NewCategoryModal />
         <NewTaskModal />

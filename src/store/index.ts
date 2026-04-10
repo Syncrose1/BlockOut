@@ -5,6 +5,9 @@ import { getCategoryColor } from '../utils/colors';
 // Safe circular dep: analytics.ts uses useStore only inside function bodies,
 // so by the time any action below runs, both modules are fully initialized.
 import { logActivity } from '../utils/analytics';
+import type { MonsterState } from '../types/monsters';
+import { initialMonsterState, makeMonsterActions } from './monsterSlice';
+import { xpForTaskCompletion, xpForPomodoroSession } from '../utils/monsterMath';
 
 function todayStr(): string {
   return new Date().toISOString().slice(0, 10);
@@ -237,6 +240,26 @@ interface BlockOutState {
   overviewBlocks: ScheduleBlock[];
   setOverviewBlocks: (blocks: ScheduleBlock[]) => void;
 
+  // Monster system
+  monster: MonsterState;
+  catchMonster: (speciesId: string, nickname?: string) => void;
+  releaseMonster: (uid: string) => void;
+  setActiveMonster: (uid: string) => void;
+  nicknameMonster: (uid: string, nickname: string) => void;
+  giveMonsterXp: (amount: number) => void;
+  feedActiveMonster: () => void;
+  playWithActiveMonster: () => void;
+  tickMonsterDecay: () => void;
+  confirmEvolution: (uid: string) => void;
+  setMonsterWidgetOpen: (open: boolean) => void;
+  setMonsterWidgetPosition: (x: number, y: number) => void;
+  setShowCollection: (show: boolean) => void;
+  setShowBattle: (show: boolean) => void;
+  clearPendingXp: () => void;
+  startBattle: (playerUid: string, opponentUid: string) => void;
+  executeBattleTurn: () => void;
+  endBattle: () => void;
+
   // Persistence
   loadData: (data: {
     tasks: Record<string, Task>;
@@ -264,6 +287,10 @@ export const useStore = create<BlockOutState>((set, get) => ({
   timeBlocks: {},
   activeBlockId: null,
   streak: { completionDates: [], currentStreak: 0, longestStreak: 0 },
+
+  // Monster system
+  monster: initialMonsterState,
+  ...makeMonsterActions(set, get),
 
   viewMode: (localStorage.getItem('blockout-view-mode') as ViewMode) || 'treemap',
   selectedCategoryId: null,
@@ -473,7 +500,13 @@ export const useStore = create<BlockOutState>((set, get) => ({
     });
     // Log after set so we read the committed state, not a stale closure.
     const committed = get().tasks[id];
-    if (committed) logActivity(id, committed.completed ? 'completed' : 'started');
+    if (committed) {
+      logActivity(id, committed.completed ? 'completed' : 'started');
+      // Award XP to active monster on task completion
+      if (committed.completed) {
+        get().giveMonsterXp(xpForTaskCompletion(committed.weight));
+      }
+    }
   },
 
   updateTask: (id, updates) => {
@@ -832,6 +865,8 @@ export const useStore = create<BlockOutState>((set, get) => ({
         if (p.mode === 'work') {
           const sessions = p.sessionsCompleted + 1;
           const nextMode = sessions % 4 === 0 ? 'longBreak' : 'break';
+          // Award XP after state update (fire-and-forget)
+          setTimeout(() => get().giveMonsterXp(xpForPomodoroSession()), 0);
           return {
             pomodoro: {
               ...p,
@@ -1850,6 +1885,21 @@ export const useStore = create<BlockOutState>((set, get) => ({
       ...(data as any).overviewBlocks !== undefined && { overviewBlocks: (data as any).overviewBlocks },
       // Track lastModified for cloud sync
       lastModified: (data as any).lastModified || Date.now(),
+      // Monster state — restore collection, preserve UI state (not persisted)
+      ...((data as any).monster && {
+        monster: {
+          ...initialMonsterState,
+          collection: (data as any).monster.collection ?? {},
+          activeMonsterUid: (data as any).monster.activeMonsterUid ?? null,
+          starterChosen: (data as any).monster.starterChosen ?? false,
+          discoveredSpecies: (data as any).monster.discoveredSpecies ?? [],
+          totalBattlesWon: (data as any).monster.totalBattlesWon ?? 0,
+          totalBattlesLost: (data as any).monster.totalBattlesLost ?? 0,
+          monsterWidgetOpen: (data as any).monster.monsterWidgetOpen ?? false,
+          monsterWidgetX: (data as any).monster.monsterWidgetX ?? 80,
+          monsterWidgetY: (data as any).monster.monsterWidgetY ?? 80,
+        },
+      }),
     }));
   },
   getSerializableState: () => {
@@ -1894,6 +1944,17 @@ export const useStore = create<BlockOutState>((set, get) => ({
       chainTasks: s.chainTasks,
       overviewBlocks: s.overviewBlocks,
       lastModified: s.lastModified || Date.now(),
+      monster: {
+        collection: s.monster.collection,
+        activeMonsterUid: s.monster.activeMonsterUid,
+        starterChosen: s.monster.starterChosen,
+        discoveredSpecies: s.monster.discoveredSpecies,
+        totalBattlesWon: s.monster.totalBattlesWon,
+        totalBattlesLost: s.monster.totalBattlesLost,
+        monsterWidgetOpen: s.monster.monsterWidgetOpen,
+        monsterWidgetX: s.monster.monsterWidgetX,
+        monsterWidgetY: s.monster.monsterWidgetY,
+      },
     };
   },
 }));

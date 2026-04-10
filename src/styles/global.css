@@ -2021,3 +2021,111 @@ select {
     font-size: 11px;
   }
 }
+
+/* ─── Monster Widget ──────────────────────────────────────────────────────── */
+
+.monster-widget {
+  position: fixed;
+  z-index: 9001;
+  width: 210px;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  box-shadow: 0 8px 32px rgba(0,0,0,0.35);
+  user-select: none;
+  overflow: hidden;
+}
+
+.monster-widget-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 12px 8px;
+  border-bottom: 1px solid var(--border);
+  cursor: grab;
+}
+
+.monster-widget-header:active { cursor: grabbing; }
+
+.monster-widget-icon-btn {
+  width: 24px;
+  height: 24px;
+  border-radius: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-tertiary);
+  transition: background 0.15s, color 0.15s;
+}
+
+.monster-widget-icon-btn:hover {
+  background: var(--bg-tertiary);
+  color: var(--text-primary);
+}
+
+.monster-widget-sprite-area {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 12px 12px 8px;
+  position: relative;
+  background: var(--bg-primary);
+  min-height: 110px;
+  justify-content: center;
+}
+
+.monster-xp-flash {
+  position: absolute;
+  top: 8px;
+  right: 12px;
+  font-size: 12px;
+  font-weight: 700;
+  color: hsl(210, 80%, 65%);
+  pointer-events: none;
+}
+
+.monster-widget-stats {
+  padding: 10px 12px 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.monster-stat-row {
+  display: grid;
+  grid-template-columns: 46px 1fr;
+  align-items: center;
+  gap: 6px;
+  font-size: 10px;
+  color: var(--text-tertiary);
+}
+
+.monster-widget-actions {
+  display: flex;
+  gap: 4px;
+  padding: 8px 10px 10px;
+  border-top: 1px solid var(--border);
+}
+
+.monster-action-btn {
+  flex: 1;
+  font-size: 10px;
+  padding: 5px 4px;
+  border-radius: 6px;
+  background: var(--bg-tertiary);
+  color: var(--text-secondary);
+  border: 1px solid transparent;
+  transition: background 0.15s, color 0.15s, border-color 0.15s;
+  white-space: nowrap;
+}
+
+.monster-action-btn:hover {
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  border-color: var(--border);
+}
+
+@keyframes evolve-flash {
+  from { box-shadow: 0 0 0 0 white; filter: brightness(1); }
+  to { box-shadow: 0 0 60px 20px white; filter: brightness(1.5); }
+}
