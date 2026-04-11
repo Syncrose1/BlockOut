@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<title>Synamon Pokédex — Review</title>
+<title>Synadex — Luminal Reaches</title>
 <style>
   * { box-sizing: border-box; margin: 0; padding: 0; }
 
@@ -126,6 +126,32 @@
   .badge-Venom   { background: #8bc34a18; color: #8bc34a; border: 1px solid #8bc34a30; }
   .badge-Natura  { background: #7bc67e18; color: #7bc67e; border: 1px solid #7bc67e30; }
 
+  /* ── Animation selector ── */
+  .anim-selector {
+    display: flex;
+    gap: 4px;
+    padding: 6px 8px 0;
+    background: #0f0f1a;
+    border-bottom: 1px solid #1a1a2a;
+    flex-wrap: wrap;
+  }
+  .anim-btn {
+    font-size: 9px;
+    font-weight: bold;
+    text-transform: uppercase;
+    padding: 2px 7px;
+    border-radius: 3px;
+    border: 1px solid #2a2a42;
+    background: transparent;
+    color: #555;
+    cursor: pointer;
+    transition: all 0.1s;
+  }
+  .anim-btn:hover { border-color: #555; color: #888; }
+  .anim-btn.active { border-color: #6fb8c8; color: #6fb8c8; background: #6fb8c811; }
+  .anim-btn.has-frames { color: #777; border-color: #3a3a5a; }
+  .anim-btn.has-frames.active { border-color: #6fb8c8; color: #6fb8c8; }
+
   /* ── Evolution strip ── */
   .evo-strip {
     display: flex;
@@ -177,6 +203,21 @@
     text-align: center;
     line-height: 1.4;
   }
+  /* Frame counter badge */
+  .frame-badge {
+    position: absolute;
+    bottom: 2px;
+    right: 2px;
+    font-size: 8px;
+    background: #0f0f1acc;
+    color: #6fb8c8;
+    padding: 1px 3px;
+    border-radius: 2px;
+    pointer-events: none;
+    display: none;
+  }
+  .sprite-wrap.animating .frame-badge { display: block; }
+
   /* approved/redo tint overlays */
   .evo-stage.approved .sprite-wrap::after {
     content: '';
@@ -247,12 +288,12 @@
 </head>
 <body>
 
-<h1>Synamon Pokédex</h1>
-<p class="subtitle">30 species · 73 entries · Luminal Reaches — click ✓ or ✗ on each sprite to flag for redo</p>
+<h1>Synadex</h1>
+<p class="subtitle">31 species · 74 entries · Luminal Reaches — click ✓ or ✗ on each sprite to flag for redo</p>
 
 <div class="progress-bar-wrap">
   <div class="progress-bar"><div class="progress-bar-fill" id="prog-fill" style="width:0%"></div></div>
-  <div class="progress-counts" id="prog-text">— / 73</div>
+  <div class="progress-counts" id="prog-text">— / 74</div>
 </div>
 
 <div class="toolbar">
@@ -269,6 +310,9 @@
 
 <script>
 const STORAGE_KEY = 'synamon-review-v1';
+const ANIM_FPS = 8;
+const ANIM_NAMES = ['idle', 'attack'];
+
 const TYPE_COLORS = {
   Ignis:'#ff6b35',Aqua:'#4db8ff',Terra:'#c49a6c',Ventus:'#87e8c0',
   Umbra:'#9b72d0',Lux:'#f5e642',Sonus:'#e87de8',Arcanus:'#6fb8c8',
@@ -281,8 +325,10 @@ let allSpecies = [];
 let activeType = 'All';
 let activeView = 'all';
 
-function saveVotes() { localStorage.setItem(STORAGE_KEY, JSON.stringify(votes)); }
+// Per-card animation state: cardId → { anim: string, timers: { stageKey: intervalId } }
+const cardAnimState = {};
 
+function saveVotes() { localStorage.setItem(STORAGE_KEY, JSON.stringify(votes)); }
 function getKey(spId, stageNum) { return `${spId}/stage${stageNum}`; }
 
 function updateProgress() {
@@ -325,6 +371,81 @@ function refreshCardState(card, sp) {
   });
   card.classList.toggle('all-approved', allOk);
   card.classList.toggle('has-redo', anyRedo);
+}
+
+// Get animation frames for a stage from species data.
+// Reads from sp.animations map first, then falls back to per-stage idleFrames/attackFrames.
+function getFrames(sp, stageKey, animName) {
+  const key = `${stageKey}-${animName}`;
+  if (sp.animations && sp.animations[key] && sp.animations[key].length > 0) {
+    return sp.animations[key];
+  }
+  // Fallback: per-stage fields
+  const stageNum = parseInt(stageKey.replace('stage', ''));
+  const stage = sp.stages.find(s => s.stage === stageNum);
+  if (!stage) return null;
+  const frames = animName === 'idle' ? stage.idleFrames : stage.attackFrames;
+  return frames && frames.length > 0 ? frames : null;
+}
+
+// Start cycling animation frames on an img element
+function startAnimation(img, wrap, frames, fps) {
+  if (!frames || frames.length === 0) return null;
+  let idx = 0;
+  const badge = wrap.querySelector('.frame-badge');
+  wrap.classList.add('animating');
+  // Preload frames
+  frames.forEach(src => { const i = new Image(); i.src = src; });
+  const timer = setInterval(() => {
+    idx = (idx + 1) % frames.length;
+    img.src = frames[idx];
+    if (badge) badge.textContent = `${idx + 1}/${frames.length}`;
+  }, 1000 / fps);
+  if (badge) badge.textContent = `1/${frames.length}`;
+  return timer;
+}
+
+// Stop cycling and restore base sprite
+function stopAnimation(img, wrap, baseSprite, timer) {
+  clearInterval(timer);
+  wrap.classList.remove('animating');
+  if (baseSprite) img.src = baseSprite;
+}
+
+// Switch animation for an entire card
+function setCardAnim(cardId, sp, animName, stageImgs, stageWraps) {
+  const state = cardAnimState[cardId];
+
+  // Clear existing timers
+  Object.values(state.timers).forEach(t => clearInterval(t));
+  state.timers = {};
+
+  state.anim = animName;
+
+  sp.stages.forEach((stage, si) => {
+    const stageKey = `stage${stage.stage}`;
+    const img = stageImgs[si];
+    const wrap = stageWraps[si];
+    if (!img || !wrap) return;
+
+    const wrap_ = wrap;
+    wrap_.classList.remove('animating');
+
+    if (animName === 'static') {
+      // Restore base sprite
+      if (stage.sprite) img.src = stage.sprite;
+      return;
+    }
+
+    const frames = getFrames(sp, stageKey, animName);
+    if (frames) {
+      const timer = startAnimation(img, wrap_, frames, ANIM_FPS);
+      if (timer) state.timers[stageKey] = timer;
+    } else {
+      // No frames for this anim — restore base sprite
+      if (stage.sprite) img.src = stage.sprite;
+    }
+  });
 }
 
 fetch('/synamon/species.json')
@@ -376,9 +497,15 @@ function makePending() {
   return el;
 }
 
+let cardIdCounter = 0;
+
 function makeCard(sp, num) {
+  const cardId = `card-${cardIdCounter++}`;
+  cardAnimState[cardId] = { anim: 'static', timers: {} };
+
   const card = document.createElement('div');
   card.className = 'dex-card';
+  card.id = cardId;
   const typeList = [sp.type, sp.secondaryType].filter(Boolean);
   card.dataset.types = typeList.join(',');
 
@@ -394,12 +521,48 @@ function makeCard(sp, num) {
   `;
   card.appendChild(header);
 
+  // Check if any animations exist for this species
+  const hasAnyAnim = ANIM_NAMES.some(anim =>
+    sp.stages.some(s => getFrames(sp, `stage${s.stage}`, anim))
+  );
+
+  // Animation selector (always shown; buttons dim when no frames available)
+  const animSelector = document.createElement('div');
+  animSelector.className = 'anim-selector';
+
+  const stageImgs = [];
+  const stageWraps = [];
+
+  const makeAnimBtn = (label, animName) => {
+    const btn = document.createElement('button');
+    btn.className = 'anim-btn' + (animName === 'static' ? ' active' : '');
+    btn.textContent = label;
+
+    // Check if any stage has frames for this anim
+    const hasFrames = animName !== 'static' && sp.stages.some(s => getFrames(sp, `stage${s.stage}`, animName));
+    if (hasFrames) btn.classList.add('has-frames');
+    if (!hasFrames && animName !== 'static') btn.style.opacity = '0.3';
+
+    btn.onclick = () => {
+      document.querySelectorAll(`#${cardId} .anim-btn`).forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      setCardAnim(cardId, sp, animName, stageImgs, stageWraps);
+    };
+    return btn;
+  };
+
+  animSelector.appendChild(makeAnimBtn('Static', 'static'));
+  ANIM_NAMES.forEach(anim => animSelector.appendChild(makeAnimBtn(anim.charAt(0).toUpperCase() + anim.slice(1), anim)));
+
+  card.appendChild(animSelector);
+
   // Evo strip
   const strip = document.createElement('div');
   strip.className = 'evo-strip';
 
   sp.stages.forEach((stage, si) => {
     const key = getKey(sp.id, stage.stage);
+    const stageKey = `stage${stage.stage}`;
     const stageEl = document.createElement('div');
     stageEl.className = 'evo-stage';
     stageEl.dataset.key = key;
@@ -424,7 +587,17 @@ function makeCard(sp, num) {
       img.style.display = 'none';
       wrap.appendChild(makePending());
     }
+
+    // Frame counter badge (hidden unless animating)
+    const badge = document.createElement('div');
+    badge.className = 'frame-badge';
+    badge.textContent = '';
+
     wrap.appendChild(img);
+    wrap.appendChild(badge);
+
+    stageImgs[si] = img;
+    stageWraps[si] = wrap;
 
     const nameEl = document.createElement('div');
     nameEl.className = 'stage-name';

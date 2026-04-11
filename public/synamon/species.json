@@ -15,27 +15,131 @@
         "stage": 1,
         "name": "Cindrel",
         "sprite": "/synamon/cindrel/stage1.png",
-        "idleFrames": [],
-        "attackFrames": [],
+        "idleFrames": [
+          "/synamon/cindrel/stage1-idle/frame0.png",
+          "/synamon/cindrel/stage1-idle/frame1.png",
+          "/synamon/cindrel/stage1-idle/frame2.png",
+          "/synamon/cindrel/stage1-idle/frame3.png",
+          "/synamon/cindrel/stage1-idle/frame4.png",
+          "/synamon/cindrel/stage1-idle/frame5.png",
+          "/synamon/cindrel/stage1-idle/frame6.png"
+        ],
+        "attackFrames": [
+          "/synamon/cindrel/stage1-attack/frame0.png",
+          "/synamon/cindrel/stage1-attack/frame1.png",
+          "/synamon/cindrel/stage1-attack/frame2.png",
+          "/synamon/cindrel/stage1-attack/frame3.png",
+          "/synamon/cindrel/stage1-attack/frame4.png",
+          "/synamon/cindrel/stage1-attack/frame5.png",
+          "/synamon/cindrel/stage1-attack/frame6.png"
+        ],
         "evolveAt": 16
       },
       {
         "stage": 2,
         "name": "Scaldrix",
         "sprite": "/synamon/cindrel/stage2.png",
-        "idleFrames": [],
-        "attackFrames": [],
+        "idleFrames": [
+          "/synamon/cindrel/stage2-idle/frame0.png",
+          "/synamon/cindrel/stage2-idle/frame1.png",
+          "/synamon/cindrel/stage2-idle/frame2.png",
+          "/synamon/cindrel/stage2-idle/frame3.png",
+          "/synamon/cindrel/stage2-idle/frame4.png",
+          "/synamon/cindrel/stage2-idle/frame5.png",
+          "/synamon/cindrel/stage2-idle/frame6.png"
+        ],
+        "attackFrames": [
+          "/synamon/cindrel/stage2-attack/frame0.png",
+          "/synamon/cindrel/stage2-attack/frame1.png",
+          "/synamon/cindrel/stage2-attack/frame2.png",
+          "/synamon/cindrel/stage2-attack/frame3.png",
+          "/synamon/cindrel/stage2-attack/frame4.png",
+          "/synamon/cindrel/stage2-attack/frame5.png",
+          "/synamon/cindrel/stage2-attack/frame6.png"
+        ],
         "evolveAt": 36
       },
       {
         "stage": 3,
         "name": "Pyrathon",
         "sprite": "/synamon/cindrel/stage3.png",
-        "idleFrames": [],
-        "attackFrames": []
+        "idleFrames": [
+          "/synamon/cindrel/stage3-idle/frame0.png",
+          "/synamon/cindrel/stage3-idle/frame1.png",
+          "/synamon/cindrel/stage3-idle/frame2.png",
+          "/synamon/cindrel/stage3-idle/frame3.png",
+          "/synamon/cindrel/stage3-idle/frame4.png",
+          "/synamon/cindrel/stage3-idle/frame5.png",
+          "/synamon/cindrel/stage3-idle/frame6.png"
+        ],
+        "attackFrames": [
+          "/synamon/cindrel/stage3-attack/frame0.png",
+          "/synamon/cindrel/stage3-attack/frame1.png",
+          "/synamon/cindrel/stage3-attack/frame2.png",
+          "/synamon/cindrel/stage3-attack/frame3.png",
+          "/synamon/cindrel/stage3-attack/frame4.png",
+          "/synamon/cindrel/stage3-attack/frame5.png",
+          "/synamon/cindrel/stage3-attack/frame6.png"
+        ]
       }
     ],
-    "dexEntry": "A palm-sized lizard with ember-orange scales and a permanently smoking snout. Its tail tip glows like a coal and never fully cools. Found basking on warm salt-flat rocks at dawn."
+    "dexEntry": "A palm-sized lizard with ember-orange scales and a permanently smoking snout. Its tail tip glows like a coal and never fully cools. Found basking on warm salt-flat rocks at dawn.",
+    "animations": {
+      "stage1-idle": [
+        "/synamon/cindrel/stage1-idle/frame0.png",
+        "/synamon/cindrel/stage1-idle/frame1.png",
+        "/synamon/cindrel/stage1-idle/frame2.png",
+        "/synamon/cindrel/stage1-idle/frame3.png",
+        "/synamon/cindrel/stage1-idle/frame4.png",
+        "/synamon/cindrel/stage1-idle/frame5.png",
+        "/synamon/cindrel/stage1-idle/frame6.png"
+      ],
+      "stage1-attack": [
+        "/synamon/cindrel/stage1-attack/frame0.png",
+        "/synamon/cindrel/stage1-attack/frame1.png",
+        "/synamon/cindrel/stage1-attack/frame2.png",
+        "/synamon/cindrel/stage1-attack/frame3.png",
+        "/synamon/cindrel/stage1-attack/frame4.png",
+        "/synamon/cindrel/stage1-attack/frame5.png",
+        "/synamon/cindrel/stage1-attack/frame6.png"
+      ],
+      "stage2-attack": [
+        "/synamon/cindrel/stage2-attack/frame0.png",
+        "/synamon/cindrel/stage2-attack/frame1.png",
+        "/synamon/cindrel/stage2-attack/frame2.png",
+        "/synamon/cindrel/stage2-attack/frame3.png",
+        "/synamon/cindrel/stage2-attack/frame4.png",
+        "/synamon/cindrel/stage2-attack/frame5.png",
+        "/synamon/cindrel/stage2-attack/frame6.png"
+      ],
+      "stage2-idle": [
+        "/synamon/cindrel/stage2-idle/frame0.png",
+        "/synamon/cindrel/stage2-idle/frame1.png",
+        "/synamon/cindrel/stage2-idle/frame2.png",
+        "/synamon/cindrel/stage2-idle/frame3.png",
+        "/synamon/cindrel/stage2-idle/frame4.png",
+        "/synamon/cindrel/stage2-idle/frame5.png",
+        "/synamon/cindrel/stage2-idle/frame6.png"
+      ],
+      "stage3-attack": [
+        "/synamon/cindrel/stage3-attack/frame0.png",
+        "/synamon/cindrel/stage3-attack/frame1.png",
+        "/synamon/cindrel/stage3-attack/frame2.png",
+        "/synamon/cindrel/stage3-attack/frame3.png",
+        "/synamon/cindrel/stage3-attack/frame4.png",
+        "/synamon/cindrel/stage3-attack/frame5.png",
+        "/synamon/cindrel/stage3-attack/frame6.png"
+      ],
+      "stage3-idle": [
+        "/synamon/cindrel/stage3-idle/frame0.png",
+        "/synamon/cindrel/stage3-idle/frame1.png",
+        "/synamon/cindrel/stage3-idle/frame2.png",
+        "/synamon/cindrel/stage3-idle/frame3.png",
+        "/synamon/cindrel/stage3-idle/frame4.png",
+        "/synamon/cindrel/stage3-idle/frame5.png",
+        "/synamon/cindrel/stage3-idle/frame6.png"
+      ]
+    }
   },
   {
     "id": "aquill",
@@ -53,27 +157,131 @@
         "stage": 1,
         "name": "Aquill",
         "sprite": "/synamon/aquill/stage1.png",
-        "idleFrames": [],
-        "attackFrames": [],
+        "idleFrames": [
+          "/synamon/aquill/stage1-idle/frame0.png",
+          "/synamon/aquill/stage1-idle/frame1.png",
+          "/synamon/aquill/stage1-idle/frame2.png",
+          "/synamon/aquill/stage1-idle/frame3.png",
+          "/synamon/aquill/stage1-idle/frame4.png",
+          "/synamon/aquill/stage1-idle/frame5.png",
+          "/synamon/aquill/stage1-idle/frame6.png"
+        ],
+        "attackFrames": [
+          "/synamon/aquill/stage1-attack/frame0.png",
+          "/synamon/aquill/stage1-attack/frame1.png",
+          "/synamon/aquill/stage1-attack/frame2.png",
+          "/synamon/aquill/stage1-attack/frame3.png",
+          "/synamon/aquill/stage1-attack/frame4.png",
+          "/synamon/aquill/stage1-attack/frame5.png",
+          "/synamon/aquill/stage1-attack/frame6.png"
+        ],
         "evolveAt": 16
       },
       {
         "stage": 2,
         "name": "Tidecrest",
         "sprite": "/synamon/aquill/stage2.png",
-        "idleFrames": [],
-        "attackFrames": [],
+        "idleFrames": [
+          "/synamon/aquill/stage2-idle/frame0.png",
+          "/synamon/aquill/stage2-idle/frame1.png",
+          "/synamon/aquill/stage2-idle/frame2.png",
+          "/synamon/aquill/stage2-idle/frame3.png",
+          "/synamon/aquill/stage2-idle/frame4.png",
+          "/synamon/aquill/stage2-idle/frame5.png",
+          "/synamon/aquill/stage2-idle/frame6.png"
+        ],
+        "attackFrames": [
+          "/synamon/aquill/stage2-attack/frame0.png",
+          "/synamon/aquill/stage2-attack/frame1.png",
+          "/synamon/aquill/stage2-attack/frame2.png",
+          "/synamon/aquill/stage2-attack/frame3.png",
+          "/synamon/aquill/stage2-attack/frame4.png",
+          "/synamon/aquill/stage2-attack/frame5.png",
+          "/synamon/aquill/stage2-attack/frame6.png"
+        ],
         "evolveAt": 36
       },
       {
         "stage": 3,
         "name": "Abyssant",
         "sprite": "/synamon/aquill/stage3.png",
-        "idleFrames": [],
-        "attackFrames": []
+        "idleFrames": [
+          "/synamon/aquill/stage3-idle/frame0.png",
+          "/synamon/aquill/stage3-idle/frame1.png",
+          "/synamon/aquill/stage3-idle/frame2.png",
+          "/synamon/aquill/stage3-idle/frame3.png",
+          "/synamon/aquill/stage3-idle/frame4.png",
+          "/synamon/aquill/stage3-idle/frame5.png",
+          "/synamon/aquill/stage3-idle/frame6.png"
+        ],
+        "attackFrames": [
+          "/synamon/aquill/stage3-attack/frame0.png",
+          "/synamon/aquill/stage3-attack/frame1.png",
+          "/synamon/aquill/stage3-attack/frame2.png",
+          "/synamon/aquill/stage3-attack/frame3.png",
+          "/synamon/aquill/stage3-attack/frame4.png",
+          "/synamon/aquill/stage3-attack/frame5.png",
+          "/synamon/aquill/stage3-attack/frame6.png"
+        ]
       }
     ],
-    "dexEntry": "A roly-poly walrus pup with stubby flippers and a frilled collar that pulses blue when excited. Perpetually damp. Slides more than walks. Locals say finding one means a hot spring is nearby."
+    "dexEntry": "A roly-poly walrus pup with stubby flippers and a frilled collar that pulses blue when excited. Perpetually damp. Slides more than walks. Locals say finding one means a hot spring is nearby.",
+    "animations": {
+      "stage1-attack": [
+        "/synamon/aquill/stage1-attack/frame0.png",
+        "/synamon/aquill/stage1-attack/frame1.png",
+        "/synamon/aquill/stage1-attack/frame2.png",
+        "/synamon/aquill/stage1-attack/frame3.png",
+        "/synamon/aquill/stage1-attack/frame4.png",
+        "/synamon/aquill/stage1-attack/frame5.png",
+        "/synamon/aquill/stage1-attack/frame6.png"
+      ],
+      "stage2-idle": [
+        "/synamon/aquill/stage2-idle/frame0.png",
+        "/synamon/aquill/stage2-idle/frame1.png",
+        "/synamon/aquill/stage2-idle/frame2.png",
+        "/synamon/aquill/stage2-idle/frame3.png",
+        "/synamon/aquill/stage2-idle/frame4.png",
+        "/synamon/aquill/stage2-idle/frame5.png",
+        "/synamon/aquill/stage2-idle/frame6.png"
+      ],
+      "stage2-attack": [
+        "/synamon/aquill/stage2-attack/frame0.png",
+        "/synamon/aquill/stage2-attack/frame1.png",
+        "/synamon/aquill/stage2-attack/frame2.png",
+        "/synamon/aquill/stage2-attack/frame3.png",
+        "/synamon/aquill/stage2-attack/frame4.png",
+        "/synamon/aquill/stage2-attack/frame5.png",
+        "/synamon/aquill/stage2-attack/frame6.png"
+      ],
+      "stage3-idle": [
+        "/synamon/aquill/stage3-idle/frame0.png",
+        "/synamon/aquill/stage3-idle/frame1.png",
+        "/synamon/aquill/stage3-idle/frame2.png",
+        "/synamon/aquill/stage3-idle/frame3.png",
+        "/synamon/aquill/stage3-idle/frame4.png",
+        "/synamon/aquill/stage3-idle/frame5.png",
+        "/synamon/aquill/stage3-idle/frame6.png"
+      ],
+      "stage3-attack": [
+        "/synamon/aquill/stage3-attack/frame0.png",
+        "/synamon/aquill/stage3-attack/frame1.png",
+        "/synamon/aquill/stage3-attack/frame2.png",
+        "/synamon/aquill/stage3-attack/frame3.png",
+        "/synamon/aquill/stage3-attack/frame4.png",
+        "/synamon/aquill/stage3-attack/frame5.png",
+        "/synamon/aquill/stage3-attack/frame6.png"
+      ],
+      "stage1-idle": [
+        "/synamon/aquill/stage1-idle/frame0.png",
+        "/synamon/aquill/stage1-idle/frame1.png",
+        "/synamon/aquill/stage1-idle/frame2.png",
+        "/synamon/aquill/stage1-idle/frame3.png",
+        "/synamon/aquill/stage1-idle/frame4.png",
+        "/synamon/aquill/stage1-idle/frame5.png",
+        "/synamon/aquill/stage1-idle/frame6.png"
+      ]
+    }
   },
   {
     "id": "brezzet",
@@ -91,27 +299,131 @@
         "stage": 1,
         "name": "Brezzet",
         "sprite": "/synamon/brezzet/stage1.png",
-        "idleFrames": [],
-        "attackFrames": [],
+        "idleFrames": [
+          "/synamon/brezzet/stage1-idle/frame0.png",
+          "/synamon/brezzet/stage1-idle/frame1.png",
+          "/synamon/brezzet/stage1-idle/frame2.png",
+          "/synamon/brezzet/stage1-idle/frame3.png",
+          "/synamon/brezzet/stage1-idle/frame4.png",
+          "/synamon/brezzet/stage1-idle/frame5.png",
+          "/synamon/brezzet/stage1-idle/frame6.png"
+        ],
+        "attackFrames": [
+          "/synamon/brezzet/stage1-attack/frame0.png",
+          "/synamon/brezzet/stage1-attack/frame1.png",
+          "/synamon/brezzet/stage1-attack/frame2.png",
+          "/synamon/brezzet/stage1-attack/frame3.png",
+          "/synamon/brezzet/stage1-attack/frame4.png",
+          "/synamon/brezzet/stage1-attack/frame5.png",
+          "/synamon/brezzet/stage1-attack/frame6.png"
+        ],
         "evolveAt": 16
       },
       {
         "stage": 2,
         "name": "Galekin",
         "sprite": "/synamon/brezzet/stage2.png",
-        "idleFrames": [],
-        "attackFrames": [],
+        "idleFrames": [
+          "/synamon/brezzet/stage2-idle/frame0.png",
+          "/synamon/brezzet/stage2-idle/frame1.png",
+          "/synamon/brezzet/stage2-idle/frame2.png",
+          "/synamon/brezzet/stage2-idle/frame3.png",
+          "/synamon/brezzet/stage2-idle/frame4.png",
+          "/synamon/brezzet/stage2-idle/frame5.png",
+          "/synamon/brezzet/stage2-idle/frame6.png"
+        ],
+        "attackFrames": [
+          "/synamon/brezzet/stage2-attack/frame0.png",
+          "/synamon/brezzet/stage2-attack/frame1.png",
+          "/synamon/brezzet/stage2-attack/frame2.png",
+          "/synamon/brezzet/stage2-attack/frame3.png",
+          "/synamon/brezzet/stage2-attack/frame4.png",
+          "/synamon/brezzet/stage2-attack/frame5.png",
+          "/synamon/brezzet/stage2-attack/frame6.png"
+        ],
         "evolveAt": 36
       },
       {
         "stage": 3,
         "name": "Stormveil",
         "sprite": "/synamon/brezzet/stage3.png",
-        "idleFrames": [],
-        "attackFrames": []
+        "idleFrames": [
+          "/synamon/brezzet/stage3-idle/frame0.png",
+          "/synamon/brezzet/stage3-idle/frame1.png",
+          "/synamon/brezzet/stage3-idle/frame2.png",
+          "/synamon/brezzet/stage3-idle/frame3.png",
+          "/synamon/brezzet/stage3-idle/frame4.png",
+          "/synamon/brezzet/stage3-idle/frame5.png",
+          "/synamon/brezzet/stage3-idle/frame6.png"
+        ],
+        "attackFrames": [
+          "/synamon/brezzet/stage3-attack/frame0.png",
+          "/synamon/brezzet/stage3-attack/frame1.png",
+          "/synamon/brezzet/stage3-attack/frame2.png",
+          "/synamon/brezzet/stage3-attack/frame3.png",
+          "/synamon/brezzet/stage3-attack/frame4.png",
+          "/synamon/brezzet/stage3-attack/frame5.png",
+          "/synamon/brezzet/stage3-attack/frame6.png"
+        ]
       }
     ],
-    "dexEntry": "A tiny fox with ears so large they function as wind scoops, always turned into the breeze. Fur permanently wind-ruffled. Cannot sit still on calm days — it becomes restless and anxious without airflow."
+    "dexEntry": "A tiny fox with ears so large they function as wind scoops, always turned into the breeze. Fur permanently wind-ruffled. Cannot sit still on calm days — it becomes restless and anxious without airflow.",
+    "animations": {
+      "stage1-attack": [
+        "/synamon/brezzet/stage1-attack/frame0.png",
+        "/synamon/brezzet/stage1-attack/frame1.png",
+        "/synamon/brezzet/stage1-attack/frame2.png",
+        "/synamon/brezzet/stage1-attack/frame3.png",
+        "/synamon/brezzet/stage1-attack/frame4.png",
+        "/synamon/brezzet/stage1-attack/frame5.png",
+        "/synamon/brezzet/stage1-attack/frame6.png"
+      ],
+      "stage2-idle": [
+        "/synamon/brezzet/stage2-idle/frame0.png",
+        "/synamon/brezzet/stage2-idle/frame1.png",
+        "/synamon/brezzet/stage2-idle/frame2.png",
+        "/synamon/brezzet/stage2-idle/frame3.png",
+        "/synamon/brezzet/stage2-idle/frame4.png",
+        "/synamon/brezzet/stage2-idle/frame5.png",
+        "/synamon/brezzet/stage2-idle/frame6.png"
+      ],
+      "stage1-idle": [
+        "/synamon/brezzet/stage1-idle/frame0.png",
+        "/synamon/brezzet/stage1-idle/frame1.png",
+        "/synamon/brezzet/stage1-idle/frame2.png",
+        "/synamon/brezzet/stage1-idle/frame3.png",
+        "/synamon/brezzet/stage1-idle/frame4.png",
+        "/synamon/brezzet/stage1-idle/frame5.png",
+        "/synamon/brezzet/stage1-idle/frame6.png"
+      ],
+      "stage2-attack": [
+        "/synamon/brezzet/stage2-attack/frame0.png",
+        "/synamon/brezzet/stage2-attack/frame1.png",
+        "/synamon/brezzet/stage2-attack/frame2.png",
+        "/synamon/brezzet/stage2-attack/frame3.png",
+        "/synamon/brezzet/stage2-attack/frame4.png",
+        "/synamon/brezzet/stage2-attack/frame5.png",
+        "/synamon/brezzet/stage2-attack/frame6.png"
+      ],
+      "stage3-attack": [
+        "/synamon/brezzet/stage3-attack/frame0.png",
+        "/synamon/brezzet/stage3-attack/frame1.png",
+        "/synamon/brezzet/stage3-attack/frame2.png",
+        "/synamon/brezzet/stage3-attack/frame3.png",
+        "/synamon/brezzet/stage3-attack/frame4.png",
+        "/synamon/brezzet/stage3-attack/frame5.png",
+        "/synamon/brezzet/stage3-attack/frame6.png"
+      ],
+      "stage3-idle": [
+        "/synamon/brezzet/stage3-idle/frame0.png",
+        "/synamon/brezzet/stage3-idle/frame1.png",
+        "/synamon/brezzet/stage3-idle/frame2.png",
+        "/synamon/brezzet/stage3-idle/frame3.png",
+        "/synamon/brezzet/stage3-idle/frame4.png",
+        "/synamon/brezzet/stage3-idle/frame5.png",
+        "/synamon/brezzet/stage3-idle/frame6.png"
+      ]
+    }
   },
   {
     "id": "glowick",
@@ -129,19 +441,89 @@
         "stage": 1,
         "name": "Glowick",
         "sprite": "/synamon/glowick/stage1.png",
-        "idleFrames": [],
-        "attackFrames": [],
+        "idleFrames": [
+          "/synamon/glowick/stage1-idle/frame0.png",
+          "/synamon/glowick/stage1-idle/frame1.png",
+          "/synamon/glowick/stage1-idle/frame2.png",
+          "/synamon/glowick/stage1-idle/frame3.png",
+          "/synamon/glowick/stage1-idle/frame4.png",
+          "/synamon/glowick/stage1-idle/frame5.png",
+          "/synamon/glowick/stage1-idle/frame6.png"
+        ],
+        "attackFrames": [
+          "/synamon/glowick/stage1-attack/frame0.png",
+          "/synamon/glowick/stage1-attack/frame1.png",
+          "/synamon/glowick/stage1-attack/frame2.png",
+          "/synamon/glowick/stage1-attack/frame3.png",
+          "/synamon/glowick/stage1-attack/frame4.png",
+          "/synamon/glowick/stage1-attack/frame5.png",
+          "/synamon/glowick/stage1-attack/frame6.png"
+        ],
         "evolveAt": 24
       },
       {
         "stage": 2,
         "name": "Lanternis",
         "sprite": "/synamon/glowick/stage2.png",
-        "idleFrames": [],
-        "attackFrames": []
+        "idleFrames": [
+          "/synamon/glowick/stage2-idle/frame0.png",
+          "/synamon/glowick/stage2-idle/frame1.png",
+          "/synamon/glowick/stage2-idle/frame2.png",
+          "/synamon/glowick/stage2-idle/frame3.png",
+          "/synamon/glowick/stage2-idle/frame4.png",
+          "/synamon/glowick/stage2-idle/frame5.png",
+          "/synamon/glowick/stage2-idle/frame6.png"
+        ],
+        "attackFrames": [
+          "/synamon/glowick/stage2-attack/frame0.png",
+          "/synamon/glowick/stage2-attack/frame1.png",
+          "/synamon/glowick/stage2-attack/frame2.png",
+          "/synamon/glowick/stage2-attack/frame3.png",
+          "/synamon/glowick/stage2-attack/frame4.png",
+          "/synamon/glowick/stage2-attack/frame5.png",
+          "/synamon/glowick/stage2-attack/frame6.png"
+        ]
       }
     ],
-    "dexEntry": "A fat cave cricket with a bioluminescent abdomen that pulses like a slow heartbeat. Its wide white eyes have no pupils. Completely harmless — drawn to warm light sources, sometimes to its own detriment."
+    "dexEntry": "A fat cave cricket with a bioluminescent abdomen that pulses like a slow heartbeat. Its wide white eyes have no pupils. Completely harmless — drawn to warm light sources, sometimes to its own detriment.",
+    "animations": {
+      "stage1-attack": [
+        "/synamon/glowick/stage1-attack/frame0.png",
+        "/synamon/glowick/stage1-attack/frame1.png",
+        "/synamon/glowick/stage1-attack/frame2.png",
+        "/synamon/glowick/stage1-attack/frame3.png",
+        "/synamon/glowick/stage1-attack/frame4.png",
+        "/synamon/glowick/stage1-attack/frame5.png",
+        "/synamon/glowick/stage1-attack/frame6.png"
+      ],
+      "stage1-idle": [
+        "/synamon/glowick/stage1-idle/frame0.png",
+        "/synamon/glowick/stage1-idle/frame1.png",
+        "/synamon/glowick/stage1-idle/frame2.png",
+        "/synamon/glowick/stage1-idle/frame3.png",
+        "/synamon/glowick/stage1-idle/frame4.png",
+        "/synamon/glowick/stage1-idle/frame5.png",
+        "/synamon/glowick/stage1-idle/frame6.png"
+      ],
+      "stage2-attack": [
+        "/synamon/glowick/stage2-attack/frame0.png",
+        "/synamon/glowick/stage2-attack/frame1.png",
+        "/synamon/glowick/stage2-attack/frame2.png",
+        "/synamon/glowick/stage2-attack/frame3.png",
+        "/synamon/glowick/stage2-attack/frame4.png",
+        "/synamon/glowick/stage2-attack/frame5.png",
+        "/synamon/glowick/stage2-attack/frame6.png"
+      ],
+      "stage2-idle": [
+        "/synamon/glowick/stage2-idle/frame0.png",
+        "/synamon/glowick/stage2-idle/frame1.png",
+        "/synamon/glowick/stage2-idle/frame2.png",
+        "/synamon/glowick/stage2-idle/frame3.png",
+        "/synamon/glowick/stage2-idle/frame4.png",
+        "/synamon/glowick/stage2-idle/frame5.png",
+        "/synamon/glowick/stage2-idle/frame6.png"
+      ]
+    }
   },
   {
     "id": "murkling",
@@ -158,19 +540,89 @@
         "stage": 1,
         "name": "Murkling",
         "sprite": "/synamon/murkling/stage1.png",
-        "idleFrames": [],
-        "attackFrames": [],
+        "idleFrames": [
+          "/synamon/murkling/stage1-idle/frame0.png",
+          "/synamon/murkling/stage1-idle/frame1.png",
+          "/synamon/murkling/stage1-idle/frame2.png",
+          "/synamon/murkling/stage1-idle/frame3.png",
+          "/synamon/murkling/stage1-idle/frame4.png",
+          "/synamon/murkling/stage1-idle/frame5.png",
+          "/synamon/murkling/stage1-idle/frame6.png"
+        ],
+        "attackFrames": [
+          "/synamon/murkling/stage1-attack/frame0.png",
+          "/synamon/murkling/stage1-attack/frame1.png",
+          "/synamon/murkling/stage1-attack/frame2.png",
+          "/synamon/murkling/stage1-attack/frame3.png",
+          "/synamon/murkling/stage1-attack/frame4.png",
+          "/synamon/murkling/stage1-attack/frame5.png",
+          "/synamon/murkling/stage1-attack/frame6.png"
+        ],
         "evolveAt": 28
       },
       {
         "stage": 2,
         "name": "Voidrath",
         "sprite": "/synamon/murkling/stage2.png",
-        "idleFrames": [],
-        "attackFrames": []
+        "idleFrames": [
+          "/synamon/murkling/stage2-idle/frame0.png",
+          "/synamon/murkling/stage2-idle/frame1.png",
+          "/synamon/murkling/stage2-idle/frame2.png",
+          "/synamon/murkling/stage2-idle/frame3.png",
+          "/synamon/murkling/stage2-idle/frame4.png",
+          "/synamon/murkling/stage2-idle/frame5.png",
+          "/synamon/murkling/stage2-idle/frame6.png"
+        ],
+        "attackFrames": [
+          "/synamon/murkling/stage2-attack/frame0.png",
+          "/synamon/murkling/stage2-attack/frame1.png",
+          "/synamon/murkling/stage2-attack/frame2.png",
+          "/synamon/murkling/stage2-attack/frame3.png",
+          "/synamon/murkling/stage2-attack/frame4.png",
+          "/synamon/murkling/stage2-attack/frame5.png",
+          "/synamon/murkling/stage2-attack/frame6.png"
+        ]
       }
     ],
-    "dexEntry": "A small ferret-like creature whose outline never quite resolves — edges blur as if poorly drawn. Only its two faint white eye-dots are reliably visible. Leaves no footprints. Scientists debate whether it has a physical body at all."
+    "dexEntry": "A small ferret-like creature whose outline never quite resolves — edges blur as if poorly drawn. Only its two faint white eye-dots are reliably visible. Leaves no footprints. Scientists debate whether it has a physical body at all.",
+    "animations": {
+      "stage1-idle": [
+        "/synamon/murkling/stage1-idle/frame0.png",
+        "/synamon/murkling/stage1-idle/frame1.png",
+        "/synamon/murkling/stage1-idle/frame2.png",
+        "/synamon/murkling/stage1-idle/frame3.png",
+        "/synamon/murkling/stage1-idle/frame4.png",
+        "/synamon/murkling/stage1-idle/frame5.png",
+        "/synamon/murkling/stage1-idle/frame6.png"
+      ],
+      "stage1-attack": [
+        "/synamon/murkling/stage1-attack/frame0.png",
+        "/synamon/murkling/stage1-attack/frame1.png",
+        "/synamon/murkling/stage1-attack/frame2.png",
+        "/synamon/murkling/stage1-attack/frame3.png",
+        "/synamon/murkling/stage1-attack/frame4.png",
+        "/synamon/murkling/stage1-attack/frame5.png",
+        "/synamon/murkling/stage1-attack/frame6.png"
+      ],
+      "stage2-idle": [
+        "/synamon/murkling/stage2-idle/frame0.png",
+        "/synamon/murkling/stage2-idle/frame1.png",
+        "/synamon/murkling/stage2-idle/frame2.png",
+        "/synamon/murkling/stage2-idle/frame3.png",
+        "/synamon/murkling/stage2-idle/frame4.png",
+        "/synamon/murkling/stage2-idle/frame5.png",
+        "/synamon/murkling/stage2-idle/frame6.png"
+      ],
+      "stage2-attack": [
+        "/synamon/murkling/stage2-attack/frame0.png",
+        "/synamon/murkling/stage2-attack/frame1.png",
+        "/synamon/murkling/stage2-attack/frame2.png",
+        "/synamon/murkling/stage2-attack/frame3.png",
+        "/synamon/murkling/stage2-attack/frame4.png",
+        "/synamon/murkling/stage2-attack/frame5.png",
+        "/synamon/murkling/stage2-attack/frame6.png"
+      ]
+    }
   },
   {
     "id": "peblix",
