@@ -5,9 +5,9 @@ import { getCategoryColor } from '../utils/colors';
 // Safe circular dep: analytics.ts uses useStore only inside function bodies,
 // so by the time any action below runs, both modules are fully initialized.
 import { logActivity } from '../utils/analytics';
-import type { MonsterState } from '../types/monsters';
-import { initialMonsterState, makeMonsterActions } from './monsterSlice';
-import { xpForTaskCompletion, xpForPomodoroSession } from '../utils/monsterMath';
+import type { SynamonState } from '../types/synamon';
+import { initialSynamonState, makeSynamonActions } from './synamonSlice';
+import { xpForTaskCompletion, xpForPomodoroSession } from '../utils/synamonMath';
 
 function todayStr(): string {
   return new Date().toISOString().slice(0, 10);
@@ -240,19 +240,19 @@ interface BlockOutState {
   overviewBlocks: ScheduleBlock[];
   setOverviewBlocks: (blocks: ScheduleBlock[]) => void;
 
-  // Monster system
-  monster: MonsterState;
-  catchMonster: (speciesId: string, nickname?: string) => void;
-  releaseMonster: (uid: string) => void;
-  setActiveMonster: (uid: string) => void;
-  nicknameMonster: (uid: string, nickname: string) => void;
-  giveMonsterXp: (amount: number) => void;
-  feedActiveMonster: () => void;
-  playWithActiveMonster: () => void;
-  tickMonsterDecay: () => void;
+  // Synamon system
+  synamon: SynamonState;
+  catchSynamon: (speciesId: string, nickname?: string) => void;
+  releaseSynamon: (uid: string) => void;
+  setActiveSynamon: (uid: string) => void;
+  nicknameSynamon: (uid: string, nickname: string) => void;
+  giveSynamonXp: (amount: number) => void;
+  feedActiveSynamon: () => void;
+  playWithActiveSynamon: () => void;
+  tickSynamonDecay: () => void;
   confirmEvolution: (uid: string) => void;
-  setMonsterWidgetOpen: (open: boolean) => void;
-  setMonsterWidgetPosition: (x: number, y: number) => void;
+  setSynamonWidgetOpen: (open: boolean) => void;
+  setSynamonWidgetPosition: (x: number, y: number) => void;
   setShowCollection: (show: boolean) => void;
   setShowBattle: (show: boolean) => void;
   clearPendingXp: () => void;
@@ -288,9 +288,9 @@ export const useStore = create<BlockOutState>((set, get) => ({
   activeBlockId: null,
   streak: { completionDates: [], currentStreak: 0, longestStreak: 0 },
 
-  // Monster system
-  monster: initialMonsterState,
-  ...makeMonsterActions(set, get),
+  // Synamon system
+  synamon: initialSynamonState,
+  ...makeSynamonActions(set, get),
 
   viewMode: (localStorage.getItem('blockout-view-mode') as ViewMode) || 'treemap',
   selectedCategoryId: null,
@@ -502,9 +502,9 @@ export const useStore = create<BlockOutState>((set, get) => ({
     const committed = get().tasks[id];
     if (committed) {
       logActivity(id, committed.completed ? 'completed' : 'started');
-      // Award XP to active monster on task completion
+      // Award XP to active Synamon on task completion
       if (committed.completed) {
-        get().giveMonsterXp(xpForTaskCompletion(committed.weight));
+        get().giveSynamonXp(xpForTaskCompletion(committed.weight));
       }
     }
   },
@@ -866,7 +866,7 @@ export const useStore = create<BlockOutState>((set, get) => ({
           const sessions = p.sessionsCompleted + 1;
           const nextMode = sessions % 4 === 0 ? 'longBreak' : 'break';
           // Award XP after state update (fire-and-forget)
-          setTimeout(() => get().giveMonsterXp(xpForPomodoroSession()), 0);
+          setTimeout(() => get().giveSynamonXp(xpForPomodoroSession()), 0);
           return {
             pomodoro: {
               ...p,
@@ -1885,19 +1885,19 @@ export const useStore = create<BlockOutState>((set, get) => ({
       ...(data as any).overviewBlocks !== undefined && { overviewBlocks: (data as any).overviewBlocks },
       // Track lastModified for cloud sync
       lastModified: (data as any).lastModified || Date.now(),
-      // Monster state — restore collection, preserve UI state (not persisted)
-      ...((data as any).monster && {
-        monster: {
-          ...initialMonsterState,
-          collection: (data as any).monster.collection ?? {},
-          activeMonsterUid: (data as any).monster.activeMonsterUid ?? null,
-          starterChosen: (data as any).monster.starterChosen ?? false,
-          discoveredSpecies: (data as any).monster.discoveredSpecies ?? [],
-          totalBattlesWon: (data as any).monster.totalBattlesWon ?? 0,
-          totalBattlesLost: (data as any).monster.totalBattlesLost ?? 0,
-          monsterWidgetOpen: (data as any).monster.monsterWidgetOpen ?? false,
-          monsterWidgetX: (data as any).monster.monsterWidgetX ?? 80,
-          monsterWidgetY: (data as any).monster.monsterWidgetY ?? 80,
+      // Synamon state — restore collection, preserve UI state (not persisted)
+      ...((data as any).synamon && {
+        synamon: {
+          ...initialSynamonState,
+          collection: (data as any).synamon.collection ?? {},
+          activeUid: (data as any).synamon.activeUid ?? null,
+          starterChosen: (data as any).synamon.starterChosen ?? false,
+          discoveredSpecies: (data as any).synamon.discoveredSpecies ?? [],
+          totalBattlesWon: (data as any).synamon.totalBattlesWon ?? 0,
+          totalBattlesLost: (data as any).synamon.totalBattlesLost ?? 0,
+          widgetOpen: (data as any).synamon.widgetOpen ?? false,
+          widgetX: (data as any).synamon.widgetX ?? 80,
+          widgetY: (data as any).synamon.widgetY ?? 80,
         },
       }),
     }));
@@ -1944,16 +1944,16 @@ export const useStore = create<BlockOutState>((set, get) => ({
       chainTasks: s.chainTasks,
       overviewBlocks: s.overviewBlocks,
       lastModified: s.lastModified || Date.now(),
-      monster: {
-        collection: s.monster.collection,
-        activeMonsterUid: s.monster.activeMonsterUid,
-        starterChosen: s.monster.starterChosen,
-        discoveredSpecies: s.monster.discoveredSpecies,
-        totalBattlesWon: s.monster.totalBattlesWon,
-        totalBattlesLost: s.monster.totalBattlesLost,
-        monsterWidgetOpen: s.monster.monsterWidgetOpen,
-        monsterWidgetX: s.monster.monsterWidgetX,
-        monsterWidgetY: s.monster.monsterWidgetY,
+      synamon: {
+        collection: s.synamon.collection,
+        activeUid: s.synamon.activeUid,
+        starterChosen: s.synamon.starterChosen,
+        discoveredSpecies: s.synamon.discoveredSpecies,
+        totalBattlesWon: s.synamon.totalBattlesWon,
+        totalBattlesLost: s.synamon.totalBattlesLost,
+        widgetOpen: s.synamon.widgetOpen,
+        widgetX: s.synamon.widgetX,
+        widgetY: s.synamon.widgetY,
       },
     };
   },

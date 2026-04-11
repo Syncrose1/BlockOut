@@ -1,26 +1,22 @@
 import { useEffect, useRef, useState } from 'react';
 
-interface MonsterSpriteProps {
-  frames: string[];          // array of image paths (idle or attack frames)
-  fallbackSprite?: string;   // static sprite if no frames
-  fps?: number;              // animation speed (default 8)
-  size?: number;             // rendered size in px (default 64)
+interface SynamonSpriteProps {
+  frames: string[];
+  fallbackSprite?: string;
+  fps?: number;
+  size?: number;
   pixelated?: boolean;
   style?: React.CSSProperties;
 }
 
-/**
- * Renders a pixel art monster sprite with frame animation.
- * Falls back to a placeholder if no frames are available (not yet generated).
- */
-export function MonsterSprite({
+export function SynamonSprite({
   frames,
   fallbackSprite,
   fps = 8,
   size = 64,
   pixelated = true,
   style,
-}: MonsterSpriteProps) {
+}: SynamonSpriteProps) {
   const [frameIdx, setFrameIdx] = useState(0);
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
@@ -47,7 +43,6 @@ export function MonsterSprite({
   };
 
   if (!displaySrc) {
-    // Placeholder when sprite hasn't been generated yet
     return (
       <div style={{
         width: size, height: size, display: 'flex',
@@ -64,7 +59,7 @@ export function MonsterSprite({
   return (
     <img
       src={displaySrc}
-      alt="monster"
+      alt="synamon"
       style={imgStyle}
       draggable={false}
     />

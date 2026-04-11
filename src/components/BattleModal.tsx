@@ -1,14 +1,14 @@
 import { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useStore } from '../store';
-import { getSpecies } from '../store/monsterSlice';
-import { MonsterSprite } from './MonsterSprite';
-import type { BattleParticipant } from '../types/monsters';
+import { getSpecies } from '../store/synamonSlice';
+import { SynamonSprite } from './SynamonSprite';
+import type { BattleParticipant } from '../types/synamon';
 
 const TYPE_COLORS: Record<string, string> = {
-  fire: '#ff6b35', water: '#4a90d9', grass: '#5cb85c', electric: '#f0ad4e',
-  dark: '#6f42c1', light: '#ffd700', earth: '#8b5e3c', wind: '#5bc0de',
-  poison: '#9b59b6', psychic: '#e91e63',
+  Ignis: '#ff6b35', Aqua: '#4a90d9', Terra: '#8b5e3c', Ventus: '#5bc0de',
+  Umbra: '#6f42c1', Lux: '#ffd700', Sonus: '#e91e63', Arcanus: '#9b59b6',
+  Flying: '#87ceeb', Ferrous: '#aaa', Venom: '#5cb85c', Natura: '#4caf50',
 };
 
 function BattlerCard({ participant, isPlayer, shaking }: {
@@ -34,11 +34,11 @@ function BattlerCard({ participant, isPlayer, shaking }: {
       }}
     >
       <div style={{ fontSize: 10, color: 'var(--text-tertiary)', marginBottom: 6, textTransform: 'uppercase', letterSpacing: 0.5 }}>
-        {isPlayer ? 'Your Monster' : 'Opponent'}
+        {isPlayer ? 'Your Synamon' : 'Opponent'}
       </div>
 
       <div style={{ display: 'inline-flex', background: 'var(--bg-tertiary)', borderRadius: 12, padding: 10, marginBottom: 8 }}>
-        <MonsterSprite
+        <SynamonSprite
           frames={stageData?.attackFrames?.length ? stageData.attackFrames : (stageData?.idleFrames ?? [])}
           fallbackSprite={stageData?.sprite ?? undefined}
           fps={10} size={64}
@@ -53,6 +53,11 @@ function BattlerCard({ participant, isPlayer, shaking }: {
         <span style={{ fontSize: 9, fontWeight: 700, textTransform: 'uppercase', padding: '1px 5px', borderRadius: 3, background: `${typeColor}22`, color: typeColor }}>
           {participant.type}
         </span>
+        {participant.secondaryType && (
+          <span style={{ fontSize: 9, fontWeight: 700, textTransform: 'uppercase', padding: '1px 5px', borderRadius: 3, background: `${TYPE_COLORS[participant.secondaryType] ?? '#aaa'}22`, color: TYPE_COLORS[participant.secondaryType] ?? '#aaa' }}>
+            {participant.secondaryType}
+          </span>
+        )}
         <span style={{ fontSize: 10, color: 'var(--text-tertiary)' }}>Lv.{participant.level}</span>
       </div>
 
@@ -67,7 +72,6 @@ function BattlerCard({ participant, isPlayer, shaking }: {
         </div>
       </div>
 
-      {/* Mini stats */}
       <div style={{ display: 'flex', gap: 8, justifyContent: 'center', fontSize: 10, color: 'var(--text-tertiary)', marginTop: 6 }}>
         <span>ATK {participant.atk}</span>
         <span>DEF {participant.def}</span>
@@ -78,12 +82,12 @@ function BattlerCard({ participant, isPlayer, shaking }: {
 }
 
 export function BattleModal() {
-  const monster = useStore(s => s.monster);
+  const synamon = useStore(s => s.synamon);
   const setShowBattle = useStore(s => s.setShowBattle);
   const executeBattleTurn = useStore(s => s.executeBattleTurn);
   const endBattle = useStore(s => s.endBattle);
   const startBattle = useStore(s => s.startBattle);
-  const activeMonsterUid = monster.activeMonsterUid;
+  const activeUid = synamon.activeUid;
 
   const [opponentUid, setOpponentUid] = useState<string | null>(null);
   const [shakingUid, setShakingUid] = useState<string | null>(null);
@@ -91,15 +95,13 @@ export function BattleModal() {
   const logRef = useRef<HTMLDivElement>(null);
   const autoRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
-  const battle = monster.battle;
-  const opponents = Object.keys(monster.collection).filter(u => u !== activeMonsterUid);
+  const battle = synamon.battle;
+  const opponents = Object.keys(synamon.collection).filter(u => u !== activeUid);
 
-  // Auto-scroll log
   useEffect(() => {
     if (logRef.current) logRef.current.scrollTop = logRef.current.scrollHeight;
   }, [battle.log.length]);
 
-  // Auto-fight
   useEffect(() => {
     if (!autoFight || battle.outcome !== 'ongoing' || !battle.isActive) {
       if (autoRef.current) clearInterval(autoRef.current);
@@ -111,7 +113,6 @@ export function BattleModal() {
     return () => { if (autoRef.current) clearInterval(autoRef.current); };
   }, [autoFight, battle.outcome, battle.isActive, executeBattleTurn]);
 
-  // Shake on damage
   useEffect(() => {
     const lastEvent = battle.log[battle.log.length - 1];
     if (lastEvent?.type === 'attack' || lastEvent?.type === 'super_effective' || lastEvent?.type === 'not_very_effective') {
@@ -125,7 +126,7 @@ export function BattleModal() {
 
   return (
     <AnimatePresence>
-      {monster.showBattle && (
+      {synamon.showBattle && (
         <>
           <motion.div className="modal-overlay" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
             onClick={() => { if (battle.outcome !== 'ongoing') { endBattle(); } else setShowBattle(false); }}
@@ -138,7 +139,6 @@ export function BattleModal() {
             transition={{ type: 'spring', damping: 28, stiffness: 380 }}
             onClick={e => e.stopPropagation()}
           >
-            {/* Header */}
             <div style={{ padding: '18px 20px 14px', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
               <h2 style={{ margin: 0, fontSize: 18 }}>
                 {setupPhase ? 'Choose Opponent' : battle.outcome === 'ongoing' ? `Turn ${battle.turn}` : battle.outcome === 'player_win' ? 'Victory!' : 'Defeated!'}
@@ -147,17 +147,16 @@ export function BattleModal() {
             </div>
 
             <div style={{ padding: 20 }}>
-              {/* Setup: pick opponent */}
               {setupPhase ? (
                 <div>
                   <div style={{ fontSize: 13, color: 'var(--text-secondary)', marginBottom: 14 }}>
-                    Choose a monster to battle against:
+                    Choose a Synamon to battle against:
                   </div>
                   <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
                     {opponents.map(uid => {
-                      const mon = monster.collection[uid];
-                      const sp = getSpecies(mon.speciesId);
-                      const sd = sp?.stages.find(s => s.stage === mon.stage);
+                      const syn = synamon.collection[uid];
+                      const sp = getSpecies(syn.speciesId);
+                      const sd = sp?.stages.find(s => s.stage === syn.stage);
                       return (
                         <div key={uid}
                           onClick={() => setOpponentUid(uid)}
@@ -168,10 +167,10 @@ export function BattleModal() {
                             display: 'flex', alignItems: 'center', gap: 12,
                           }}
                         >
-                          <MonsterSprite frames={sd?.idleFrames ?? []} fallbackSprite={sd?.sprite ?? undefined} fps={6} size={40} />
+                          <SynamonSprite frames={sd?.idleFrames ?? []} fallbackSprite={sd?.sprite ?? undefined} fps={6} size={40} />
                           <div>
-                            <div style={{ fontSize: 13, fontWeight: 600 }}>{mon.nickname ?? sd?.name ?? sp?.name}</div>
-                            <div style={{ fontSize: 11, color: 'var(--text-tertiary)' }}>Lv.{mon.level} · {sp?.type}</div>
+                            <div style={{ fontSize: 13, fontWeight: 600 }}>{syn.nickname ?? sd?.name ?? sp?.name}</div>
+                            <div style={{ fontSize: 11, color: 'var(--text-tertiary)' }}>Lv.{syn.level} · {sp?.type}{sp?.secondaryType ? ` / ${sp.secondaryType}` : ''}</div>
                           </div>
                         </div>
                       );
@@ -179,41 +178,30 @@ export function BattleModal() {
                   </div>
                   {opponents.length === 0 && (
                     <div style={{ fontSize: 13, color: 'var(--text-tertiary)', textAlign: 'center', padding: '20px 0' }}>
-                      You need at least 2 monsters to battle. Catch more!
+                      You need at least 2 Synamon to battle. Catch more!
                     </div>
                   )}
                   {opponentUid && (
                     <button className="btn btn-primary" style={{ width: '100%', marginTop: 16 }}
-                      onClick={() => { if (activeMonsterUid && opponentUid) startBattle(activeMonsterUid, opponentUid); }}>
+                      onClick={() => { if (activeUid && opponentUid) startBattle(activeUid, opponentUid); }}>
                       Start Battle!
                     </button>
                   )}
                 </div>
               ) : (
-                /* Battle in progress / result */
                 <div>
-                  {/* Battlers */}
                   <div style={{ display: 'flex', gap: 12, marginBottom: 16 }}>
                     {battle.player && (
-                      <BattlerCard
-                        participant={battle.player}
-                        isPlayer
-                        shaking={shakingUid === battle.player.uid}
-                      />
+                      <BattlerCard participant={battle.player} isPlayer shaking={shakingUid === battle.player.uid} />
                     )}
                     <div style={{ display: 'flex', alignItems: 'center', fontSize: 18, fontWeight: 700, color: 'var(--text-tertiary)', flexShrink: 0 }}>
                       vs
                     </div>
                     {battle.opponent && (
-                      <BattlerCard
-                        participant={battle.opponent}
-                        isPlayer={false}
-                        shaking={shakingUid === battle.opponent.uid}
-                      />
+                      <BattlerCard participant={battle.opponent} isPlayer={false} shaking={shakingUid === battle.opponent.uid} />
                     )}
                   </div>
 
-                  {/* Battle log */}
                   <div ref={logRef} style={{
                     height: 120, overflowY: 'auto', background: 'var(--bg-tertiary)',
                     borderRadius: 'var(--radius-sm)', padding: '10px 12px',
@@ -234,14 +222,13 @@ export function BattleModal() {
                     ))}
                   </div>
 
-                  {/* Controls */}
                   {battle.outcome === 'ongoing' ? (
                     <div style={{ display: 'flex', gap: 8 }}>
                       <button className="btn btn-primary" style={{ flex: 1 }} onClick={executeBattleTurn}>
                         Attack
                       </button>
                       <button
-                        className={`btn btn-ghost`}
+                        className="btn btn-ghost"
                         style={{ minWidth: 90, background: autoFight ? 'hsla(210,80%,55%,0.15)' : undefined }}
                         onClick={() => setAutoFight(f => !f)}
                       >

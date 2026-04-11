@@ -1,0 +1,502 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Synamon Pokédex — Review</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: #0f0f1a;
+    color: #e0e0e0;
+    font-family: monospace;
+    padding: 32px 24px;
+  }
+
+  h1 { font-size: 18px; color: #fff; margin-bottom: 4px; }
+  .subtitle { font-size: 11px; color: #555; margin-bottom: 16px; }
+
+  /* ── Progress bar ── */
+  .progress-bar-wrap {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 24px;
+  }
+  .progress-bar {
+    flex: 1;
+    height: 4px;
+    background: #1e1e36;
+    border-radius: 2px;
+    overflow: hidden;
+  }
+  .progress-bar-fill { height: 100%; background: #5cb85c; transition: width 0.3s; }
+  .progress-counts { font-size: 11px; color: #666; white-space: nowrap; }
+  .progress-counts .ok  { color: #5cb85c; }
+  .progress-counts .bad { color: #e05555; }
+
+  /* ── Filter bar ── */
+  .toolbar {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+    margin-bottom: 24px;
+    align-items: center;
+  }
+  .filter-label { font-size: 11px; color: #555; margin-right: 4px; }
+  .type-btn, .view-btn {
+    font-size: 10px;
+    font-weight: bold;
+    text-transform: uppercase;
+    padding: 3px 9px;
+    border-radius: 3px;
+    border: 1px solid transparent;
+    cursor: pointer;
+    background: transparent;
+    opacity: 0.4;
+    transition: opacity 0.15s;
+  }
+  .type-btn.active, .view-btn.active { opacity: 1; }
+  .type-btn[data-type="All"]     { color: #aaa;    border-color: #444; }
+  .type-btn[data-type="Ignis"]   { color: #ff6b35; border-color: #ff6b35; }
+  .type-btn[data-type="Aqua"]    { color: #4db8ff; border-color: #4db8ff; }
+  .type-btn[data-type="Terra"]   { color: #c49a6c; border-color: #c49a6c; }
+  .type-btn[data-type="Ventus"]  { color: #87e8c0; border-color: #87e8c0; }
+  .type-btn[data-type="Umbra"]   { color: #9b72d0; border-color: #9b72d0; }
+  .type-btn[data-type="Lux"]     { color: #f5e642; border-color: #f5e642; }
+  .type-btn[data-type="Sonus"]   { color: #e87de8; border-color: #e87de8; }
+  .type-btn[data-type="Arcanus"] { color: #6fb8c8; border-color: #6fb8c8; }
+  .type-btn[data-type="Flying"]  { color: #87ceeb; border-color: #87ceeb; }
+  .type-btn[data-type="Ferrous"] { color: #a8a8c0; border-color: #a8a8c0; }
+  .type-btn[data-type="Venom"]   { color: #8bc34a; border-color: #8bc34a; }
+  .type-btn[data-type="Natura"]  { color: #7bc67e; border-color: #7bc67e; }
+  .view-btn { color: #aaa; border-color: #444; }
+  .toolbar-sep { width: 1px; height: 18px; background: #2a2a42; margin: 0 4px; }
+
+  /* ── Grid ── */
+  .dex-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(290px, 1fr));
+    gap: 16px;
+  }
+
+  .dex-card {
+    background: #16162a;
+    border: 1px solid #2a2a42;
+    border-radius: 8px;
+    overflow: hidden;
+    transition: border-color 0.15s;
+  }
+  .dex-card:hover { border-color: #44446a; }
+  .dex-card.hidden { display: none; }
+  .dex-card.all-approved { border-color: #2a4a2a; }
+  .dex-card.has-redo     { border-color: #4a2a2a; }
+
+  .card-header {
+    padding: 10px 14px 8px;
+    border-bottom: 1px solid #1e1e36;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+  .dex-num { font-size: 10px; color: #444; min-width: 24px; }
+  .card-title { flex: 1; }
+  .card-title .species-name { font-size: 13px; color: #fff; font-weight: bold; }
+  .card-title .type-badges { margin-top: 3px; display: flex; gap: 4px; }
+  .card-status { font-size: 10px; }
+
+  .badge {
+    display: inline-block;
+    font-size: 9px;
+    font-weight: bold;
+    text-transform: uppercase;
+    padding: 2px 6px;
+    border-radius: 3px;
+  }
+  .badge-Ignis   { background: #ff6b3518; color: #ff6b35; border: 1px solid #ff6b3530; }
+  .badge-Aqua    { background: #4db8ff18; color: #4db8ff; border: 1px solid #4db8ff30; }
+  .badge-Terra   { background: #8b5e3c18; color: #c49a6c; border: 1px solid #8b5e3c30; }
+  .badge-Ventus  { background: #87e8c018; color: #87e8c0; border: 1px solid #87e8c030; }
+  .badge-Umbra   { background: #6f42c118; color: #9b72d0; border: 1px solid #6f42c130; }
+  .badge-Lux     { background: #f5e64218; color: #f5e642; border: 1px solid #f5e64230; }
+  .badge-Sonus   { background: #e87de818; color: #e87de8; border: 1px solid #e87de830; }
+  .badge-Arcanus { background: #6fb8c818; color: #6fb8c8; border: 1px solid #6fb8c830; }
+  .badge-Flying  { background: #87ceeb18; color: #87ceeb; border: 1px solid #87ceeb30; }
+  .badge-Ferrous { background: #a8a8c018; color: #a8a8c0; border: 1px solid #a8a8c030; }
+  .badge-Venom   { background: #8bc34a18; color: #8bc34a; border: 1px solid #8bc34a30; }
+  .badge-Natura  { background: #7bc67e18; color: #7bc67e; border: 1px solid #7bc67e30; }
+
+  /* ── Evolution strip ── */
+  .evo-strip {
+    display: flex;
+    align-items: stretch;
+    background: #0f0f1a;
+  }
+  .evo-stage {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 10px 4px 6px;
+    position: relative;
+    transition: background 0.1s;
+  }
+  .evo-stage + .evo-stage::before {
+    content: '→';
+    position: absolute;
+    left: -8px;
+    top: 40px;
+    font-size: 12px;
+    color: #2a2a42;
+    pointer-events: none;
+  }
+
+  .sprite-wrap {
+    position: relative;
+    width: 64px;
+    height: 64px;
+  }
+  .stage-sprite {
+    width: 64px;
+    height: 64px;
+    image-rendering: pixelated;
+    image-rendering: crisp-edges;
+    display: block;
+  }
+  .sprite-pending {
+    width: 64px;
+    height: 64px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: #0d0d1a;
+    border: 1px dashed #2a2a42;
+    border-radius: 2px;
+    font-size: 9px;
+    color: #3a3a5a;
+    text-align: center;
+    line-height: 1.4;
+  }
+  /* approved/redo tint overlays */
+  .evo-stage.approved .sprite-wrap::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: rgba(92,184,92,0.08);
+    border: 1px solid rgba(92,184,92,0.3);
+    border-radius: 2px;
+    pointer-events: none;
+  }
+  .evo-stage.redo .sprite-wrap::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: rgba(224,85,85,0.08);
+    border: 1px solid rgba(224,85,85,0.3);
+    border-radius: 2px;
+    pointer-events: none;
+  }
+
+  .stage-name  { font-size: 10px; color: #777; margin-top: 5px; text-align: center; line-height: 1.2; }
+  .stage-label { font-size: 9px;  color: #3a3a5a; margin-top: 1px; }
+
+  /* ── Vote buttons ── */
+  .vote-row {
+    display: flex;
+    gap: 4px;
+    margin-top: 5px;
+  }
+  .vote-btn {
+    flex: 1;
+    font-size: 9px;
+    font-weight: bold;
+    padding: 2px 0;
+    border-radius: 3px;
+    border: 1px solid transparent;
+    cursor: pointer;
+    background: transparent;
+    transition: all 0.1s;
+  }
+  .vote-ok   { color: #3a6a3a; border-color: #3a6a3a; }
+  .vote-redo { color: #6a3a3a; border-color: #6a3a3a; }
+  .vote-ok:hover   { background: #3a6a3a22; color: #5cb85c; border-color: #5cb85c; }
+  .vote-redo:hover { background: #6a3a3a22; color: #e05555; border-color: #e05555; }
+  .evo-stage.approved .vote-ok   { background: #3a6a3a44; color: #5cb85c; border-color: #5cb85c; }
+  .evo-stage.redo     .vote-redo { background: #6a3a3a44; color: #e05555; border-color: #e05555; }
+
+  /* ── Detail panel ── */
+  .detail-panel {
+    border-top: 1px solid #1a1a30;
+    padding: 10px 14px;
+  }
+  .dex-entry {
+    font-size: 11px;
+    color: #888;
+    line-height: 1.6;
+    margin-bottom: 8px;
+  }
+  .stats-row {
+    display: flex;
+    gap: 16px;
+  }
+  .stat { display: flex; flex-direction: column; align-items: center; gap: 1px; }
+  .stat-label { font-size: 9px; color: #444; text-transform: uppercase; }
+  .stat-value { font-size: 12px; color: #bbb; font-weight: bold; }
+  .evo-line { font-size: 10px; color: #3a3a5a; margin-top: 8px; }
+</style>
+</head>
+<body>
+
+<h1>Synamon Pokédex</h1>
+<p class="subtitle">30 species · 73 entries · Luminal Reaches — click ✓ or ✗ on each sprite to flag for redo</p>
+
+<div class="progress-bar-wrap">
+  <div class="progress-bar"><div class="progress-bar-fill" id="prog-fill" style="width:0%"></div></div>
+  <div class="progress-counts" id="prog-text">— / 73</div>
+</div>
+
+<div class="toolbar">
+  <span class="filter-label">Type:</span>
+  <div id="type-filters"></div>
+  <div class="toolbar-sep"></div>
+  <span class="filter-label">Show:</span>
+  <button class="view-btn active" data-view="all">All</button>
+  <button class="view-btn" data-view="redo">Needs redo</button>
+  <button class="view-btn" data-view="unreviewed">Unreviewed</button>
+</div>
+
+<div class="dex-grid" id="dex-grid"></div>
+
+<script>
+const STORAGE_KEY = 'synamon-review-v1';
+const TYPE_COLORS = {
+  Ignis:'#ff6b35',Aqua:'#4db8ff',Terra:'#c49a6c',Ventus:'#87e8c0',
+  Umbra:'#9b72d0',Lux:'#f5e642',Sonus:'#e87de8',Arcanus:'#6fb8c8',
+  Flying:'#87ceeb',Ferrous:'#a8a8c0',Venom:'#8bc34a',Natura:'#7bc67e',
+};
+
+// votes: { 'speciesId/stageN': 'ok' | 'redo' | null }
+let votes = JSON.parse(localStorage.getItem(STORAGE_KEY) || '{}');
+let allSpecies = [];
+let activeType = 'All';
+let activeView = 'all';
+
+function saveVotes() { localStorage.setItem(STORAGE_KEY, JSON.stringify(votes)); }
+
+function getKey(spId, stageNum) { return `${spId}/stage${stageNum}`; }
+
+function updateProgress() {
+  let total = 0, ok = 0, redo = 0;
+  allSpecies.forEach(sp => sp.stages.forEach(s => {
+    total++;
+    const v = votes[getKey(sp.id, s.stage)];
+    if (v === 'ok') ok++;
+    else if (v === 'redo') redo++;
+  }));
+  const reviewed = ok + redo;
+  document.getElementById('prog-fill').style.width = (reviewed / total * 100) + '%';
+  document.getElementById('prog-text').innerHTML =
+    `<span class="ok">✓ ${ok}</span> &nbsp;<span class="bad">✗ ${redo}</span> &nbsp;/ ${total}`;
+}
+
+function applyFilters() {
+  document.querySelectorAll('.dex-card').forEach(card => {
+    const types = card.dataset.types.split(',');
+    const typeOk = activeType === 'All' || types.includes(activeType);
+
+    let viewOk = true;
+    if (activeView === 'redo') {
+      viewOk = card.classList.contains('has-redo');
+    } else if (activeView === 'unreviewed') {
+      viewOk = !card.classList.contains('all-approved') && !card.classList.contains('has-redo') ||
+                card.querySelectorAll('.evo-stage:not(.approved):not(.redo)').length > 0;
+    }
+
+    card.classList.toggle('hidden', !typeOk || !viewOk);
+  });
+}
+
+function refreshCardState(card, sp) {
+  let allOk = true, anyRedo = false;
+  sp.stages.forEach(s => {
+    const v = votes[getKey(sp.id, s.stage)];
+    if (v !== 'ok') allOk = false;
+    if (v === 'redo') anyRedo = true;
+  });
+  card.classList.toggle('all-approved', allOk);
+  card.classList.toggle('has-redo', anyRedo);
+}
+
+fetch('/synamon/species.json')
+  .then(r => r.json())
+  .then(species => {
+    allSpecies = species;
+    buildFilters(species);
+    buildViewButtons();
+    const grid = document.getElementById('dex-grid');
+    species.forEach((sp, i) => grid.appendChild(makeCard(sp, i + 1)));
+    updateProgress();
+    applyFilters();
+  });
+
+function buildFilters(species) {
+  const allTypes = new Set();
+  species.forEach(sp => { allTypes.add(sp.type); if (sp.secondaryType) allTypes.add(sp.secondaryType); });
+  const bar = document.getElementById('type-filters');
+  bar.style.cssText = 'display:flex;gap:6px;flex-wrap:wrap;';
+
+  ['All', ...Object.keys(TYPE_COLORS).filter(t => allTypes.has(t))].forEach(type => {
+    const btn = document.createElement('button');
+    btn.className = 'type-btn' + (type === 'All' ? ' active' : '');
+    btn.dataset.type = type;
+    btn.textContent = type;
+    btn.onclick = () => {
+      activeType = type;
+      document.querySelectorAll('.type-btn').forEach(b => b.classList.toggle('active', b.dataset.type === type));
+      applyFilters();
+    };
+    bar.appendChild(btn);
+  });
+}
+
+function buildViewButtons() {
+  document.querySelectorAll('.view-btn').forEach(btn => {
+    btn.onclick = () => {
+      activeView = btn.dataset.view;
+      document.querySelectorAll('.view-btn').forEach(b => b.classList.toggle('active', b === btn));
+      applyFilters();
+    };
+  });
+}
+
+function makePending() {
+  const el = document.createElement('div');
+  el.className = 'sprite-pending';
+  el.textContent = '⏳\ngenerating';
+  return el;
+}
+
+function makeCard(sp, num) {
+  const card = document.createElement('div');
+  card.className = 'dex-card';
+  const typeList = [sp.type, sp.secondaryType].filter(Boolean);
+  card.dataset.types = typeList.join(',');
+
+  // Header
+  const header = document.createElement('div');
+  header.className = 'card-header';
+  header.innerHTML = `
+    <div class="dex-num">${String(num).padStart(3,'0')}</div>
+    <div class="card-title">
+      <div class="species-name">${sp.stages[0].name}</div>
+      <div class="type-badges">${typeList.map(t=>`<span class="badge badge-${t}">${t}</span>`).join('')}</div>
+    </div>
+  `;
+  card.appendChild(header);
+
+  // Evo strip
+  const strip = document.createElement('div');
+  strip.className = 'evo-strip';
+
+  sp.stages.forEach((stage, si) => {
+    const key = getKey(sp.id, stage.stage);
+    const stageEl = document.createElement('div');
+    stageEl.className = 'evo-stage';
+    stageEl.dataset.key = key;
+
+    const v = votes[key];
+    if (v === 'ok')   stageEl.classList.add('approved');
+    if (v === 'redo') stageEl.classList.add('redo');
+
+    const wrap = document.createElement('div');
+    wrap.className = 'sprite-wrap';
+
+    const img = document.createElement('img');
+    img.className = 'stage-sprite';
+    img.alt = stage.name;
+    if (stage.sprite) {
+      img.src = stage.sprite;
+      img.onerror = () => {
+        img.style.display = 'none';
+        wrap.appendChild(makePending());
+      };
+    } else {
+      img.style.display = 'none';
+      wrap.appendChild(makePending());
+    }
+    wrap.appendChild(img);
+
+    const nameEl = document.createElement('div');
+    nameEl.className = 'stage-name';
+    nameEl.textContent = stage.name;
+
+    const labelEl = document.createElement('div');
+    labelEl.className = 'stage-label';
+    labelEl.textContent = si === 0 ? 'Base' : si === sp.stages.length - 1 ? 'Final' : `Evo ${si + 1}`;
+
+    const voteRow = document.createElement('div');
+    voteRow.className = 'vote-row';
+
+    const okBtn = document.createElement('button');
+    okBtn.className = 'vote-btn vote-ok';
+    okBtn.textContent = '✓';
+    okBtn.title = 'Approve';
+    okBtn.onclick = (e) => {
+      e.stopPropagation();
+      votes[key] = votes[key] === 'ok' ? null : 'ok';
+      saveVotes();
+      stageEl.classList.toggle('approved', votes[key] === 'ok');
+      stageEl.classList.toggle('redo', false);
+      refreshCardState(card, sp);
+      updateProgress();
+      applyFilters();
+    };
+
+    const redoBtn = document.createElement('button');
+    redoBtn.className = 'vote-btn vote-redo';
+    redoBtn.textContent = '✗';
+    redoBtn.title = 'Flag for redo';
+    redoBtn.onclick = (e) => {
+      e.stopPropagation();
+      votes[key] = votes[key] === 'redo' ? null : 'redo';
+      saveVotes();
+      stageEl.classList.toggle('redo', votes[key] === 'redo');
+      stageEl.classList.toggle('approved', false);
+      refreshCardState(card, sp);
+      updateProgress();
+      applyFilters();
+    };
+
+    voteRow.appendChild(okBtn);
+    voteRow.appendChild(redoBtn);
+
+    stageEl.appendChild(wrap);
+    stageEl.appendChild(nameEl);
+    stageEl.appendChild(labelEl);
+    stageEl.appendChild(voteRow);
+    strip.appendChild(stageEl);
+  });
+
+  card.appendChild(strip);
+
+  // Detail
+  const detail = document.createElement('div');
+  detail.className = 'detail-panel';
+  detail.innerHTML = `
+    ${sp.dexEntry ? `<div class="dex-entry">${sp.dexEntry}</div>` : ''}
+    <div class="stats-row">
+      <div class="stat"><span class="stat-label">HP</span><span class="stat-value">${sp.baseStats.hp}</span></div>
+      <div class="stat"><span class="stat-label">ATK</span><span class="stat-value">${sp.baseStats.atk}</span></div>
+      <div class="stat"><span class="stat-label">DEF</span><span class="stat-value">${sp.baseStats.def}</span></div>
+      <div class="stat"><span class="stat-label">SPD</span><span class="stat-value">${sp.baseStats.spd}</span></div>
+    </div>
+    <div class="evo-line">${sp.stages.map(s=>`${s.name}${s.evolveAt?` →Lv.${s.evolveAt}`:''}`).join(' · ')}</div>
+  `;
+  card.appendChild(detail);
+
+  refreshCardState(card, sp);
+  return card;
+}
+</script>
+</body>
+</html>

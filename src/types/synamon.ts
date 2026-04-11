@@ -1,17 +1,23 @@
-// ─── Monster Types ──────────────────────────────────────────────────────────
+// ─── Synamon Types ────────────────────────────────────────────────────────────
 
-export type MonsterType =
-  | 'fire' | 'water' | 'grass' | 'electric' | 'dark'
-  | 'light' | 'earth' | 'wind' | 'poison' | 'psychic';
+// 8 elemental types
+export type SynamonElementType =
+  | 'Ignis' | 'Aqua' | 'Terra' | 'Ventus'
+  | 'Umbra' | 'Lux' | 'Sonus' | 'Arcanus';
 
-export interface MonsterBaseStats {
+// 4 physical/trait types
+export type SynamonTraitType = 'Flying' | 'Ferrous' | 'Venom' | 'Natura';
+
+export type SynamonType = SynamonElementType | SynamonTraitType;
+
+export interface SynamonBaseStats {
   hp: number;
   atk: number;
   def: number;
   spd: number;
 }
 
-export interface MonsterStageAssets {
+export interface SynamonStageAssets {
   stage: number;
   name: string;
   sprite: string | null;          // path to sprite PNG, null = not yet generated
@@ -20,17 +26,19 @@ export interface MonsterStageAssets {
   evolveAt?: number;              // level required to evolve to next stage
 }
 
-export interface MonsterSpecies {
-  id: string;                     // slug, e.g. "emberfox"
-  name: string;                   // display name, e.g. "Emberfox"
-  type: MonsterType;
-  baseStats: MonsterBaseStats;
-  stages: MonsterStageAssets[];
+export interface SynamonSpecies {
+  id: string;                     // slug, e.g. "cindrel"
+  name: string;                   // display name, e.g. "Cindrel"
+  type: SynamonType;
+  secondaryType?: SynamonType;
+  baseStats: SynamonBaseStats;
+  stages: SynamonStageAssets[];
+  dexEntry?: string;              // pokédex-style description
 }
 
-// ─── Owned Monster Instance ──────────────────────────────────────────────────
+// ─── Owned Synamon Instance ───────────────────────────────────────────────────
 
-export interface OwnedMonster {
+export interface OwnedSynamon {
   uid: string;                    // unique instance ID (uuid)
   speciesId: string;
   stage: number;                  // current evolution stage (1, 2, 3...)
@@ -52,10 +60,10 @@ export interface OwnedMonster {
   currentHp?: number;             // only set during active battle
 }
 
-// ─── Battle Types ────────────────────────────────────────────────────────────
+// ─── Battle Types ─────────────────────────────────────────────────────────────
 
 export type BattleParticipant = {
-  uid: string;                    // OwnedMonster uid
+  uid: string;                    // OwnedSynamon uid
   speciesId: string;
   name: string;
   stage: number;
@@ -65,7 +73,8 @@ export type BattleParticipant = {
   atk: number;
   def: number;
   spd: number;
-  type: MonsterType;
+  type: SynamonType;
+  secondaryType?: SynamonType;
 };
 
 export type BattleEventType =
@@ -77,7 +86,7 @@ export type BattleEventType =
 
 export interface BattleEvent {
   turn: number;
-  actorUid: string;               // who acted
+  actorUid: string;
   targetUid: string;
   type: BattleEventType;
   damage?: number;
@@ -93,29 +102,29 @@ export interface BattleState {
   turn: number;
   log: BattleEvent[];
   outcome: BattleOutcome;
-  xpReward: number;               // XP given to winner at end
-  animating: boolean;             // true while an attack animation plays
+  xpReward: number;
+  animating: boolean;
 }
 
-// ─── Monster Store State ─────────────────────────────────────────────────────
+// ─── Synamon Store State ──────────────────────────────────────────────────────
 
-export interface MonsterState {
-  collection: Record<string, OwnedMonster>;     // uid → OwnedMonster
-  activeMonsterUid: string | null;              // shown in widget
+export interface SynamonState {
+  collection: Record<string, OwnedSynamon>;     // uid → OwnedSynamon
+  activeUid: string | null;                     // shown in widget
   starterChosen: boolean;
   discoveredSpecies: string[];                  // species IDs the player has seen
   totalBattlesWon: number;
   totalBattlesLost: number;
 
   // Widget UI
-  monsterWidgetOpen: boolean;
-  monsterWidgetX: number;
-  monsterWidgetY: number;
+  widgetOpen: boolean;
+  widgetX: number;
+  widgetY: number;
 
   // Modal UI
   showCollection: boolean;
   showBattle: boolean;
-  showEvolution: boolean;          // plays the evolution cutscene
+  showEvolution: boolean;
   evolutionTarget: { uid: string; fromStage: number; toStage: number } | null;
 
   // Battle

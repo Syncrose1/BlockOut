@@ -1,10 +1,10 @@
 import { useEffect, useRef, useState, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useStore } from '../store';
-import { getSpecies } from '../store/monsterSlice';
-import { getMonsterMood, getMoodLabel, xpForLevel } from '../utils/monsterMath';
-import { MonsterSprite } from './MonsterSprite';
-import { MonsterCollection } from './MonsterCollection';
+import { getSpecies } from '../store/synamonSlice';
+import { getSynamonMood, getMoodLabel, xpForLevel } from '../utils/synamonMath';
+import { SynamonSprite } from './SynamonSprite';
+import { SynamonCollection } from './SynamonCollection';
 import { BattleModal } from './BattleModal';
 
 function StatBar({ value, max = 100, color }: { value: number; max?: number; color: string }) {
@@ -35,59 +35,56 @@ function XpBar({ xp, level }: { xp: number; level: number }) {
   );
 }
 
-export function MonsterWidget() {
-  const monster = useStore(s => s.monster);
-  const catchMonster = useStore(s => s.catchMonster);
-  const feedActiveMonster = useStore(s => s.feedActiveMonster);
-  const playWithActiveMonster = useStore(s => s.playWithActiveMonster);
-  const setMonsterWidgetOpen = useStore(s => s.setMonsterWidgetOpen);
-  const setMonsterWidgetPosition = useStore(s => s.setMonsterWidgetPosition);
+export function SynamonWidget() {
+  const synamonState = useStore(s => s.synamon);
+  const catchSynamon = useStore(s => s.catchSynamon);
+  const feedActiveSynamon = useStore(s => s.feedActiveSynamon);
+  const playWithActiveSynamon = useStore(s => s.playWithActiveSynamon);
+  const setSynamonWidgetOpen = useStore(s => s.setSynamonWidgetOpen);
+  const setSynamonWidgetPosition = useStore(s => s.setSynamonWidgetPosition);
   const setShowCollection = useStore(s => s.setShowCollection);
   const setShowBattle = useStore(s => s.setShowBattle);
   const clearPendingXp = useStore(s => s.clearPendingXp);
   const confirmEvolution = useStore(s => s.confirmEvolution);
-  const tickMonsterDecay = useStore(s => s.tickMonsterDecay);
+  const tickSynamonDecay = useStore(s => s.tickSynamonDecay);
 
   const widgetRef = useRef<HTMLDivElement>(null);
   const dragRef = useRef<{ startX: number; startY: number; startMouseX: number; startMouseY: number } | null>(null);
   const [xpFlash, setXpFlash] = useState<number | null>(null);
   const [isDragging, setIsDragging] = useState(false);
 
-  // Run idle decay on mount and every 5 minutes
   useEffect(() => {
-    tickMonsterDecay();
-    const interval = setInterval(tickMonsterDecay, 5 * 60 * 1000);
+    tickSynamonDecay();
+    const interval = setInterval(tickSynamonDecay, 5 * 60 * 1000);
     return () => clearInterval(interval);
-  }, [tickMonsterDecay]);
+  }, [tickSynamonDecay]);
 
-  // Flash XP gain
   useEffect(() => {
-    if (monster.pendingXpGain > 0) {
-      setXpFlash(monster.pendingXpGain);
+    if (synamonState.pendingXpGain > 0) {
+      setXpFlash(synamonState.pendingXpGain);
       const t = setTimeout(() => { setXpFlash(null); clearPendingXp(); }, 2000);
       return () => clearTimeout(t);
     }
-  }, [monster.pendingXpGain, clearPendingXp]);
+  }, [synamonState.pendingXpGain, clearPendingXp]);
 
-  // Drag handlers
   const onMouseDown = useCallback((e: React.MouseEvent) => {
     if ((e.target as HTMLElement).closest('button')) return;
     dragRef.current = {
-      startX: monster.monsterWidgetX,
-      startY: monster.monsterWidgetY,
+      startX: synamonState.widgetX,
+      startY: synamonState.widgetY,
       startMouseX: e.clientX,
       startMouseY: e.clientY,
     };
     setIsDragging(true);
     e.preventDefault();
-  }, [monster.monsterWidgetX, monster.monsterWidgetY]);
+  }, [synamonState.widgetX, synamonState.widgetY]);
 
   useEffect(() => {
     const onMouseMove = (e: MouseEvent) => {
       if (!dragRef.current) return;
       const dx = e.clientX - dragRef.current.startMouseX;
       const dy = e.clientY - dragRef.current.startMouseY;
-      setMonsterWidgetPosition(
+      setSynamonWidgetPosition(
         dragRef.current.startX + dx,
         dragRef.current.startY + dy,
       );
@@ -96,21 +93,20 @@ export function MonsterWidget() {
     window.addEventListener('mousemove', onMouseMove);
     window.addEventListener('mouseup', onMouseUp);
     return () => { window.removeEventListener('mousemove', onMouseMove); window.removeEventListener('mouseup', onMouseUp); };
-  }, [setMonsterWidgetPosition]);
+  }, [setSynamonWidgetPosition]);
 
-  const activeMon = monster.activeMonsterUid ? monster.collection[monster.activeMonsterUid] : null;
-  const species = activeMon ? getSpecies(activeMon.speciesId) : null;
-  const stageData = activeMon && species ? species.stages.find(s => s.stage === activeMon.stage) : null;
-  const mood = activeMon ? getMonsterMood(activeMon) : null;
+  const activeSyn = synamonState.activeUid ? synamonState.collection[synamonState.activeUid] : null;
+  const species = activeSyn ? getSpecies(activeSyn.speciesId) : null;
+  const stageData = activeSyn && species ? species.stages.find(s => s.stage === activeSyn.stage) : null;
+  const mood = activeSyn ? getSynamonMood(activeSyn) : null;
 
-  // Toggle button (always visible)
   const toggleBtn = (
     <motion.button
-      className="monster-widget-toggle"
-      onClick={() => setMonsterWidgetOpen(!monster.monsterWidgetOpen)}
+      className="synamon-widget-toggle"
+      onClick={() => setSynamonWidgetOpen(!synamonState.widgetOpen)}
       whileHover={{ scale: 1.08 }}
       whileTap={{ scale: 0.95 }}
-      title="Monster"
+      title="Synamon"
       style={{
         position: 'fixed',
         right: 20,
@@ -135,37 +131,37 @@ export function MonsterWidget() {
   );
 
   // Starter chooser
-  if (!monster.starterChosen) {
+  if (!synamonState.starterChosen) {
     return (
       <>
         {toggleBtn}
         <AnimatePresence>
-          {monster.monsterWidgetOpen && (
+          {synamonState.widgetOpen && (
             <motion.div
-              className="monster-widget"
-              style={{ left: monster.monsterWidgetX, top: monster.monsterWidgetY, width: 220 }}
+              className="synamon-widget"
+              style={{ left: synamonState.widgetX, top: synamonState.widgetY, width: 220 }}
               initial={{ opacity: 0, scale: 0.9, y: 10 }}
               animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.9, y: 10 }}
             >
               <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 8 }}>Choose your starter!</div>
               <div style={{ fontSize: 11, color: 'var(--text-secondary)', marginBottom: 12 }}>
-                Your companion will grow alongside your productivity.
+                Your Synamon companion will grow alongside your productivity.
               </div>
               <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-                {['emberfox', 'aquashell', 'sproutling'].map(id => (
+                {['cindrel', 'aquill', 'brezzet'].map(id => (
                   <button key={id} className="btn btn-ghost btn-sm"
                     style={{ textAlign: 'left' }}
-                    onClick={() => { catchMonster(id); }}>
+                    onClick={() => { catchSynamon(id); }}>
                     {id.charAt(0).toUpperCase() + id.slice(1)}
                     <span style={{ fontSize: 10, color: 'var(--text-tertiary)', marginLeft: 8 }}>
-                      {id === 'emberfox' ? 'Fire' : id === 'aquashell' ? 'Water' : 'Grass'}
+                      {id === 'cindrel' ? 'Ignis / Terra' : id === 'aquill' ? 'Aqua / Flying' : 'Ventus / Flying'}
                     </span>
                   </button>
                 ))}
               </div>
               <div style={{ fontSize: 10, color: 'var(--text-tertiary)', marginTop: 10 }}>
-                More monsters unlocked as you complete tasks.
+                More Synamon discovered as you complete tasks.
               </div>
             </motion.div>
           )}
@@ -174,7 +170,7 @@ export function MonsterWidget() {
     );
   }
 
-  if (!activeMon || !species) return toggleBtn;
+  if (!activeSyn || !species) return toggleBtn;
 
   return (
     <>
@@ -182,7 +178,7 @@ export function MonsterWidget() {
 
       {/* Evolution cutscene */}
       <AnimatePresence>
-        {monster.showEvolution && monster.evolutionTarget && (
+        {synamonState.showEvolution && synamonState.evolutionTarget && (
           <motion.div
             className="modal-overlay"
             initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
@@ -195,21 +191,21 @@ export function MonsterWidget() {
               style={{ textAlign: 'center' }}
             >
               <div style={{ fontSize: 18, fontWeight: 700, color: 'var(--text-primary)', marginBottom: 8 }}>
-                {activeMon.nickname ?? stageData?.name} is evolving!
+                {activeSyn.nickname ?? stageData?.name} is evolving!
               </div>
               <div style={{
                 width: 128, height: 128, margin: '0 auto 16px',
-                background: 'white', borderRadius: '50%', filter: 'blur(0px)',
+                background: 'white', borderRadius: '50%',
                 animation: 'evolve-flash 1.5s ease-in-out infinite alternate',
                 display: 'flex', alignItems: 'center', justifyContent: 'center',
               }}>
-                <MonsterSprite
+                <SynamonSprite
                   frames={stageData?.idleFrames ?? []}
                   fallbackSprite={stageData?.sprite ?? undefined}
                   size={96}
                 />
               </div>
-              <button className="btn btn-primary" onClick={() => confirmEvolution(monster.evolutionTarget!.uid)}>
+              <button className="btn btn-primary" onClick={() => confirmEvolution(synamonState.evolutionTarget!.uid)}>
                 Confirm Evolution
               </button>
             </motion.div>
@@ -219,33 +215,33 @@ export function MonsterWidget() {
 
       {/* Main widget */}
       <AnimatePresence>
-        {monster.monsterWidgetOpen && (
+        {synamonState.widgetOpen && (
           <motion.div
             ref={widgetRef}
-            className="monster-widget"
-            style={{ left: monster.monsterWidgetX, top: monster.monsterWidgetY, cursor: isDragging ? 'grabbing' : 'grab' }}
+            className="synamon-widget"
+            style={{ left: synamonState.widgetX, top: synamonState.widgetY, cursor: isDragging ? 'grabbing' : 'grab' }}
             initial={{ opacity: 0, scale: 0.9, y: 10 }}
             animate={{ opacity: 1, scale: 1, y: 0 }}
             exit={{ opacity: 0, scale: 0.9, y: 10 }}
             onMouseDown={onMouseDown}
           >
             {/* Header */}
-            <div className="monster-widget-header">
+            <div className="synamon-widget-header">
               <div>
                 <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--text-primary)' }}>
-                  {activeMon.nickname ?? stageData?.name ?? species.name}
+                  {activeSyn.nickname ?? stageData?.name ?? species.name}
                 </div>
                 <div style={{ fontSize: 10, color: 'var(--text-tertiary)' }}>
-                  Lv.{activeMon.level} · {species.type}
+                  Lv.{activeSyn.level} · {species.type}{species.secondaryType ? ` / ${species.secondaryType}` : ''}
                 </div>
               </div>
               <div style={{ display: 'flex', gap: 4 }}>
-                <button className="monster-widget-icon-btn" onClick={() => setShowCollection(true)} title="Collection">
+                <button className="synamon-widget-icon-btn" onClick={() => setShowCollection(true)} title="Collection">
                   <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                     <rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 3l-4 4-4-4"/>
                   </svg>
                 </button>
-                <button className="monster-widget-icon-btn" onClick={() => setMonsterWidgetOpen(false)} title="Close">
+                <button className="synamon-widget-icon-btn" onClick={() => setSynamonWidgetOpen(false)} title="Close">
                   <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                     <path d="M18 6L6 18M6 6l12 12"/>
                   </svg>
@@ -254,18 +250,17 @@ export function MonsterWidget() {
             </div>
 
             {/* Sprite area */}
-            <div className="monster-widget-sprite-area">
-              <MonsterSprite
+            <div className="synamon-widget-sprite-area">
+              <SynamonSprite
                 frames={stageData?.idleFrames ?? []}
                 fallbackSprite={stageData?.sprite ?? undefined}
                 fps={8}
                 size={80}
               />
-              {/* XP flash */}
               <AnimatePresence>
                 {xpFlash && (
                   <motion.div
-                    className="monster-xp-flash"
+                    className="synamon-xp-flash"
                     initial={{ opacity: 1, y: 0 }}
                     animate={{ opacity: 0, y: -28 }}
                     exit={{ opacity: 0 }}
@@ -275,7 +270,6 @@ export function MonsterWidget() {
                   </motion.div>
                 )}
               </AnimatePresence>
-              {/* Mood */}
               {mood && (
                 <div style={{ fontSize: 10, color: 'var(--text-tertiary)', marginTop: 4 }}>
                   {getMoodLabel(mood)}
@@ -284,35 +278,35 @@ export function MonsterWidget() {
             </div>
 
             {/* Stats */}
-            <div className="monster-widget-stats">
-              <div className="monster-stat-row">
+            <div className="synamon-widget-stats">
+              <div className="synamon-stat-row">
                 <span>Hunger</span>
-                <StatBar value={activeMon.hunger} color="hsl(30,80%,55%)" />
+                <StatBar value={activeSyn.hunger} color="hsl(30,80%,55%)" />
               </div>
-              <div className="monster-stat-row">
+              <div className="synamon-stat-row">
                 <span>Happy</span>
-                <StatBar value={activeMon.happiness} color="hsl(280,60%,60%)" />
+                <StatBar value={activeSyn.happiness} color="hsl(280,60%,60%)" />
               </div>
-              <div className="monster-stat-row">
+              <div className="synamon-stat-row">
                 <span>Energy</span>
-                <StatBar value={activeMon.energy} color="hsl(210,70%,55%)" />
+                <StatBar value={activeSyn.energy} color="hsl(210,70%,55%)" />
               </div>
-              <div className="monster-stat-row" style={{ marginTop: 4 }}>
-                <span style={{ color: 'var(--text-tertiary)' }}>XP to {activeMon.level + 1}</span>
-                <XpBar xp={activeMon.xp} level={activeMon.level} />
+              <div className="synamon-stat-row" style={{ marginTop: 4 }}>
+                <span style={{ color: 'var(--text-tertiary)' }}>XP to {activeSyn.level + 1}</span>
+                <XpBar xp={activeSyn.xp} level={activeSyn.level} />
               </div>
             </div>
 
             {/* Actions */}
-            <div className="monster-widget-actions">
-              <button className="monster-action-btn" onClick={feedActiveMonster} title="Feed">
+            <div className="synamon-widget-actions">
+              <button className="synamon-action-btn" onClick={feedActiveSynamon} title="Feed">
                 🍖 Feed
               </button>
-              <button className="monster-action-btn" onClick={playWithActiveMonster} title="Play">
+              <button className="synamon-action-btn" onClick={playWithActiveSynamon} title="Play">
                 ⚡ Play
               </button>
-              <button className="monster-action-btn" onClick={() => {
-                const uids = Object.keys(monster.collection).filter(u => u !== activeMon.uid);
+              <button className="synamon-action-btn" onClick={() => {
+                const uids = Object.keys(synamonState.collection).filter(u => u !== activeSyn.uid);
                 if (uids.length > 0) setShowBattle(true);
               }} title="Battle">
                 ⚔ Battle
@@ -323,7 +317,7 @@ export function MonsterWidget() {
       </AnimatePresence>
 
       {/* Modals */}
-      <MonsterCollection />
+      <SynamonCollection />
       <BattleModal />
     </>
   );

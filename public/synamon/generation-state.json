@@ -1,0 +1,437 @@
+{
+  "phase": 2,
+  "species": {
+    "cindrel": {
+      "stage1": {
+        "jobId": "ad7f53cf-3116-4ee0-8a59-9bc176bc2dd2",
+        "status": "done",
+        "file": "/home/raahats/BlockOut/public/synamon/cindrel/stage1.png"
+      },
+      "stage2": {
+        "jobId": "11b25e5a-5103-45c3-8b72-504c881c12c4",
+        "status": "done",
+        "file": "/home/raahats/BlockOut/public/synamon/cindrel/stage2.png"
+      },
+      "stage3": {
+        "jobId": "07701113-a466-411a-badc-918e132343ed",
+        "status": "done",
+        "file": "/home/raahats/BlockOut/public/synamon/cindrel/stage3.png"
+      }
+    },
+    "aquill": {
+      "stage1": {
+        "jobId": "305f5450-100c-4983-8a5a-1962657febbb",
+        "status": "done",
+        "file": "/home/raahats/BlockOut/public/synamon/aquill/stage1.png"
+      },
+      "stage2": {
+        "jobId": "37f032e4-290f-4fd4-9a67-0959eec4950f",
+        "status": "done",
+        "file": "/home/raahats/BlockOut/public/synamon/aquill/stage2.png"
+      },
+      "stage3": {
+        "jobId": "130c0a93-ebc4-4c37-af2c-f608eef46124",
+        "status": "done",
+        "file": "/home/raahats/BlockOut/public/synamon/aquill/stage3.png"
+      }
+    },
+    "brezzet": {
+      "stage1": {
+        "jobId": "d23553d4-c8f3-4afd-863a-94decae31024",
+        "status": "done",
+        "file": "/home/raahats/BlockOut/public/synamon/brezzet/stage1.png"
+      },
+      "stage2": {
+        "jobId": "f0ce63ee-6584-4986-b4c0-970061c889d8",
+        "status": "done",
+        "file": "/home/raahats/BlockOut/public/synamon/brezzet/stage2.png"
+      },
+      "stage3": {
+        "jobId": "9558adcd-8b6e-4168-865b-06826f79b1b6",
+        "status": "done",
+        "file": "/home/raahats/BlockOut/public/synamon/brezzet/stage3.png"
+      }
+    },
+    "glowick": {
+      "stage1": {
+        "jobId": "f5c6ae9d-8b7f-4f56-8534-b4f3b4f1e390",
+        "status": "done",
+        "file": "/home/raahats/BlockOut/public/synamon/glowick/stage1.png"
+      },
+      "stage2": {
+        "jobId": "1ac5ac67-60a8-4699-974d-4dfd32242e78",
+        "status": "done",
+        "file": "/home/raahats/BlockOut/public/synamon/glowick/stage2.png"
+      }
+    },
+    "murkling": {
+      "stage1": {
+        "jobId": "ac52ea5e-34af-4c8e-a274-82a796ea20c3",
+        "status": "done",
+        "file": "/home/raahats/BlockOut/public/synamon/murkling/stage1.png"
+      },
+      "stage2": {
+        "jobId": "1db1dd80-753d-4833-a64a-8e12b85c14f4",
+        "status": "done",
+        "file": "/home/raahats/BlockOut/public/synamon/murkling/stage2.png"
+      }
+    },
+    "peblix": {
+      "stage1": {
+        "jobId": "2cbb962d-9cf6-419c-8869-b767cb91a025",
+        "status": "done",
+        "file": "/home/raahats/BlockOut/public/synamon/peblix/stage1.png"
+      },
+      "stage2": {
+        "jobId": "6935f4af-581e-41b4-8345-6849f24d0c87",
+        "status": "done",
+        "file": "/home/raahats/BlockOut/public/synamon/peblix/stage2.png"
+      },
+      "stage3": {
+        "jobId": "f13db281-eee9-43f1-b3d0-4da22cd7860c",
+        "status": "done",
+        "file": "/home/raahats/BlockOut/public/synamon/peblix/stage3.png"
+      }
+    },
+    "humtick": {
+      "stage1": {
+        "jobId": "964a0a81-4416-42a7-8ba5-603d280b2427",
+        "status": "done",
+        "file": "/home/raahats/BlockOut/public/synamon/humtick/stage1.png"
+      },
+      "stage2": {
+        "jobId": "59bb00fb-10cb-4fa5-b396-25bf70ada0a4",
+        "status": "done",
+        "file": "/home/raahats/BlockOut/public/synamon/humtick/stage2.png"
+      }
+    },
+    "crystub": {
+      "stage1": {
+        "jobId": "efe53ce6-80e4-497d-b4da-f05aaa32fa6c",
+        "status": "done",
+        "file": "/home/raahats/BlockOut/public/synamon/crystub/stage1.png"
+      },
+      "stage2": {
+        "jobId": "0d70ed85-485d-434c-9e6d-531fe38dcc56",
+        "status": "done",
+        "file": "/home/raahats/BlockOut/public/synamon/crystub/stage2.png"
+      },
+      "stage3": {
+        "jobId": "6b30aa67-ae19-498f-b379-6ad2b60b098d",
+        "status": "done",
+        "file": "/home/raahats/BlockOut/public/synamon/crystub/stage3.png"
+      }
+    },
+    "cloakrit": {
+      "stage1": {
+        "jobId": "fd1602ab-46b1-49b3-ad07-4fb9bd9cde67",
+        "status": "done",
+        "file": "/home/raahats/BlockOut/public/synamon/cloakrit/stage1.png"
+      },
+      "stage2": {
+        "jobId": "1c353968-645d-40a9-8d00-2f390f387a72",
+        "status": "done",
+        "file": "/home/raahats/BlockOut/public/synamon/cloakrit/stage2.png"
+      }
+    },
+    "ashpaw": {
+      "stage1": {
+        "jobId": "32875431-c1fc-4bb4-8658-1e5a7b57e33b",
+        "status": "done",
+        "file": "/home/raahats/BlockOut/public/synamon/ashpaw/stage1.png"
+      },
+      "stage2": {
+        "jobId": "d178cb8e-385c-44c8-8f33-74dfee56be58",
+        "status": "done",
+        "file": "/home/raahats/BlockOut/public/synamon/ashpaw/stage2.png"
+      },
+      "stage3": {
+        "jobId": "8c87ce87-f4ca-4bde-8cff-fb1212a0acf4",
+        "status": "done",
+        "file": "/home/raahats/BlockOut/public/synamon/ashpaw/stage3.png"
+      }
+    },
+    "driftull": {
+      "stage1": {
+        "jobId": "d4d07b5e-330c-4252-825d-081a48775fbd",
+        "status": "done",
+        "file": "/home/raahats/BlockOut/public/synamon/driftull/stage1.png"
+      },
+      "stage2": {
+        "jobId": "d629bf53-7d6b-4ef3-ab66-0bb350ab8f69",
+        "status": "done",
+        "file": "/home/raahats/BlockOut/public/synamon/driftull/stage2.png"
+      }
+    },
+    "buzzlit": {
+      "stage1": {
+        "jobId": "7647d411-5ba5-441f-b8d2-cd346628f82b",
+        "status": "done",
+        "file": "/home/raahats/BlockOut/public/synamon/buzzlit/stage1.png"
+      },
+      "stage2": {
+        "jobId": "13c7f0cf-eac1-4ea3-b3fa-1c61f31995e2",
+        "status": "done",
+        "file": "/home/raahats/BlockOut/public/synamon/buzzlit/stage2.png"
+      },
+      "stage3": {
+        "jobId": "19e1788e-a888-4cb0-9c1c-c0ce86af4f43",
+        "status": "done",
+        "file": "/home/raahats/BlockOut/public/synamon/buzzlit/stage3.png"
+      }
+    },
+    "galecub": {
+      "stage1": {
+        "jobId": "c19e9e6d-0e6a-49dc-bfda-af143e1a6b54",
+        "status": "done",
+        "file": "/home/raahats/BlockOut/public/synamon/galecub/stage1.png"
+      },
+      "stage2": {
+        "jobId": "c5c59be0-b08d-4310-a996-69d633cc40ee",
+        "status": "done",
+        "file": "/home/raahats/BlockOut/public/synamon/galecub/stage2.png"
+      }
+    },
+    "sporik": {
+      "stage1": {
+        "jobId": "cd55515a-978f-443a-9d92-f448494331ec",
+        "status": "done",
+        "file": "/home/raahats/BlockOut/public/synamon/sporik/stage1.png"
+      },
+      "stage2": {
+        "jobId": "09355917-9611-45a9-8132-a1ab63252ea4",
+        "status": "done",
+        "file": "/home/raahats/BlockOut/public/synamon/sporik/stage2.png"
+      },
+      "stage3": {
+        "jobId": "9d28aa56-aa2a-41a0-be32-de8c3658f69a",
+        "status": "done",
+        "file": "/home/raahats/BlockOut/public/synamon/sporik/stage3.png"
+      }
+    },
+    "spectrix": {
+      "stage1": {
+        "jobId": "2fbc183e-c3e1-423a-9b93-93eb8e898569",
+        "status": "done",
+        "file": "/home/raahats/BlockOut/public/synamon/spectrix/stage1.png"
+      },
+      "stage2": {
+        "jobId": "ea066b59-3f17-408d-9ced-3ad910d97f5d",
+        "status": "done",
+        "file": "/home/raahats/BlockOut/public/synamon/spectrix/stage2.png"
+      }
+    },
+    "flintlet": {
+      "stage1": {
+        "jobId": "376e6e97-4de0-4582-af76-b361301d8ab2",
+        "status": "done",
+        "file": "/home/raahats/BlockOut/public/synamon/flintlet/stage1.png"
+      },
+      "stage2": {
+        "jobId": "49156e9d-5f6c-4741-ad1e-66001f766d37",
+        "status": "done",
+        "file": "/home/raahats/BlockOut/public/synamon/flintlet/stage2.png"
+      }
+    },
+    "glintfin": {
+      "stage1": {
+        "jobId": "a58253fd-f5d4-44ef-b46f-4e95324e7c61",
+        "status": "done",
+        "file": "/home/raahats/BlockOut/public/synamon/glintfin/stage1.png"
+      },
+      "stage2": {
+        "jobId": "22f0da74-2b75-4a0f-ada5-978031a6bd20",
+        "status": "done",
+        "file": "/home/raahats/BlockOut/public/synamon/glintfin/stage2.png"
+      },
+      "stage3": {
+        "jobId": "00c3eace-ffd8-49c1-89af-1e305f7011e2",
+        "status": "done",
+        "file": "/home/raahats/BlockOut/public/synamon/glintfin/stage3.png"
+      }
+    },
+    "runekit": {
+      "stage1": {
+        "jobId": "8bc81d51-7a2f-40f9-a74d-d98bd7b497e6",
+        "status": "done",
+        "file": "/home/raahats/BlockOut/public/synamon/runekit/stage1.png"
+      },
+      "stage2": {
+        "jobId": "7731207f-aff5-4956-8e7e-f73853ad76f6",
+        "status": "done",
+        "file": "/home/raahats/BlockOut/public/synamon/runekit/stage2.png"
+      }
+    },
+    "windmite": {
+      "stage1": {
+        "jobId": "668b256b-da91-47ef-bac9-4df131da01b1",
+        "status": "done",
+        "file": "/home/raahats/BlockOut/public/synamon/windmite/stage1.png"
+      },
+      "stage2": {
+        "jobId": "f752d2c8-c3a3-49f0-aaa7-aba2bcc4a04f",
+        "status": "done",
+        "file": "/home/raahats/BlockOut/public/synamon/windmite/stage2.png"
+      },
+      "stage3": {
+        "jobId": "377e4493-b78b-49fa-9593-1ada2c177979",
+        "status": "done",
+        "file": "/home/raahats/BlockOut/public/synamon/windmite/stage3.png"
+      }
+    },
+    "duskrat": {
+      "stage1": {
+        "jobId": "df5df3ae-41b9-47dc-ac7b-1bb79658bfad",
+        "status": "done",
+        "file": "/home/raahats/BlockOut/public/synamon/duskrat/stage1.png"
+      },
+      "stage2": {
+        "jobId": "05dc5411-09da-49b2-8b91-71bf6342dd17",
+        "status": "done",
+        "file": "/home/raahats/BlockOut/public/synamon/duskrat/stage2.png"
+      }
+    },
+    "bassolt": {
+      "stage1": {
+        "jobId": "f6547c97-10e6-4fea-affc-f6181137e06a",
+        "status": "done",
+        "file": "/home/raahats/BlockOut/public/synamon/bassolt/stage1.png"
+      },
+      "stage2": {
+        "jobId": "12e3dbf1-1635-4a24-bdbf-0c1fde81c809",
+        "status": "done",
+        "file": "/home/raahats/BlockOut/public/synamon/bassolt/stage2.png"
+      },
+      "stage3": {
+        "jobId": "72100013-86f2-43ae-b1d5-53ea96d862cc",
+        "status": "done",
+        "file": "/home/raahats/BlockOut/public/synamon/bassolt/stage3.png"
+      }
+    },
+    "glassling": {
+      "stage1": {
+        "jobId": "1732c513-f2dc-4be5-a65d-744a696fc2de",
+        "status": "done",
+        "file": "/home/raahats/BlockOut/public/synamon/glassling/stage1.png"
+      },
+      "stage2": {
+        "jobId": "461c4d0d-8719-47ff-84a0-eab634a62c0c",
+        "status": "done",
+        "file": "/home/raahats/BlockOut/public/synamon/glassling/stage2.png"
+      }
+    },
+    "fluxling": {
+      "stage1": {
+        "jobId": "365d8538-0f51-4d39-8adf-a531c37b2915",
+        "status": "done",
+        "file": "/home/raahats/BlockOut/public/synamon/fluxling/stage1.png"
+      },
+      "stage2": {
+        "jobId": "dbd6da78-778a-4e0c-b0cf-5d0dd6756efe",
+        "status": "done",
+        "file": "/home/raahats/BlockOut/public/synamon/fluxling/stage2.png"
+      }
+    },
+    "lumenox": {
+      "stage1": {
+        "jobId": "18a053d1-876c-42eb-8409-d0128eda1604",
+        "status": "done",
+        "file": "/home/raahats/BlockOut/public/synamon/lumenox/stage1.png"
+      },
+      "stage2": {
+        "jobId": "e74cce1f-1ae6-42e2-aba3-d80afc1a16f2",
+        "status": "done",
+        "file": "/home/raahats/BlockOut/public/synamon/lumenox/stage2.png"
+      },
+      "stage3": {
+        "jobId": "e947692a-0a39-4645-970d-a18d55330df8",
+        "status": "done",
+        "file": "/home/raahats/BlockOut/public/synamon/lumenox/stage3.png"
+      }
+    },
+    "scaldit": {
+      "stage1": {
+        "jobId": "a6b82877-6975-4ac3-8c16-54ad2935da96",
+        "status": "done",
+        "file": "/home/raahats/BlockOut/public/synamon/scaldit/stage1.png"
+      },
+      "stage2": {
+        "jobId": "7e1bfe8b-ebad-4dce-831d-b04c99b379d8",
+        "status": "done",
+        "file": "/home/raahats/BlockOut/public/synamon/scaldit/stage2.png"
+      }
+    },
+    "darkspore": {
+      "stage1": {
+        "jobId": "8c7112dd-8e8a-4388-8192-29ba2fbffff7",
+        "status": "done",
+        "file": "/home/raahats/BlockOut/public/synamon/darkspore/stage1.png"
+      },
+      "stage2": {
+        "jobId": "84eb75e5-d562-4a28-8f5a-383765cdb8f4",
+        "status": "done",
+        "file": "/home/raahats/BlockOut/public/synamon/darkspore/stage2.png"
+      },
+      "stage3": {
+        "jobId": "8e6d8ead-44ae-4cae-9d3d-d292e90bdf44",
+        "status": "done",
+        "file": "/home/raahats/BlockOut/public/synamon/darkspore/stage3.png"
+      }
+    },
+    "chuffin": {
+      "stage1": {
+        "jobId": "37ceb43b-9725-4083-9fde-41a5729e4041",
+        "status": "done",
+        "file": "/home/raahats/BlockOut/public/synamon/chuffin/stage1.png"
+      },
+      "stage2": {
+        "jobId": "b460d495-c65e-42b1-8ea0-9c6f3327b728",
+        "status": "done",
+        "file": "/home/raahats/BlockOut/public/synamon/chuffin/stage2.png"
+      }
+    },
+    "tremlet": {
+      "stage1": {
+        "jobId": "664c8c95-9bb0-4fec-b685-f65999eba5de",
+        "status": "done",
+        "file": "/home/raahats/BlockOut/public/synamon/tremlet/stage1.png"
+      },
+      "stage2": {
+        "jobId": "876a97ef-4502-4781-9405-f80ca3d7e1de",
+        "status": "done",
+        "file": "/home/raahats/BlockOut/public/synamon/tremlet/stage2.png"
+      }
+    },
+    "omenix": {
+      "stage1": {
+        "jobId": "d584dbcf-5e0d-4125-be9a-eef627bf5b33",
+        "status": "done",
+        "file": "/home/raahats/BlockOut/public/synamon/omenix/stage1.png"
+      }
+    },
+    "tidepup": {
+      "stage1": {
+        "jobId": "b67512b3-25ae-41c0-aebe-e5fbbf613b1d",
+        "status": "done",
+        "file": "/home/raahats/BlockOut/public/synamon/tidepup/stage1.png"
+      },
+      "stage2": {
+        "jobId": "4cfcc21a-375d-49bb-a19b-99234719e5b9",
+        "status": "done",
+        "file": "/home/raahats/BlockOut/public/synamon/tidepup/stage2.png"
+      },
+      "stage3": {
+        "jobId": "2a63cb1d-3463-4ff1-b743-9335360cdebd",
+        "status": "done",
+        "file": "/home/raahats/BlockOut/public/synamon/tidepup/stage3.png"
+      }
+    },
+    "lunveil": {
+      "stage1": {
+        "jobId": "3d3c01aa-83c5-405b-92a2-ebfb8b63eee2",
+        "status": "done",
+        "file": "/home/raahats/BlockOut/public/synamon/lunveil/stage1.png"
+      }
+    }
+  }
+}

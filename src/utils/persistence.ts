@@ -2,6 +2,8 @@ import { useStore } from '../store';
 import { syncToDropbox, syncFromDropbox, isDropboxConfigured, syncToDropboxWithResolution, getDropboxAuthInfo, forceUploadToDropbox, mergeSnapshots, type AnyRecord } from './dropbox';
 import { saveToR2, loadFromR2, isR2SyncAvailable } from './r2sync';
 import { getAccessToken } from './supabase';
+import { registerSpecies } from '../store/synamonSlice';
+import type { SynamonSpecies } from '../types/synamon';
 
 const DEBUG = import.meta.env.DEV;
 
@@ -188,6 +190,18 @@ export async function saveToCloud(): Promise<void> {
 export async function loadData(): Promise<void> {
   let local: AnyRecord | null = null;
   let remote: AnyRecord | null = null;
+
+  // Load Synamon species registry
+  try {
+    const res = await fetch('/synamon/species.json');
+    if (res.ok) {
+      const species: SynamonSpecies[] = await res.json();
+      registerSpecies(species);
+      if (DEBUG) console.log(`[BlockOut] Registered ${species.length} Synamon species`);
+    }
+  } catch (e) {
+    console.warn('[BlockOut] Failed to load Synamon species', e);
+  }
 
   try {
     local = await idbRead();
