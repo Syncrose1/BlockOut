@@ -138,6 +138,44 @@
         "/synamon/cindrel/stage3-idle/frame4.png",
         "/synamon/cindrel/stage3-idle/frame5.png",
         "/synamon/cindrel/stage3-idle/frame6.png"
+      ],
+      "stage2-focused": [
+        "/synamon/cindrel/stage2-focused/frame0.png",
+        "/synamon/cindrel/stage2-focused/frame1.png",
+        "/synamon/cindrel/stage2-focused/frame2.png",
+        "/synamon/cindrel/stage2-focused/frame3.png",
+        "/synamon/cindrel/stage2-focused/frame4.png",
+        "/synamon/cindrel/stage2-focused/frame5.png",
+        "/synamon/cindrel/stage2-focused/frame6.png",
+        "/synamon/cindrel/stage2-focused/frame7.png",
+        "/synamon/cindrel/stage2-focused/frame8.png",
+        "/synamon/cindrel/stage2-focused/frame9.png",
+        "/synamon/cindrel/stage2-focused/frame10.png",
+        "/synamon/cindrel/stage2-focused/frame11.png",
+        "/synamon/cindrel/stage2-focused/frame12.png",
+        "/synamon/cindrel/stage2-focused/frame13.png",
+        "/synamon/cindrel/stage2-focused/frame14.png",
+        "/synamon/cindrel/stage2-focused/frame15.png",
+        "/synamon/cindrel/stage2-focused/frame16.png"
+      ],
+      "stage1-focused": [
+        "/synamon/cindrel/stage1-focused/frame0.png",
+        "/synamon/cindrel/stage1-focused/frame1.png",
+        "/synamon/cindrel/stage1-focused/frame2.png",
+        "/synamon/cindrel/stage1-focused/frame3.png",
+        "/synamon/cindrel/stage1-focused/frame4.png",
+        "/synamon/cindrel/stage1-focused/frame5.png",
+        "/synamon/cindrel/stage1-focused/frame6.png",
+        "/synamon/cindrel/stage1-focused/frame7.png",
+        "/synamon/cindrel/stage1-focused/frame8.png",
+        "/synamon/cindrel/stage1-focused/frame9.png",
+        "/synamon/cindrel/stage1-focused/frame10.png",
+        "/synamon/cindrel/stage1-focused/frame11.png",
+        "/synamon/cindrel/stage1-focused/frame12.png",
+        "/synamon/cindrel/stage1-focused/frame13.png",
+        "/synamon/cindrel/stage1-focused/frame14.png",
+        "/synamon/cindrel/stage1-focused/frame15.png",
+        "/synamon/cindrel/stage1-focused/frame16.png"
       ]
     },
     "transitions": {
@@ -490,6 +528,63 @@
         "/synamon/aquill/stage1-idle/frame4.png",
         "/synamon/aquill/stage1-idle/frame5.png",
         "/synamon/aquill/stage1-idle/frame6.png"
+      ],
+      "stage1-focused": [
+        "/synamon/aquill/stage1-focused/frame0.png",
+        "/synamon/aquill/stage1-focused/frame1.png",
+        "/synamon/aquill/stage1-focused/frame2.png",
+        "/synamon/aquill/stage1-focused/frame3.png",
+        "/synamon/aquill/stage1-focused/frame4.png",
+        "/synamon/aquill/stage1-focused/frame5.png",
+        "/synamon/aquill/stage1-focused/frame6.png",
+        "/synamon/aquill/stage1-focused/frame7.png",
+        "/synamon/aquill/stage1-focused/frame8.png",
+        "/synamon/aquill/stage1-focused/frame9.png",
+        "/synamon/aquill/stage1-focused/frame10.png",
+        "/synamon/aquill/stage1-focused/frame11.png",
+        "/synamon/aquill/stage1-focused/frame12.png",
+        "/synamon/aquill/stage1-focused/frame13.png",
+        "/synamon/aquill/stage1-focused/frame14.png",
+        "/synamon/aquill/stage1-focused/frame15.png",
+        "/synamon/aquill/stage1-focused/frame16.png"
+      ],
+      "stage2-focused": [
+        "/synamon/aquill/stage2-focused/frame0.png",
+        "/synamon/aquill/stage2-focused/frame1.png",
+        "/synamon/aquill/stage2-focused/frame2.png",
+        "/synamon/aquill/stage2-focused/frame3.png",
+        "/synamon/aquill/stage2-focused/frame4.png",
+        "/synamon/aquill/stage2-focused/frame5.png",
+        "/synamon/aquill/stage2-focused/frame6.png",
+        "/synamon/aquill/stage2-focused/frame7.png",
+        "/synamon/aquill/stage2-focused/frame8.png",
+        "/synamon/aquill/stage2-focused/frame9.png",
+        "/synamon/aquill/stage2-focused/frame10.png",
+        "/synamon/aquill/stage2-focused/frame11.png",
+        "/synamon/aquill/stage2-focused/frame12.png",
+        "/synamon/aquill/stage2-focused/frame13.png",
+        "/synamon/aquill/stage2-focused/frame14.png",
+        "/synamon/aquill/stage2-focused/frame15.png",
+        "/synamon/aquill/stage2-focused/frame16.png"
+      ],
+      "stage3-focused": [
+        "/synamon/aquill/stage3-focused/frame0.png",
+        "/synamon/aquill/stage3-focused/frame1.png",
+        "/synamon/aquill/stage3-focused/frame2.png",
+        "/synamon/aquill/stage3-focused/frame3.png",
+        "/synamon/aquill/stage3-focused/frame4.png",
+        "/synamon/aquill/stage3-focused/frame5.png",
+        "/synamon/aquill/stage3-focused/frame6.png",
+        "/synamon/aquill/stage3-focused/frame7.png",
+        "/synamon/aquill/stage3-focused/frame8.png",
+        "/synamon/aquill/stage3-focused/frame9.png",
+        "/synamon/aquill/stage3-focused/frame10.png",
+        "/synamon/aquill/stage3-focused/frame11.png",
+        "/synamon/aquill/stage3-focused/frame12.png",
+        "/synamon/aquill/stage3-focused/frame13.png",
+        "/synamon/aquill/stage3-focused/frame14.png",
+        "/synamon/aquill/stage3-focused/frame15.png",
+        "/synamon/aquill/stage3-focused/frame16.png"
       ]
     },
     "transitions": {
@@ -842,6 +937,44 @@
         "/synamon/brezzet/stage3-idle/frame4.png",
         "/synamon/brezzet/stage3-idle/frame5.png",
         "/synamon/brezzet/stage3-idle/frame6.png"
+      ],
+      "stage2-focused": [
+        "/synamon/brezzet/stage2-focused/frame0.png",
+        "/synamon/brezzet/stage2-focused/frame1.png",
+        "/synamon/brezzet/stage2-focused/frame2.png",
+        "/synamon/brezzet/stage2-focused/frame3.png",
+        "/synamon/brezzet/stage2-focused/frame4.png",
+        "/synamon/brezzet/stage2-focused/frame5.png",
+        "/synamon/brezzet/stage2-focused/frame6.png",
+        "/synamon/brezzet/stage2-focused/frame7.png",
+        "/synamon/brezzet/stage2-focused/frame8.png",
+        "/synamon/brezzet/stage2-focused/frame9.png",
+        "/synamon/brezzet/stage2-focused/frame10.png",
+        "/synamon/brezzet/stage2-focused/frame11.png",
+        "/synamon/brezzet/stage2-focused/frame12.png",
+        "/synamon/brezzet/stage2-focused/frame13.png",
+        "/synamon/brezzet/stage2-focused/frame14.png",
+        "/synamon/brezzet/stage2-focused/frame15.png",
+        "/synamon/brezzet/stage2-focused/frame16.png"
+      ],
+      "stage1-focused": [
+        "/synamon/brezzet/stage1-focused/frame0.png",
+        "/synamon/brezzet/stage1-focused/frame1.png",
+        "/synamon/brezzet/stage1-focused/frame2.png",
+        "/synamon/brezzet/stage1-focused/frame3.png",
+        "/synamon/brezzet/stage1-focused/frame4.png",
+        "/synamon/brezzet/stage1-focused/frame5.png",
+        "/synamon/brezzet/stage1-focused/frame6.png",
+        "/synamon/brezzet/stage1-focused/frame7.png",
+        "/synamon/brezzet/stage1-focused/frame8.png",
+        "/synamon/brezzet/stage1-focused/frame9.png",
+        "/synamon/brezzet/stage1-focused/frame10.png",
+        "/synamon/brezzet/stage1-focused/frame11.png",
+        "/synamon/brezzet/stage1-focused/frame12.png",
+        "/synamon/brezzet/stage1-focused/frame13.png",
+        "/synamon/brezzet/stage1-focused/frame14.png",
+        "/synamon/brezzet/stage1-focused/frame15.png",
+        "/synamon/brezzet/stage1-focused/frame16.png"
       ]
     },
     "transitions": {
@@ -1152,6 +1285,25 @@
         "/synamon/glowick/stage2-idle/frame4.png",
         "/synamon/glowick/stage2-idle/frame5.png",
         "/synamon/glowick/stage2-idle/frame6.png"
+      ],
+      "stage1-focused": [
+        "/synamon/glowick/stage1-focused/frame0.png",
+        "/synamon/glowick/stage1-focused/frame1.png",
+        "/synamon/glowick/stage1-focused/frame2.png",
+        "/synamon/glowick/stage1-focused/frame3.png",
+        "/synamon/glowick/stage1-focused/frame4.png",
+        "/synamon/glowick/stage1-focused/frame5.png",
+        "/synamon/glowick/stage1-focused/frame6.png",
+        "/synamon/glowick/stage1-focused/frame7.png",
+        "/synamon/glowick/stage1-focused/frame8.png",
+        "/synamon/glowick/stage1-focused/frame9.png",
+        "/synamon/glowick/stage1-focused/frame10.png",
+        "/synamon/glowick/stage1-focused/frame11.png",
+        "/synamon/glowick/stage1-focused/frame12.png",
+        "/synamon/glowick/stage1-focused/frame13.png",
+        "/synamon/glowick/stage1-focused/frame14.png",
+        "/synamon/glowick/stage1-focused/frame15.png",
+        "/synamon/glowick/stage1-focused/frame16.png"
       ]
     },
     "transitions": {
@@ -1357,6 +1509,25 @@
         "/synamon/murkling/stage2-attack/frame4.png",
         "/synamon/murkling/stage2-attack/frame5.png",
         "/synamon/murkling/stage2-attack/frame6.png"
+      ],
+      "stage1-focused": [
+        "/synamon/murkling/stage1-focused/frame0.png",
+        "/synamon/murkling/stage1-focused/frame1.png",
+        "/synamon/murkling/stage1-focused/frame2.png",
+        "/synamon/murkling/stage1-focused/frame3.png",
+        "/synamon/murkling/stage1-focused/frame4.png",
+        "/synamon/murkling/stage1-focused/frame5.png",
+        "/synamon/murkling/stage1-focused/frame6.png",
+        "/synamon/murkling/stage1-focused/frame7.png",
+        "/synamon/murkling/stage1-focused/frame8.png",
+        "/synamon/murkling/stage1-focused/frame9.png",
+        "/synamon/murkling/stage1-focused/frame10.png",
+        "/synamon/murkling/stage1-focused/frame11.png",
+        "/synamon/murkling/stage1-focused/frame12.png",
+        "/synamon/murkling/stage1-focused/frame13.png",
+        "/synamon/murkling/stage1-focused/frame14.png",
+        "/synamon/murkling/stage1-focused/frame15.png",
+        "/synamon/murkling/stage1-focused/frame16.png"
       ]
     },
     "transitions": {
@@ -1605,6 +1776,25 @@
         "/synamon/peblix/stage3-idle/frame4.png",
         "/synamon/peblix/stage3-idle/frame5.png",
         "/synamon/peblix/stage3-idle/frame6.png"
+      ],
+      "stage1-focused": [
+        "/synamon/peblix/stage1-focused/frame0.png",
+        "/synamon/peblix/stage1-focused/frame1.png",
+        "/synamon/peblix/stage1-focused/frame2.png",
+        "/synamon/peblix/stage1-focused/frame3.png",
+        "/synamon/peblix/stage1-focused/frame4.png",
+        "/synamon/peblix/stage1-focused/frame5.png",
+        "/synamon/peblix/stage1-focused/frame6.png",
+        "/synamon/peblix/stage1-focused/frame7.png",
+        "/synamon/peblix/stage1-focused/frame8.png",
+        "/synamon/peblix/stage1-focused/frame9.png",
+        "/synamon/peblix/stage1-focused/frame10.png",
+        "/synamon/peblix/stage1-focused/frame11.png",
+        "/synamon/peblix/stage1-focused/frame12.png",
+        "/synamon/peblix/stage1-focused/frame13.png",
+        "/synamon/peblix/stage1-focused/frame14.png",
+        "/synamon/peblix/stage1-focused/frame15.png",
+        "/synamon/peblix/stage1-focused/frame16.png"
       ]
     },
     "transitions": {
@@ -1915,6 +2105,25 @@
         "/synamon/humtick/stage2-attack/frame4.png",
         "/synamon/humtick/stage2-attack/frame5.png",
         "/synamon/humtick/stage2-attack/frame6.png"
+      ],
+      "stage1-focused": [
+        "/synamon/humtick/stage1-focused/frame0.png",
+        "/synamon/humtick/stage1-focused/frame1.png",
+        "/synamon/humtick/stage1-focused/frame2.png",
+        "/synamon/humtick/stage1-focused/frame3.png",
+        "/synamon/humtick/stage1-focused/frame4.png",
+        "/synamon/humtick/stage1-focused/frame5.png",
+        "/synamon/humtick/stage1-focused/frame6.png",
+        "/synamon/humtick/stage1-focused/frame7.png",
+        "/synamon/humtick/stage1-focused/frame8.png",
+        "/synamon/humtick/stage1-focused/frame9.png",
+        "/synamon/humtick/stage1-focused/frame10.png",
+        "/synamon/humtick/stage1-focused/frame11.png",
+        "/synamon/humtick/stage1-focused/frame12.png",
+        "/synamon/humtick/stage1-focused/frame13.png",
+        "/synamon/humtick/stage1-focused/frame14.png",
+        "/synamon/humtick/stage1-focused/frame15.png",
+        "/synamon/humtick/stage1-focused/frame16.png"
       ]
     },
     "transitions": {
@@ -2163,6 +2372,25 @@
         "/synamon/crystub/stage3-attack/frame4.png",
         "/synamon/crystub/stage3-attack/frame5.png",
         "/synamon/crystub/stage3-attack/frame6.png"
+      ],
+      "stage1-focused": [
+        "/synamon/crystub/stage1-focused/frame0.png",
+        "/synamon/crystub/stage1-focused/frame1.png",
+        "/synamon/crystub/stage1-focused/frame2.png",
+        "/synamon/crystub/stage1-focused/frame3.png",
+        "/synamon/crystub/stage1-focused/frame4.png",
+        "/synamon/crystub/stage1-focused/frame5.png",
+        "/synamon/crystub/stage1-focused/frame6.png",
+        "/synamon/crystub/stage1-focused/frame7.png",
+        "/synamon/crystub/stage1-focused/frame8.png",
+        "/synamon/crystub/stage1-focused/frame9.png",
+        "/synamon/crystub/stage1-focused/frame10.png",
+        "/synamon/crystub/stage1-focused/frame11.png",
+        "/synamon/crystub/stage1-focused/frame12.png",
+        "/synamon/crystub/stage1-focused/frame13.png",
+        "/synamon/crystub/stage1-focused/frame14.png",
+        "/synamon/crystub/stage1-focused/frame15.png",
+        "/synamon/crystub/stage1-focused/frame16.png"
       ]
     },
     "transitions": {
@@ -2380,7 +2608,7 @@
     "id": "cloakrit",
     "name": "Cloakrit",
     "type": "Umbra",
-    "secondaryType": "Aqua",
+    "secondaryType": "Venom",
     "baseStats": {
       "hp": 50,
       "atk": 60,
@@ -2473,6 +2701,25 @@
         "/synamon/cloakrit/stage2-attack/frame4.png",
         "/synamon/cloakrit/stage2-attack/frame5.png",
         "/synamon/cloakrit/stage2-attack/frame6.png"
+      ],
+      "stage1-focused": [
+        "/synamon/cloakrit/stage1-focused/frame0.png",
+        "/synamon/cloakrit/stage1-focused/frame1.png",
+        "/synamon/cloakrit/stage1-focused/frame2.png",
+        "/synamon/cloakrit/stage1-focused/frame3.png",
+        "/synamon/cloakrit/stage1-focused/frame4.png",
+        "/synamon/cloakrit/stage1-focused/frame5.png",
+        "/synamon/cloakrit/stage1-focused/frame6.png",
+        "/synamon/cloakrit/stage1-focused/frame7.png",
+        "/synamon/cloakrit/stage1-focused/frame8.png",
+        "/synamon/cloakrit/stage1-focused/frame9.png",
+        "/synamon/cloakrit/stage1-focused/frame10.png",
+        "/synamon/cloakrit/stage1-focused/frame11.png",
+        "/synamon/cloakrit/stage1-focused/frame12.png",
+        "/synamon/cloakrit/stage1-focused/frame13.png",
+        "/synamon/cloakrit/stage1-focused/frame14.png",
+        "/synamon/cloakrit/stage1-focused/frame15.png",
+        "/synamon/cloakrit/stage1-focused/frame16.png"
       ]
     },
     "transitions": {
@@ -2721,6 +2968,25 @@
         "/synamon/ashpaw/stage2-attack/frame4.png",
         "/synamon/ashpaw/stage2-attack/frame5.png",
         "/synamon/ashpaw/stage2-attack/frame6.png"
+      ],
+      "stage1-focused": [
+        "/synamon/ashpaw/stage1-focused/frame0.png",
+        "/synamon/ashpaw/stage1-focused/frame1.png",
+        "/synamon/ashpaw/stage1-focused/frame2.png",
+        "/synamon/ashpaw/stage1-focused/frame3.png",
+        "/synamon/ashpaw/stage1-focused/frame4.png",
+        "/synamon/ashpaw/stage1-focused/frame5.png",
+        "/synamon/ashpaw/stage1-focused/frame6.png",
+        "/synamon/ashpaw/stage1-focused/frame7.png",
+        "/synamon/ashpaw/stage1-focused/frame8.png",
+        "/synamon/ashpaw/stage1-focused/frame9.png",
+        "/synamon/ashpaw/stage1-focused/frame10.png",
+        "/synamon/ashpaw/stage1-focused/frame11.png",
+        "/synamon/ashpaw/stage1-focused/frame12.png",
+        "/synamon/ashpaw/stage1-focused/frame13.png",
+        "/synamon/ashpaw/stage1-focused/frame14.png",
+        "/synamon/ashpaw/stage1-focused/frame15.png",
+        "/synamon/ashpaw/stage1-focused/frame16.png"
       ]
     },
     "transitions": {
@@ -3031,6 +3297,25 @@
         "/synamon/driftull/stage2-attack/frame4.png",
         "/synamon/driftull/stage2-attack/frame5.png",
         "/synamon/driftull/stage2-attack/frame6.png"
+      ],
+      "stage1-focused": [
+        "/synamon/driftull/stage1-focused/frame0.png",
+        "/synamon/driftull/stage1-focused/frame1.png",
+        "/synamon/driftull/stage1-focused/frame2.png",
+        "/synamon/driftull/stage1-focused/frame3.png",
+        "/synamon/driftull/stage1-focused/frame4.png",
+        "/synamon/driftull/stage1-focused/frame5.png",
+        "/synamon/driftull/stage1-focused/frame6.png",
+        "/synamon/driftull/stage1-focused/frame7.png",
+        "/synamon/driftull/stage1-focused/frame8.png",
+        "/synamon/driftull/stage1-focused/frame9.png",
+        "/synamon/driftull/stage1-focused/frame10.png",
+        "/synamon/driftull/stage1-focused/frame11.png",
+        "/synamon/driftull/stage1-focused/frame12.png",
+        "/synamon/driftull/stage1-focused/frame13.png",
+        "/synamon/driftull/stage1-focused/frame14.png",
+        "/synamon/driftull/stage1-focused/frame15.png",
+        "/synamon/driftull/stage1-focused/frame16.png"
       ]
     },
     "transitions": {
@@ -3279,6 +3564,25 @@
         "/synamon/buzzlit/stage3-idle/frame4.png",
         "/synamon/buzzlit/stage3-idle/frame5.png",
         "/synamon/buzzlit/stage3-idle/frame6.png"
+      ],
+      "stage1-focused": [
+        "/synamon/buzzlit/stage1-focused/frame0.png",
+        "/synamon/buzzlit/stage1-focused/frame1.png",
+        "/synamon/buzzlit/stage1-focused/frame2.png",
+        "/synamon/buzzlit/stage1-focused/frame3.png",
+        "/synamon/buzzlit/stage1-focused/frame4.png",
+        "/synamon/buzzlit/stage1-focused/frame5.png",
+        "/synamon/buzzlit/stage1-focused/frame6.png",
+        "/synamon/buzzlit/stage1-focused/frame7.png",
+        "/synamon/buzzlit/stage1-focused/frame8.png",
+        "/synamon/buzzlit/stage1-focused/frame9.png",
+        "/synamon/buzzlit/stage1-focused/frame10.png",
+        "/synamon/buzzlit/stage1-focused/frame11.png",
+        "/synamon/buzzlit/stage1-focused/frame12.png",
+        "/synamon/buzzlit/stage1-focused/frame13.png",
+        "/synamon/buzzlit/stage1-focused/frame14.png",
+        "/synamon/buzzlit/stage1-focused/frame15.png",
+        "/synamon/buzzlit/stage1-focused/frame16.png"
       ]
     },
     "transitions": {
@@ -3588,6 +3892,25 @@
         "/synamon/galecub/stage2-attack/frame4.png",
         "/synamon/galecub/stage2-attack/frame5.png",
         "/synamon/galecub/stage2-attack/frame6.png"
+      ],
+      "stage1-focused": [
+        "/synamon/galecub/stage1-focused/frame0.png",
+        "/synamon/galecub/stage1-focused/frame1.png",
+        "/synamon/galecub/stage1-focused/frame2.png",
+        "/synamon/galecub/stage1-focused/frame3.png",
+        "/synamon/galecub/stage1-focused/frame4.png",
+        "/synamon/galecub/stage1-focused/frame5.png",
+        "/synamon/galecub/stage1-focused/frame6.png",
+        "/synamon/galecub/stage1-focused/frame7.png",
+        "/synamon/galecub/stage1-focused/frame8.png",
+        "/synamon/galecub/stage1-focused/frame9.png",
+        "/synamon/galecub/stage1-focused/frame10.png",
+        "/synamon/galecub/stage1-focused/frame11.png",
+        "/synamon/galecub/stage1-focused/frame12.png",
+        "/synamon/galecub/stage1-focused/frame13.png",
+        "/synamon/galecub/stage1-focused/frame14.png",
+        "/synamon/galecub/stage1-focused/frame15.png",
+        "/synamon/galecub/stage1-focused/frame16.png"
       ]
     },
     "transitions": {
@@ -3836,6 +4159,25 @@
         "/synamon/sporik/stage3-attack/frame4.png",
         "/synamon/sporik/stage3-attack/frame5.png",
         "/synamon/sporik/stage3-attack/frame6.png"
+      ],
+      "stage1-focused": [
+        "/synamon/sporik/stage1-focused/frame0.png",
+        "/synamon/sporik/stage1-focused/frame1.png",
+        "/synamon/sporik/stage1-focused/frame2.png",
+        "/synamon/sporik/stage1-focused/frame3.png",
+        "/synamon/sporik/stage1-focused/frame4.png",
+        "/synamon/sporik/stage1-focused/frame5.png",
+        "/synamon/sporik/stage1-focused/frame6.png",
+        "/synamon/sporik/stage1-focused/frame7.png",
+        "/synamon/sporik/stage1-focused/frame8.png",
+        "/synamon/sporik/stage1-focused/frame9.png",
+        "/synamon/sporik/stage1-focused/frame10.png",
+        "/synamon/sporik/stage1-focused/frame11.png",
+        "/synamon/sporik/stage1-focused/frame12.png",
+        "/synamon/sporik/stage1-focused/frame13.png",
+        "/synamon/sporik/stage1-focused/frame14.png",
+        "/synamon/sporik/stage1-focused/frame15.png",
+        "/synamon/sporik/stage1-focused/frame16.png"
       ]
     },
     "transitions": {
@@ -4052,7 +4394,7 @@
   {
     "id": "spectrix",
     "name": "Spectrix",
-    "type": "Arcanus",
+    "type": "Spiritus",
     "secondaryType": "Lux",
     "baseStats": {
       "hp": 43,
@@ -4146,6 +4488,25 @@
         "/synamon/spectrix/stage2-attack/frame4.png",
         "/synamon/spectrix/stage2-attack/frame5.png",
         "/synamon/spectrix/stage2-attack/frame6.png"
+      ],
+      "stage1-focused": [
+        "/synamon/spectrix/stage1-focused/frame0.png",
+        "/synamon/spectrix/stage1-focused/frame1.png",
+        "/synamon/spectrix/stage1-focused/frame2.png",
+        "/synamon/spectrix/stage1-focused/frame3.png",
+        "/synamon/spectrix/stage1-focused/frame4.png",
+        "/synamon/spectrix/stage1-focused/frame5.png",
+        "/synamon/spectrix/stage1-focused/frame6.png",
+        "/synamon/spectrix/stage1-focused/frame7.png",
+        "/synamon/spectrix/stage1-focused/frame8.png",
+        "/synamon/spectrix/stage1-focused/frame9.png",
+        "/synamon/spectrix/stage1-focused/frame10.png",
+        "/synamon/spectrix/stage1-focused/frame11.png",
+        "/synamon/spectrix/stage1-focused/frame12.png",
+        "/synamon/spectrix/stage1-focused/frame13.png",
+        "/synamon/spectrix/stage1-focused/frame14.png",
+        "/synamon/spectrix/stage1-focused/frame15.png",
+        "/synamon/spectrix/stage1-focused/frame16.png"
       ]
     },
     "transitions": {
@@ -4352,6 +4713,25 @@
         "/synamon/flintlet/stage2-attack/frame4.png",
         "/synamon/flintlet/stage2-attack/frame5.png",
         "/synamon/flintlet/stage2-attack/frame6.png"
+      ],
+      "stage1-focused": [
+        "/synamon/flintlet/stage1-focused/frame0.png",
+        "/synamon/flintlet/stage1-focused/frame1.png",
+        "/synamon/flintlet/stage1-focused/frame2.png",
+        "/synamon/flintlet/stage1-focused/frame3.png",
+        "/synamon/flintlet/stage1-focused/frame4.png",
+        "/synamon/flintlet/stage1-focused/frame5.png",
+        "/synamon/flintlet/stage1-focused/frame6.png",
+        "/synamon/flintlet/stage1-focused/frame7.png",
+        "/synamon/flintlet/stage1-focused/frame8.png",
+        "/synamon/flintlet/stage1-focused/frame9.png",
+        "/synamon/flintlet/stage1-focused/frame10.png",
+        "/synamon/flintlet/stage1-focused/frame11.png",
+        "/synamon/flintlet/stage1-focused/frame12.png",
+        "/synamon/flintlet/stage1-focused/frame13.png",
+        "/synamon/flintlet/stage1-focused/frame14.png",
+        "/synamon/flintlet/stage1-focused/frame15.png",
+        "/synamon/flintlet/stage1-focused/frame16.png"
       ]
     },
     "transitions": {
@@ -4600,6 +4980,25 @@
         "/synamon/glintfin/stage2-attack/frame4.png",
         "/synamon/glintfin/stage2-attack/frame5.png",
         "/synamon/glintfin/stage2-attack/frame6.png"
+      ],
+      "stage1-focused": [
+        "/synamon/glintfin/stage1-focused/frame0.png",
+        "/synamon/glintfin/stage1-focused/frame1.png",
+        "/synamon/glintfin/stage1-focused/frame2.png",
+        "/synamon/glintfin/stage1-focused/frame3.png",
+        "/synamon/glintfin/stage1-focused/frame4.png",
+        "/synamon/glintfin/stage1-focused/frame5.png",
+        "/synamon/glintfin/stage1-focused/frame6.png",
+        "/synamon/glintfin/stage1-focused/frame7.png",
+        "/synamon/glintfin/stage1-focused/frame8.png",
+        "/synamon/glintfin/stage1-focused/frame9.png",
+        "/synamon/glintfin/stage1-focused/frame10.png",
+        "/synamon/glintfin/stage1-focused/frame11.png",
+        "/synamon/glintfin/stage1-focused/frame12.png",
+        "/synamon/glintfin/stage1-focused/frame13.png",
+        "/synamon/glintfin/stage1-focused/frame14.png",
+        "/synamon/glintfin/stage1-focused/frame15.png",
+        "/synamon/glintfin/stage1-focused/frame16.png"
       ]
     },
     "transitions": {
@@ -4909,6 +5308,25 @@
         "/synamon/runekit/stage2-attack/frame4.png",
         "/synamon/runekit/stage2-attack/frame5.png",
         "/synamon/runekit/stage2-attack/frame6.png"
+      ],
+      "stage1-focused": [
+        "/synamon/runekit/stage1-focused/frame0.png",
+        "/synamon/runekit/stage1-focused/frame1.png",
+        "/synamon/runekit/stage1-focused/frame2.png",
+        "/synamon/runekit/stage1-focused/frame3.png",
+        "/synamon/runekit/stage1-focused/frame4.png",
+        "/synamon/runekit/stage1-focused/frame5.png",
+        "/synamon/runekit/stage1-focused/frame6.png",
+        "/synamon/runekit/stage1-focused/frame7.png",
+        "/synamon/runekit/stage1-focused/frame8.png",
+        "/synamon/runekit/stage1-focused/frame9.png",
+        "/synamon/runekit/stage1-focused/frame10.png",
+        "/synamon/runekit/stage1-focused/frame11.png",
+        "/synamon/runekit/stage1-focused/frame12.png",
+        "/synamon/runekit/stage1-focused/frame13.png",
+        "/synamon/runekit/stage1-focused/frame14.png",
+        "/synamon/runekit/stage1-focused/frame15.png",
+        "/synamon/runekit/stage1-focused/frame16.png"
       ]
     },
     "transitions": {
@@ -5022,7 +5440,7 @@
     "id": "windmite",
     "name": "Windmite",
     "type": "Ventus",
-    "secondaryType": "Terra",
+    "secondaryType": "Venom",
     "baseStats": {
       "hp": 40,
       "atk": 35,
@@ -5157,6 +5575,25 @@
         "/synamon/windmite/stage2-attack/frame4.png",
         "/synamon/windmite/stage2-attack/frame5.png",
         "/synamon/windmite/stage2-attack/frame6.png"
+      ],
+      "stage1-focused": [
+        "/synamon/windmite/stage1-focused/frame0.png",
+        "/synamon/windmite/stage1-focused/frame1.png",
+        "/synamon/windmite/stage1-focused/frame2.png",
+        "/synamon/windmite/stage1-focused/frame3.png",
+        "/synamon/windmite/stage1-focused/frame4.png",
+        "/synamon/windmite/stage1-focused/frame5.png",
+        "/synamon/windmite/stage1-focused/frame6.png",
+        "/synamon/windmite/stage1-focused/frame7.png",
+        "/synamon/windmite/stage1-focused/frame8.png",
+        "/synamon/windmite/stage1-focused/frame9.png",
+        "/synamon/windmite/stage1-focused/frame10.png",
+        "/synamon/windmite/stage1-focused/frame11.png",
+        "/synamon/windmite/stage1-focused/frame12.png",
+        "/synamon/windmite/stage1-focused/frame13.png",
+        "/synamon/windmite/stage1-focused/frame14.png",
+        "/synamon/windmite/stage1-focused/frame15.png",
+        "/synamon/windmite/stage1-focused/frame16.png"
       ]
     },
     "transitions": {
@@ -5466,6 +5903,25 @@
         "/synamon/duskrat/stage2-attack/frame4.png",
         "/synamon/duskrat/stage2-attack/frame5.png",
         "/synamon/duskrat/stage2-attack/frame6.png"
+      ],
+      "stage1-focused": [
+        "/synamon/duskrat/stage1-focused/frame0.png",
+        "/synamon/duskrat/stage1-focused/frame1.png",
+        "/synamon/duskrat/stage1-focused/frame2.png",
+        "/synamon/duskrat/stage1-focused/frame3.png",
+        "/synamon/duskrat/stage1-focused/frame4.png",
+        "/synamon/duskrat/stage1-focused/frame5.png",
+        "/synamon/duskrat/stage1-focused/frame6.png",
+        "/synamon/duskrat/stage1-focused/frame7.png",
+        "/synamon/duskrat/stage1-focused/frame8.png",
+        "/synamon/duskrat/stage1-focused/frame9.png",
+        "/synamon/duskrat/stage1-focused/frame10.png",
+        "/synamon/duskrat/stage1-focused/frame11.png",
+        "/synamon/duskrat/stage1-focused/frame12.png",
+        "/synamon/duskrat/stage1-focused/frame13.png",
+        "/synamon/duskrat/stage1-focused/frame14.png",
+        "/synamon/duskrat/stage1-focused/frame15.png",
+        "/synamon/duskrat/stage1-focused/frame16.png"
       ]
     },
     "transitions": {
@@ -5714,6 +6170,25 @@
         "/synamon/bassolt/stage3-idle/frame4.png",
         "/synamon/bassolt/stage3-idle/frame5.png",
         "/synamon/bassolt/stage3-idle/frame6.png"
+      ],
+      "stage1-focused": [
+        "/synamon/bassolt/stage1-focused/frame0.png",
+        "/synamon/bassolt/stage1-focused/frame1.png",
+        "/synamon/bassolt/stage1-focused/frame2.png",
+        "/synamon/bassolt/stage1-focused/frame3.png",
+        "/synamon/bassolt/stage1-focused/frame4.png",
+        "/synamon/bassolt/stage1-focused/frame5.png",
+        "/synamon/bassolt/stage1-focused/frame6.png",
+        "/synamon/bassolt/stage1-focused/frame7.png",
+        "/synamon/bassolt/stage1-focused/frame8.png",
+        "/synamon/bassolt/stage1-focused/frame9.png",
+        "/synamon/bassolt/stage1-focused/frame10.png",
+        "/synamon/bassolt/stage1-focused/frame11.png",
+        "/synamon/bassolt/stage1-focused/frame12.png",
+        "/synamon/bassolt/stage1-focused/frame13.png",
+        "/synamon/bassolt/stage1-focused/frame14.png",
+        "/synamon/bassolt/stage1-focused/frame15.png",
+        "/synamon/bassolt/stage1-focused/frame16.png"
       ]
     },
     "transitions": {
@@ -5930,7 +6405,7 @@
   {
     "id": "glassling",
     "name": "Glassling",
-    "type": "Arcanus",
+    "type": "Spiritus",
     "secondaryType": "Flying",
     "baseStats": {
       "hp": 40,
@@ -6024,6 +6499,25 @@
         "/synamon/glassling/stage2-attack/frame4.png",
         "/synamon/glassling/stage2-attack/frame5.png",
         "/synamon/glassling/stage2-attack/frame6.png"
+      ],
+      "stage1-focused": [
+        "/synamon/glassling/stage1-focused/frame0.png",
+        "/synamon/glassling/stage1-focused/frame1.png",
+        "/synamon/glassling/stage1-focused/frame2.png",
+        "/synamon/glassling/stage1-focused/frame3.png",
+        "/synamon/glassling/stage1-focused/frame4.png",
+        "/synamon/glassling/stage1-focused/frame5.png",
+        "/synamon/glassling/stage1-focused/frame6.png",
+        "/synamon/glassling/stage1-focused/frame7.png",
+        "/synamon/glassling/stage1-focused/frame8.png",
+        "/synamon/glassling/stage1-focused/frame9.png",
+        "/synamon/glassling/stage1-focused/frame10.png",
+        "/synamon/glassling/stage1-focused/frame11.png",
+        "/synamon/glassling/stage1-focused/frame12.png",
+        "/synamon/glassling/stage1-focused/frame13.png",
+        "/synamon/glassling/stage1-focused/frame14.png",
+        "/synamon/glassling/stage1-focused/frame15.png",
+        "/synamon/glassling/stage1-focused/frame16.png"
       ]
     },
     "transitions": {
@@ -6272,6 +6766,25 @@
         "/synamon/tidepup/stage2-attack/frame4.png",
         "/synamon/tidepup/stage2-attack/frame5.png",
         "/synamon/tidepup/stage2-attack/frame6.png"
+      ],
+      "stage1-focused": [
+        "/synamon/tidepup/stage1-focused/frame0.png",
+        "/synamon/tidepup/stage1-focused/frame1.png",
+        "/synamon/tidepup/stage1-focused/frame2.png",
+        "/synamon/tidepup/stage1-focused/frame3.png",
+        "/synamon/tidepup/stage1-focused/frame4.png",
+        "/synamon/tidepup/stage1-focused/frame5.png",
+        "/synamon/tidepup/stage1-focused/frame6.png",
+        "/synamon/tidepup/stage1-focused/frame7.png",
+        "/synamon/tidepup/stage1-focused/frame8.png",
+        "/synamon/tidepup/stage1-focused/frame9.png",
+        "/synamon/tidepup/stage1-focused/frame10.png",
+        "/synamon/tidepup/stage1-focused/frame11.png",
+        "/synamon/tidepup/stage1-focused/frame12.png",
+        "/synamon/tidepup/stage1-focused/frame13.png",
+        "/synamon/tidepup/stage1-focused/frame14.png",
+        "/synamon/tidepup/stage1-focused/frame15.png",
+        "/synamon/tidepup/stage1-focused/frame16.png"
       ]
     },
     "transitions": {
@@ -6582,6 +7095,25 @@
         "/synamon/fluxling/stage2-attack/frame4.png",
         "/synamon/fluxling/stage2-attack/frame5.png",
         "/synamon/fluxling/stage2-attack/frame6.png"
+      ],
+      "stage1-focused": [
+        "/synamon/fluxling/stage1-focused/frame0.png",
+        "/synamon/fluxling/stage1-focused/frame1.png",
+        "/synamon/fluxling/stage1-focused/frame2.png",
+        "/synamon/fluxling/stage1-focused/frame3.png",
+        "/synamon/fluxling/stage1-focused/frame4.png",
+        "/synamon/fluxling/stage1-focused/frame5.png",
+        "/synamon/fluxling/stage1-focused/frame6.png",
+        "/synamon/fluxling/stage1-focused/frame7.png",
+        "/synamon/fluxling/stage1-focused/frame8.png",
+        "/synamon/fluxling/stage1-focused/frame9.png",
+        "/synamon/fluxling/stage1-focused/frame10.png",
+        "/synamon/fluxling/stage1-focused/frame11.png",
+        "/synamon/fluxling/stage1-focused/frame12.png",
+        "/synamon/fluxling/stage1-focused/frame13.png",
+        "/synamon/fluxling/stage1-focused/frame14.png",
+        "/synamon/fluxling/stage1-focused/frame15.png",
+        "/synamon/fluxling/stage1-focused/frame16.png"
       ]
     },
     "transitions": {
@@ -6830,6 +7362,25 @@
         "/synamon/lumenox/stage3-idle/frame4.png",
         "/synamon/lumenox/stage3-idle/frame5.png",
         "/synamon/lumenox/stage3-idle/frame6.png"
+      ],
+      "stage1-focused": [
+        "/synamon/lumenox/stage1-focused/frame0.png",
+        "/synamon/lumenox/stage1-focused/frame1.png",
+        "/synamon/lumenox/stage1-focused/frame2.png",
+        "/synamon/lumenox/stage1-focused/frame3.png",
+        "/synamon/lumenox/stage1-focused/frame4.png",
+        "/synamon/lumenox/stage1-focused/frame5.png",
+        "/synamon/lumenox/stage1-focused/frame6.png",
+        "/synamon/lumenox/stage1-focused/frame7.png",
+        "/synamon/lumenox/stage1-focused/frame8.png",
+        "/synamon/lumenox/stage1-focused/frame9.png",
+        "/synamon/lumenox/stage1-focused/frame10.png",
+        "/synamon/lumenox/stage1-focused/frame11.png",
+        "/synamon/lumenox/stage1-focused/frame12.png",
+        "/synamon/lumenox/stage1-focused/frame13.png",
+        "/synamon/lumenox/stage1-focused/frame14.png",
+        "/synamon/lumenox/stage1-focused/frame15.png",
+        "/synamon/lumenox/stage1-focused/frame16.png"
       ]
     },
     "transitions": {
@@ -7253,7 +7804,7 @@
     "id": "darkspore",
     "name": "Darkspore",
     "type": "Umbra",
-    "secondaryType": "Natura",
+    "secondaryType": "Venom",
     "baseStats": {
       "hp": 38,
       "atk": 48,
@@ -7388,6 +7939,25 @@
         "/synamon/darkspore/stage2-attack/frame4.png",
         "/synamon/darkspore/stage2-attack/frame5.png",
         "/synamon/darkspore/stage2-attack/frame6.png"
+      ],
+      "stage1-focused": [
+        "/synamon/darkspore/stage1-focused/frame0.png",
+        "/synamon/darkspore/stage1-focused/frame1.png",
+        "/synamon/darkspore/stage1-focused/frame2.png",
+        "/synamon/darkspore/stage1-focused/frame3.png",
+        "/synamon/darkspore/stage1-focused/frame4.png",
+        "/synamon/darkspore/stage1-focused/frame5.png",
+        "/synamon/darkspore/stage1-focused/frame6.png",
+        "/synamon/darkspore/stage1-focused/frame7.png",
+        "/synamon/darkspore/stage1-focused/frame8.png",
+        "/synamon/darkspore/stage1-focused/frame9.png",
+        "/synamon/darkspore/stage1-focused/frame10.png",
+        "/synamon/darkspore/stage1-focused/frame11.png",
+        "/synamon/darkspore/stage1-focused/frame12.png",
+        "/synamon/darkspore/stage1-focused/frame13.png",
+        "/synamon/darkspore/stage1-focused/frame14.png",
+        "/synamon/darkspore/stage1-focused/frame15.png",
+        "/synamon/darkspore/stage1-focused/frame16.png"
       ]
     },
     "transitions": {
@@ -7604,7 +8174,7 @@
   {
     "id": "chuffin",
     "name": "Chuffin",
-    "type": "Flying",
+    "type": "Normal",
     "baseStats": {
       "hp": 48,
       "atk": 42,
@@ -7697,6 +8267,25 @@
         "/synamon/chuffin/stage2-attack/frame4.png",
         "/synamon/chuffin/stage2-attack/frame5.png",
         "/synamon/chuffin/stage2-attack/frame6.png"
+      ],
+      "stage1-focused": [
+        "/synamon/chuffin/stage1-focused/frame0.png",
+        "/synamon/chuffin/stage1-focused/frame1.png",
+        "/synamon/chuffin/stage1-focused/frame2.png",
+        "/synamon/chuffin/stage1-focused/frame3.png",
+        "/synamon/chuffin/stage1-focused/frame4.png",
+        "/synamon/chuffin/stage1-focused/frame5.png",
+        "/synamon/chuffin/stage1-focused/frame6.png",
+        "/synamon/chuffin/stage1-focused/frame7.png",
+        "/synamon/chuffin/stage1-focused/frame8.png",
+        "/synamon/chuffin/stage1-focused/frame9.png",
+        "/synamon/chuffin/stage1-focused/frame10.png",
+        "/synamon/chuffin/stage1-focused/frame11.png",
+        "/synamon/chuffin/stage1-focused/frame12.png",
+        "/synamon/chuffin/stage1-focused/frame13.png",
+        "/synamon/chuffin/stage1-focused/frame14.png",
+        "/synamon/chuffin/stage1-focused/frame15.png",
+        "/synamon/chuffin/stage1-focused/frame16.png"
       ]
     },
     "transitions": {
@@ -7804,7 +8393,8 @@
         "/synamon/chuffin/stage2-to-stage1/frame48.png",
         "/synamon/chuffin/stage2-to-stage1/frame49.png"
       ]
-    }
+    },
+    "secondaryType": "Flying"
   },
   {
     "id": "tremlet",
@@ -7903,6 +8493,25 @@
         "/synamon/tremlet/stage2-attack/frame4.png",
         "/synamon/tremlet/stage2-attack/frame5.png",
         "/synamon/tremlet/stage2-attack/frame6.png"
+      ],
+      "stage1-focused": [
+        "/synamon/tremlet/stage1-focused/frame0.png",
+        "/synamon/tremlet/stage1-focused/frame1.png",
+        "/synamon/tremlet/stage1-focused/frame2.png",
+        "/synamon/tremlet/stage1-focused/frame3.png",
+        "/synamon/tremlet/stage1-focused/frame4.png",
+        "/synamon/tremlet/stage1-focused/frame5.png",
+        "/synamon/tremlet/stage1-focused/frame6.png",
+        "/synamon/tremlet/stage1-focused/frame7.png",
+        "/synamon/tremlet/stage1-focused/frame8.png",
+        "/synamon/tremlet/stage1-focused/frame9.png",
+        "/synamon/tremlet/stage1-focused/frame10.png",
+        "/synamon/tremlet/stage1-focused/frame11.png",
+        "/synamon/tremlet/stage1-focused/frame12.png",
+        "/synamon/tremlet/stage1-focused/frame13.png",
+        "/synamon/tremlet/stage1-focused/frame14.png",
+        "/synamon/tremlet/stage1-focused/frame15.png",
+        "/synamon/tremlet/stage1-focused/frame16.png"
       ]
     },
     "transitions": {
@@ -8015,7 +8624,7 @@
   {
     "id": "omenix",
     "name": "Omenix",
-    "type": "Arcanus",
+    "type": "Spiritus",
     "secondaryType": "Umbra",
     "baseStats": {
       "hp": 90,
@@ -8067,6 +8676,25 @@
         "/synamon/omenix/stage1-attack/frame4.png",
         "/synamon/omenix/stage1-attack/frame5.png",
         "/synamon/omenix/stage1-attack/frame6.png"
+      ],
+      "stage1-focused": [
+        "/synamon/omenix/stage1-focused/frame0.png",
+        "/synamon/omenix/stage1-focused/frame1.png",
+        "/synamon/omenix/stage1-focused/frame2.png",
+        "/synamon/omenix/stage1-focused/frame3.png",
+        "/synamon/omenix/stage1-focused/frame4.png",
+        "/synamon/omenix/stage1-focused/frame5.png",
+        "/synamon/omenix/stage1-focused/frame6.png",
+        "/synamon/omenix/stage1-focused/frame7.png",
+        "/synamon/omenix/stage1-focused/frame8.png",
+        "/synamon/omenix/stage1-focused/frame9.png",
+        "/synamon/omenix/stage1-focused/frame10.png",
+        "/synamon/omenix/stage1-focused/frame11.png",
+        "/synamon/omenix/stage1-focused/frame12.png",
+        "/synamon/omenix/stage1-focused/frame13.png",
+        "/synamon/omenix/stage1-focused/frame14.png",
+        "/synamon/omenix/stage1-focused/frame15.png",
+        "/synamon/omenix/stage1-focused/frame16.png"
       ]
     },
     "transitions": {}
@@ -8074,7 +8702,7 @@
   {
     "id": "lunveil",
     "name": "Lunveil",
-    "type": "Arcanus",
+    "type": "Spiritus",
     "secondaryType": "Umbra",
     "baseStats": {
       "hp": 100,
@@ -8127,6 +8755,25 @@
         "/synamon/lunveil/stage1-idle/frame4.png",
         "/synamon/lunveil/stage1-idle/frame5.png",
         "/synamon/lunveil/stage1-idle/frame6.png"
+      ],
+      "stage1-focused": [
+        "/synamon/lunveil/stage1-focused/frame0.png",
+        "/synamon/lunveil/stage1-focused/frame1.png",
+        "/synamon/lunveil/stage1-focused/frame2.png",
+        "/synamon/lunveil/stage1-focused/frame3.png",
+        "/synamon/lunveil/stage1-focused/frame4.png",
+        "/synamon/lunveil/stage1-focused/frame5.png",
+        "/synamon/lunveil/stage1-focused/frame6.png",
+        "/synamon/lunveil/stage1-focused/frame7.png",
+        "/synamon/lunveil/stage1-focused/frame8.png",
+        "/synamon/lunveil/stage1-focused/frame9.png",
+        "/synamon/lunveil/stage1-focused/frame10.png",
+        "/synamon/lunveil/stage1-focused/frame11.png",
+        "/synamon/lunveil/stage1-focused/frame12.png",
+        "/synamon/lunveil/stage1-focused/frame13.png",
+        "/synamon/lunveil/stage1-focused/frame14.png",
+        "/synamon/lunveil/stage1-focused/frame15.png",
+        "/synamon/lunveil/stage1-focused/frame16.png"
       ]
     },
     "transitions": {}

@@ -16,6 +16,33 @@
   h1 { font-size: 18px; color: #fff; margin-bottom: 4px; }
   .subtitle { font-size: 11px; color: #555; margin-bottom: 16px; }
 
+  /* ── Tab bar ── */
+  .tab-bar {
+    display: flex;
+    gap: 0;
+    border-bottom: 1px solid #2a2a42;
+    margin-bottom: 24px;
+  }
+  .tab-btn {
+    font-size: 11px;
+    font-weight: bold;
+    text-transform: uppercase;
+    padding: 7px 18px;
+    border: none;
+    background: transparent;
+    color: #444;
+    cursor: pointer;
+    letter-spacing: 0.05em;
+    border-bottom: 2px solid transparent;
+    margin-bottom: -1px;
+    transition: color 0.15s;
+  }
+  .tab-btn:hover { color: #888; }
+  .tab-btn.active { color: #6fb8c8; border-bottom-color: #6fb8c8; }
+
+  .tab-panel { display: none; }
+  .tab-panel.active { display: block; }
+
   /* ── Progress bar ── */
   .progress-bar-wrap {
     display: flex;
@@ -57,19 +84,21 @@
     transition: opacity 0.15s;
   }
   .type-btn.active, .view-btn.active { opacity: 1; }
-  .type-btn[data-type="All"]     { color: #aaa;    border-color: #444; }
-  .type-btn[data-type="Ignis"]   { color: #ff6b35; border-color: #ff6b35; }
-  .type-btn[data-type="Aqua"]    { color: #4db8ff; border-color: #4db8ff; }
-  .type-btn[data-type="Terra"]   { color: #c49a6c; border-color: #c49a6c; }
-  .type-btn[data-type="Ventus"]  { color: #87e8c0; border-color: #87e8c0; }
-  .type-btn[data-type="Umbra"]   { color: #9b72d0; border-color: #9b72d0; }
-  .type-btn[data-type="Lux"]     { color: #f5e642; border-color: #f5e642; }
-  .type-btn[data-type="Sonus"]   { color: #e87de8; border-color: #e87de8; }
-  .type-btn[data-type="Arcanus"] { color: #6fb8c8; border-color: #6fb8c8; }
-  .type-btn[data-type="Flying"]  { color: #87ceeb; border-color: #87ceeb; }
-  .type-btn[data-type="Ferrous"] { color: #a8a8c0; border-color: #a8a8c0; }
-  .type-btn[data-type="Venom"]   { color: #8bc34a; border-color: #8bc34a; }
-  .type-btn[data-type="Natura"]  { color: #7bc67e; border-color: #7bc67e; }
+  .type-btn[data-type="All"]      { color: #aaa;    border-color: #444; }
+  .type-btn[data-type="Ignis"]    { color: #ff6b35; border-color: #ff6b35; }
+  .type-btn[data-type="Aqua"]     { color: #4db8ff; border-color: #4db8ff; }
+  .type-btn[data-type="Terra"]    { color: #c49a6c; border-color: #c49a6c; }
+  .type-btn[data-type="Ventus"]   { color: #87e8c0; border-color: #87e8c0; }
+  .type-btn[data-type="Umbra"]    { color: #9b72d0; border-color: #9b72d0; }
+  .type-btn[data-type="Lux"]      { color: #f5e642; border-color: #f5e642; }
+  .type-btn[data-type="Sonus"]    { color: #e87de8; border-color: #e87de8; }
+  .type-btn[data-type="Arcanus"]  { color: #6fb8c8; border-color: #6fb8c8; }
+  .type-btn[data-type="Spiritus"] { color: #c8a8f0; border-color: #c8a8f0; }
+  .type-btn[data-type="Normal"]   { color: #c8c8c8; border-color: #c8c8c8; }
+  .type-btn[data-type="Flying"]   { color: #87ceeb; border-color: #87ceeb; }
+  .type-btn[data-type="Ferrous"]  { color: #a8a8c0; border-color: #a8a8c0; }
+  .type-btn[data-type="Venom"]    { color: #8bc34a; border-color: #8bc34a; }
+  .type-btn[data-type="Natura"]   { color: #7bc67e; border-color: #7bc67e; }
   .view-btn { color: #aaa; border-color: #444; }
   .toolbar-sep { width: 1px; height: 18px; background: #2a2a42; margin: 0 4px; }
 
@@ -113,27 +142,38 @@
     padding: 2px 6px;
     border-radius: 3px;
   }
-  .badge-Ignis   { background: #ff6b3518; color: #ff6b35; border: 1px solid #ff6b3530; }
-  .badge-Aqua    { background: #4db8ff18; color: #4db8ff; border: 1px solid #4db8ff30; }
-  .badge-Terra   { background: #8b5e3c18; color: #c49a6c; border: 1px solid #8b5e3c30; }
-  .badge-Ventus  { background: #87e8c018; color: #87e8c0; border: 1px solid #87e8c030; }
-  .badge-Umbra   { background: #6f42c118; color: #9b72d0; border: 1px solid #6f42c130; }
-  .badge-Lux     { background: #f5e64218; color: #f5e642; border: 1px solid #f5e64230; }
-  .badge-Sonus   { background: #e87de818; color: #e87de8; border: 1px solid #e87de830; }
-  .badge-Arcanus { background: #6fb8c818; color: #6fb8c8; border: 1px solid #6fb8c830; }
-  .badge-Flying  { background: #87ceeb18; color: #87ceeb; border: 1px solid #87ceeb30; }
-  .badge-Ferrous { background: #a8a8c018; color: #a8a8c0; border: 1px solid #a8a8c030; }
-  .badge-Venom   { background: #8bc34a18; color: #8bc34a; border: 1px solid #8bc34a30; }
-  .badge-Natura  { background: #7bc67e18; color: #7bc67e; border: 1px solid #7bc67e30; }
+  .badge-Ignis    { background: #ff6b3518; color: #ff6b35; border: 1px solid #ff6b3530; }
+  .badge-Aqua     { background: #4db8ff18; color: #4db8ff; border: 1px solid #4db8ff30; }
+  .badge-Terra    { background: #8b5e3c18; color: #c49a6c; border: 1px solid #8b5e3c30; }
+  .badge-Ventus   { background: #87e8c018; color: #87e8c0; border: 1px solid #87e8c030; }
+  .badge-Umbra    { background: #6f42c118; color: #9b72d0; border: 1px solid #6f42c130; }
+  .badge-Lux      { background: #f5e64218; color: #f5e642; border: 1px solid #f5e64230; }
+  .badge-Sonus    { background: #e87de818; color: #e87de8; border: 1px solid #e87de830; }
+  .badge-Arcanus  { background: #6fb8c818; color: #6fb8c8; border: 1px solid #6fb8c830; }
+  .badge-Spiritus { background: #c8a8f018; color: #c8a8f0; border: 1px solid #c8a8f030; }
+  .badge-Normal   { background: #c8c8c818; color: #c8c8c8; border: 1px solid #c8c8c830; }
+  .badge-Flying   { background: #87ceeb18; color: #87ceeb; border: 1px solid #87ceeb30; }
+  .badge-Ferrous  { background: #a8a8c018; color: #a8a8c0; border: 1px solid #a8a8c030; }
+  .badge-Venom    { background: #8bc34a18; color: #8bc34a; border: 1px solid #8bc34a30; }
+  .badge-Natura   { background: #7bc67e18; color: #7bc67e; border: 1px solid #7bc67e30; }
 
   /* ── Animation selector ── */
   .anim-selector {
     display: flex;
     gap: 4px;
-    padding: 6px 8px 0;
+    padding: 6px 8px 4px;
     background: #0f0f1a;
     border-bottom: 1px solid #1a1a2a;
     flex-wrap: wrap;
+    align-items: center;
+  }
+  .anim-group-label {
+    font-size: 8px;
+    color: #2a2a52;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    margin-left: 4px;
+    align-self: center;
   }
   .anim-btn {
     font-size: 9px;
@@ -329,48 +369,689 @@
   .stat-label { font-size: 9px; color: #444; text-transform: uppercase; }
   .stat-value { font-size: 12px; color: #bbb; font-weight: bold; }
   .evo-line { font-size: 10px; color: #3a3a5a; margin-top: 8px; }
+
+  /* ── Systems tab ── */
+  .sys-section {
+    margin-bottom: 40px;
+  }
+  .sys-section h2 {
+    font-size: 13px;
+    color: #6fb8c8;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    margin-bottom: 16px;
+    padding-bottom: 6px;
+    border-bottom: 1px solid #1e1e36;
+  }
+  .sys-section h3 {
+    font-size: 11px;
+    color: #aaa;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    margin: 20px 0 10px;
+  }
+  .sys-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 11px;
+  }
+  .sys-table th {
+    text-align: left;
+    color: #555;
+    font-size: 9px;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    padding: 4px 10px 4px 0;
+    border-bottom: 1px solid #1e1e36;
+  }
+  .sys-table td {
+    padding: 5px 10px 5px 0;
+    color: #999;
+    border-bottom: 1px solid #13131f;
+    vertical-align: top;
+    line-height: 1.5;
+  }
+  .sys-table tr:last-child td { border-bottom: none; }
+  .sys-table td:first-child { color: #ddd; }
+  .sys-table .note { color: #555; font-size: 10px; }
+
+  .sys-grid-2 {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 24px;
+  }
+  .sys-grid-3 {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 24px;
+  }
+
+  .type-pill {
+    display: inline-block;
+    font-size: 9px;
+    font-weight: bold;
+    text-transform: uppercase;
+    padding: 1px 6px;
+    border-radius: 3px;
+    margin: 1px 2px;
+  }
+
+  .role-pill {
+    display: inline-block;
+    font-size: 9px;
+    padding: 1px 6px;
+    border-radius: 3px;
+    background: #1e1e36;
+    color: #888;
+    border: 1px solid #2a2a42;
+  }
+
+  .formula-block {
+    background: #0b0b17;
+    border: 1px solid #1e1e36;
+    border-radius: 6px;
+    padding: 14px 18px;
+    font-size: 12px;
+    color: #6fb8c8;
+    margin: 12px 0;
+    letter-spacing: 0.02em;
+  }
+
+  .bst-bar-wrap { display: flex; align-items: center; gap: 8px; margin: 3px 0; }
+  .bst-label { font-size: 10px; color: #666; width: 60px; }
+  .bst-bar { height: 5px; border-radius: 3px; background: #6fb8c8; }
+  .bst-val { font-size: 10px; color: #888; }
+
+  .move-tier {
+    display: inline-block;
+    font-size: 9px;
+    font-weight: bold;
+    padding: 1px 5px;
+    border-radius: 3px;
+    margin-right: 4px;
+  }
+  .tier-L { background: #2a3a1a; color: #7bc67e; border: 1px solid #3a5a2a; }
+  .tier-M { background: #1a2a3a; color: #4db8ff; border: 1px solid #2a3a5a; }
+  .tier-H { background: #3a1a1a; color: #ff6b35; border: 1px solid #5a2a2a; }
+  .tier-S { background: #2a1a3a; color: #c8a8f0; border: 1px solid #4a2a6a; }
+
+  .sig-stage {
+    display: inline-block;
+    font-size: 9px;
+    color: #555;
+    margin-right: 6px;
+    min-width: 16px;
+  }
+
+  .personality-tag {
+    display: inline-block;
+    font-size: 9px;
+    padding: 1px 6px;
+    border-radius: 10px;
+    background: #161630;
+    color: #8888aa;
+    border: 1px solid #2a2a42;
+    margin: 1px;
+  }
+
+  .anim-tag {
+    display: inline-block;
+    font-size: 9px;
+    font-weight: bold;
+    padding: 2px 7px;
+    border-radius: 3px;
+    background: #0f1f2f;
+    color: #4db8ff;
+    border: 1px solid #1a3a5a;
+    margin: 2px;
+  }
+  .anim-tag.blockout { background: #1f0f2f; color: #c8a8f0; border-color: #3a1a5a; }
+  .anim-tag.mvp { background: #1a2a1a; color: #7bc67e; border-color: #2a4a2a; }
+
+  .sys-note {
+    font-size: 10px;
+    color: #444;
+    font-style: italic;
+    margin-top: 8px;
+    line-height: 1.6;
+  }
+
+  .legend-note {
+    display: inline-block;
+    background: #1a1a0a;
+    color: #f5e642;
+    border: 1px solid #3a3a1a;
+    font-size: 9px;
+    padding: 1px 6px;
+    border-radius: 3px;
+    margin-left: 6px;
+  }
+
+  @media (max-width: 700px) {
+    .sys-grid-2, .sys-grid-3 { grid-template-columns: 1fr; }
+  }
 </style>
 </head>
 <body>
 
 <h1>Synadex</h1>
-<p class="subtitle">31 species · 74 entries · Luminal Reaches — click ✓ or ✗ on each sprite to flag for redo</p>
+<p class="subtitle">31 species · 74 entries · Luminal Reaches</p>
 
-<div class="progress-bar-wrap">
-  <div class="progress-bar"><div class="progress-bar-fill" id="prog-fill" style="width:0%"></div></div>
-  <div class="progress-counts" id="prog-text">— / 74</div>
+<div class="tab-bar">
+  <button class="tab-btn active" data-tab="dex">Dex</button>
+  <button class="tab-btn" data-tab="systems">Systems</button>
 </div>
 
-<div class="toolbar">
-  <span class="filter-label">Type:</span>
-  <div id="type-filters"></div>
-  <div class="toolbar-sep"></div>
-  <span class="filter-label">Show:</span>
-  <button class="view-btn active" data-view="all">All</button>
-  <button class="view-btn" data-view="redo">Needs redo</button>
-  <button class="view-btn" data-view="unreviewed">Unreviewed</button>
+<!-- ═══════════════════════════════════════════════════ DEX TAB -->
+<div class="tab-panel active" id="tab-dex">
+
+  <div class="progress-bar-wrap">
+    <div class="progress-bar"><div class="progress-bar-fill" id="prog-fill" style="width:0%"></div></div>
+    <div class="progress-counts" id="prog-text">— / 74</div>
+  </div>
+
+  <div class="toolbar">
+    <span class="filter-label">Type:</span>
+    <div id="type-filters"></div>
+    <div class="toolbar-sep"></div>
+    <span class="filter-label">Show:</span>
+    <button class="view-btn active" data-view="all">All</button>
+    <button class="view-btn" data-view="redo">Needs redo</button>
+    <button class="view-btn" data-view="unreviewed">Unreviewed</button>
+  </div>
+
+  <div class="dex-grid" id="dex-grid"></div>
+
 </div>
 
-<div class="dex-grid" id="dex-grid"></div>
+<!-- ═══════════════════════════════════════════════════ SYSTEMS TAB -->
+<div class="tab-panel" id="tab-systems">
+
+  <!-- TYPE SYSTEM -->
+  <div class="sys-section">
+    <h2>Type System</h2>
+    <p class="sys-note">14 types total. Primary-eligible types can be a species' main type. Secondary-only (trait) types only appear as secondaries.</p>
+
+    <div class="sys-grid-2">
+      <div>
+        <h3>Primary-Eligible (10)</h3>
+        <table class="sys-table">
+          <thead><tr><th>Type</th><th>Identity</th></tr></thead>
+          <tbody id="type-table-primary"></tbody>
+        </table>
+      </div>
+      <div>
+        <h3>Secondary-Only / Trait (4)</h3>
+        <table class="sys-table">
+          <thead><tr><th>Type</th><th>Identity</th></tr></thead>
+          <tbody id="type-table-secondary"></tbody>
+        </table>
+        <h3 style="margin-top:24px;">Arcanus vs Spiritus</h3>
+        <table class="sys-table">
+          <tbody>
+            <tr><td><span class="type-pill badge-Arcanus">Arcanus</span></td><td>Learned / constructed magic. Runes, sigils, spells, arcane force. <em>Active and wilful.</em></td></tr>
+            <tr><td><span class="type-pill badge-Spiritus">Spiritus</span></td><td>Innate / transcendent being. Soul-stuff, ethereal matter, cosmic presence. <em>Passive and ancient.</em></td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <h3>Type Distribution</h3>
+    <div id="type-distribution"></div>
+  </div>
+
+  <!-- BATTLE SYSTEM -->
+  <div class="sys-section">
+    <h2>Battle System</h2>
+
+    <div class="sys-grid-2">
+      <div>
+        <h3>Base Stat Total (BST) — at Lv1 of each stage</h3>
+        <div class="bst-bar-wrap"><span class="bst-label">Stage 1</span><div class="bst-bar" style="width:180px"></div><span class="bst-val">360</span></div>
+        <div class="bst-bar-wrap"><span class="bst-label">Stage 2</span><div class="bst-bar" style="width:205px"></div><span class="bst-val">410</span></div>
+        <div class="bst-bar-wrap"><span class="bst-label">Stage 3</span><div class="bst-bar" style="width:230px"></div><span class="bst-val">460</span></div>
+        <div class="bst-bar-wrap" style="margin-top:8px;"><span class="bst-label" style="color:#f5e642;">Legendary</span><div class="bst-bar" style="width:250px;background:#f5e642;"></div><span class="bst-val" style="color:#f5e642;">500 (fixed)</span></div>
+        <p class="sys-note">BST values are <strong>base values at Lv1 of each stage</strong>. Stats grow with level within the stage. Each evolution gates the next +50 BST tier. Legendaries are single-stage — BST fixed at 500, no evolution. <strong>Max 1 legendary per team.</strong></p>
+        <h3 style="margin-top:16px;">Level Scaling (within stage)</h3>
+        <div class="formula-block">stat(lv) = baseStat × (1 + (lv − 1) × GROWTH_RATE)<br>HP(lv) = baseHP × (1 + (lv − 1) × GROWTH_RATE) + lv × 5</div>
+        <p class="sys-note">GROWTH_RATE ~0.02 (2% per level). Same rate for all species — proportional balance is preserved. Exact value tuned during implementation.</p>
+      </div>
+      <div>
+        <h3>Speed Model</h3>
+        <div class="formula-block">attacksThisTurn = floor(yourSPD / enemySPD) &nbsp;[min 1]</div>
+        <p class="sys-note" style="margin-bottom:8px;">SPD has two meaningful thresholds only:</p>
+        <table class="sys-table">
+          <tbody>
+            <tr><td>yourSPD &gt; enemySPD</td><td>You act first — 1 attack each</td></tr>
+            <tr><td>yourSPD ≥ 2× enemySPD</td><td>You get 2 attacks before they act</td></tr>
+            <tr><td>yourSPD ≥ 3× enemySPD</td><td>3 attacks before they act — and so on</td></tr>
+          </tbody>
+        </table>
+        <p class="sys-note" style="margin-top:6px;">Level scaling preserves the ratio — floor(A/B) stays roughly constant as both stats grow, so constitution SPD advantages hold through levelling.</p>
+
+        <h3 style="margin-top:20px;">Damage Formula</h3>
+        <div class="formula-block">damage = (atk / def) × power × typeMulti × rand(0.85–1.0)</div>
+        <h3>Type Multipliers</h3>
+        <table class="sys-table">
+          <tbody>
+            <tr><td>2×</td><td>Super effective</td></tr>
+            <tr><td>1×</td><td>Neutral</td></tr>
+            <tr><td>0.5×</td><td>Resisted</td></tr>
+            <tr><td>0×</td><td>Immune</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <h3>Role Archetypes</h3>
+    <table class="sys-table">
+      <thead><tr><th>Archetype</th><th>HP</th><th>ATK</th><th>DEF</th><th>SPD</th><th>Examples</th></tr></thead>
+      <tbody>
+        <tr><td>Tank</td><td>90</td><td>60</td><td>110</td><td>40</td><td class="note">Peblix, Tremlet, Bassolt</td></tr>
+        <tr><td>Striker</td><td>60</td><td>110</td><td>40</td><td>90</td><td class="note">Cindrel, Ashpaw, Flintlet</td></tr>
+        <tr><td>Support</td><td>70</td><td>50</td><td>80</td><td>80</td><td class="note">Aquill, Glassling, Spectrix</td></tr>
+        <tr><td>Balanced</td><td>75</td><td>75</td><td>75</td><td>75</td><td class="note">Chuffin, Galecub, Tidepup</td></tr>
+        <tr><td>Glass Cannon</td><td>45</td><td>120</td><td>30</td><td>110</td><td class="note">Fluxling, Buzzlit, Brezzet</td></tr>
+        <tr><td>Bulky Attacker</td><td>85</td><td>95</td><td>65</td><td>50</td><td class="note">Driftull, Sporik</td></tr>
+      </tbody>
+    </table>
+
+    <h3>Constitutions</h3>
+    <p class="sys-note" style="margin-bottom:12px;">Each Synamon has one Constitution assigned at catch/hatch. It applies a preset multiplier to each stat, preserving total BST. Constitutions have a weak personality correlation per species — not deterministic. Hardy is the null constitution.</p>
+    <table class="sys-table" id="constitution-table">
+      <thead><tr><th>Constitution</th><th>Flavour</th><th>HP</th><th>ATK</th><th>DEF</th><th>SPD</th></tr></thead>
+      <tbody></tbody>
+    </table>
+
+    <h3>Move Power Tiers</h3>
+    <table class="sys-table">
+      <thead><tr><th>Tier</th><th>Power</th><th>PP</th><th>Description</th></tr></thead>
+      <tbody>
+        <tr><td><span class="move-tier tier-L">L</span> Light</td><td>40</td><td>20</td><td class="note">Fast, no drawback — e.g. Ember Snap, Bubble Barrage</td></tr>
+        <tr><td><span class="move-tier tier-M">M</span> Medium</td><td>65</td><td>12</td><td class="note">Standard, may have minor effect — e.g. Stone Toss, Vine Whip</td></tr>
+        <tr><td><span class="move-tier tier-H">H</span> Heavy</td><td>90</td><td>6</td><td class="note">Strong, often recoil or cooldown — e.g. Boulder Crash, Flame Lance</td></tr>
+        <tr><td><span class="move-tier tier-S">S</span> Signature</td><td>90/100/115</td><td>3</td><td class="note">Species-unique, always has a special effect. Scales per evo stage.</td></tr>
+      </tbody>
+    </table>
+
+    <h3>Type Move Pools</h3>
+    <div id="move-pools-grid"></div>
+
+    <h3>Signature Moves — Per Evo Stage</h3>
+    <p class="sys-note" style="margin-bottom:12px;">Every evo stage gets its own signature move. Stage 1 = power 90, Stage 2 = 100, Stage 3 = 115.</p>
+    <table class="sys-table" id="sig-moves-table">
+      <thead><tr><th>Line</th><th>Stage 1 Sig</th><th>Stage 2 Sig</th><th>Stage 3 Sig</th></tr></thead>
+      <tbody></tbody>
+    </table>
+
+    <h3>Effect Animations (Reusable Overlays)</h3>
+    <p class="sys-note" style="margin-bottom:12px;">Transparent-background overlays played on top of the defending sprite. ~20 total, 8 frames each (~160 frames). Generated via animate-with-text-v3 with a simple particle/shape first_frame.</p>
+    <div id="fx-table"></div>
+  </div>
+
+  <!-- PERSONALITIES -->
+  <div class="sys-section">
+    <h2>Personalities</h2>
+    <p class="sys-note" style="margin-bottom:12px;">Feeds into: tamagotchi needs-decay rate, preferred food, idle quirks, reaction animations, battle AI. Legendaries are pet-dragon aloof — not pet-cat affectionate.</p>
+    <table class="sys-table" id="personality-table">
+      <thead><tr><th>Species</th><th>Personality</th><th>Tamagotchi Behaviour</th></tr></thead>
+      <tbody></tbody>
+    </table>
+  </div>
+
+  <!-- TAMAGOTCHI -->
+  <div class="sys-section">
+    <h2>Tamagotchi Animations</h2>
+    <p class="sys-note" style="margin-bottom:12px;">31 base forms only (any evolved form devolves to base in tamagotchi mode). 12 animation types total. Same animate-with-text-v3 pipeline as idle/attack.</p>
+
+    <div class="sys-grid-2">
+      <div>
+        <h3>Full Animation Set (12)</h3>
+        <table class="sys-table">
+          <thead><tr><th>Key</th><th>Trigger</th><th>Description</th></tr></thead>
+          <tbody>
+            <tr><td><span class="anim-tag mvp">feed</span></td><td>Player action</td><td>Eating — gulp or nibble reaction</td></tr>
+            <tr><td><span class="anim-tag mvp">pet</span></td><td>Player action</td><td>Pleased wiggle, happy eyes</td></tr>
+            <tr><td><span class="anim-tag">play</span></td><td>Player action</td><td>Energetic bounce or spin</td></tr>
+            <tr><td><span class="anim-tag mvp">sleep</span></td><td>Player action</td><td>Curled, breathing, Z-particle overlay</td></tr>
+            <tr><td><span class="anim-tag mvp">happy</span></td><td>Persistent state</td><td>Upbeat idle variant, brighter/bouncier than normal idle</td></tr>
+            <tr><td><span class="anim-tag">excited</span></td><td>Persistent state</td><td>High energy, can't keep still — after level-up or battle win</td></tr>
+            <tr><td><span class="anim-tag">sad</span></td><td>Persistent state</td><td>Slumped, slow — when needs are neglected</td></tr>
+            <tr><td><span class="anim-tag">hungry</span></td><td>Persistent state</td><td>Droopy, occasional stomach gesture</td></tr>
+            <tr><td><span class="anim-tag">sick</span></td><td>Persistent state</td><td>Shivering, hunched</td></tr>
+            <tr><td><span class="anim-tag blockout mvp">focused</span></td><td>BlockOut session active</td><td>Calm attentive pose — eyes forward, still, slight lean. Clearly different from idle. <strong>High priority.</strong></td></tr>
+            <tr><td><span class="anim-tag blockout mvp">celebrating</span></td><td>BlockOut goal hit</td><td>Burst of energy/confetti — triggered when session completes or goal is met. <strong>High priority.</strong></td></tr>
+            <tr><td><span class="anim-tag">levelup</span></td><td>Lifecycle</td><td>Flash/star burst, stays in base form. Different from evo transition.</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <div>
+        <h3>MVP Set — Phase 1 (6)</h3>
+        <p class="sys-note" style="margin-bottom:10px;">6 × 31 species = 186 animations for first ship.</p>
+        <div>
+          <span class="anim-tag mvp">feed</span>
+          <span class="anim-tag mvp">pet</span>
+          <span class="anim-tag mvp">sleep</span>
+          <span class="anim-tag mvp">happy</span>
+          <span class="anim-tag blockout mvp">focused</span>
+          <span class="anim-tag blockout mvp">celebrating</span>
+        </div>
+        <p class="sys-note" style="margin-top:14px;">Remaining 6 (play, excited, sad, hungry, sick, levelup) added in Phase 2.</p>
+
+        <h3 style="margin-top:24px;">Legendary Notes</h3>
+        <p class="sys-note">Omenix and Lunveil are aloof in tamagotchi — like a pet dragon, not a pet cat.</p>
+        <table class="sys-table" style="margin-top:10px;">
+          <tbody>
+            <tr><td>pet</td><td>Minimal acknowledgement, not enthusiastic</td></tr>
+            <tr><td>happy</td><td>Composed/regal rather than bouncy</td></tr>
+            <tr><td>focused</td><td>Looks like natural stillness, hard to distinguish from baseline</td></tr>
+            <tr><td>—</td><td>Responds to consistency over time, not individual actions</td></tr>
+          </tbody>
+        </table>
+
+        <h3 style="margin-top:24px;">Generation Pipeline</h3>
+        <p class="sys-note">Extend generate-animations.ts to support additional --anim keys (focused, celebrating, etc). Apply personality notes when writing per-species prompt overrides. Same SPECIES_OVERRIDES pattern.</p>
+      </div>
+    </div>
+  </div>
+
+</div><!-- /tab-systems -->
 
 <script>
 const STORAGE_KEY = 'synamon-review-v1';
 const ANIM_FPS = 8;
-const ANIM_NAMES = ['idle', 'attack'];
+
+// Tamagotchi anims only exist on stage 1 (base form). Stages 2+ hold static sprite.
+const TAMAGOTCHI_ANIMS = new Set([
+  'focused', 'celebrating', 'happy', 'excited',
+  'feed', 'pet', 'play', 'sleep',
+  'sad', 'hungry', 'sick', 'levelup',
+]);
+
+// All supported animation keys — grouped for the selector UI
+const ANIM_GROUPS = [
+  { label: 'Battle',      anims: ['idle', 'attack'] },
+  { label: 'BlockOut',    anims: ['focused', 'celebrating'] },
+  { label: 'Tamagotchi',  anims: ['happy', 'excited', 'feed', 'pet', 'play', 'sleep', 'sad', 'hungry', 'sick', 'levelup'] },
+];
+const ANIM_NAMES = ANIM_GROUPS.flatMap(g => g.anims);
 
 const TYPE_COLORS = {
-  Ignis:'#ff6b35',Aqua:'#4db8ff',Terra:'#c49a6c',Ventus:'#87e8c0',
-  Umbra:'#9b72d0',Lux:'#f5e642',Sonus:'#e87de8',Arcanus:'#6fb8c8',
-  Flying:'#87ceeb',Ferrous:'#a8a8c0',Venom:'#8bc34a',Natura:'#7bc67e',
+  Ignis:'#ff6b35', Aqua:'#4db8ff', Terra:'#c49a6c', Ventus:'#87e8c0',
+  Umbra:'#9b72d0', Lux:'#f5e642', Sonus:'#e87de8', Arcanus:'#6fb8c8',
+  Spiritus:'#c8a8f0', Normal:'#c8c8c8',
+  Flying:'#87ceeb', Ferrous:'#a8a8c0', Venom:'#8bc34a', Natura:'#7bc67e',
 };
 
-// votes: { 'speciesId/stageN': 'ok' | 'redo' | null }
+const TYPE_INFO = {
+  Ignis:    { primary: true,  desc: 'Fire / heat. Aggressive, offensive.'  },
+  Aqua:     { primary: true,  desc: 'Water. Fluid, adaptive.'  },
+  Terra:    { primary: true,  desc: 'Earth / stone. Sturdy, grounded.'  },
+  Ventus:   { primary: true,  desc: 'Wind / air. Fast, evasive.'  },
+  Umbra:    { primary: true,  desc: 'Shadow / darkness. Deceptive, drain.'  },
+  Lux:      { primary: true,  desc: 'Light. Radiant, blinding effects.'  },
+  Sonus:    { primary: true,  desc: 'Sound. AoE, status disruption.'  },
+  Arcanus:  { primary: true,  desc: 'Learned magic. Runes, sigils, spells. Active & wilful.'  },
+  Spiritus: { primary: true,  desc: 'Innate transcendence. Soul-stuff, ethereal matter. Passive & ancient.'  },
+  Normal:   { primary: true,  desc: 'No resistance, no weakness. Broad access. (Chuffin only)'  },
+  Flying:   { primary: false, desc: 'Aerial trait. Secondary only.'  },
+  Ferrous:  { primary: false, desc: 'Metal / iron trait. Secondary only.'  },
+  Venom:    { primary: false, desc: 'Poison / toxin trait. Secondary only.'  },
+  Natura:   { primary: false, desc: 'Plant / organic trait. Secondary only.'  },
+};
+
+const MOVE_POOLS = {
+  Ignis:    ['Ember Snap (L)', 'Scorch Burst (M)', 'Ash Cloud (M)', 'Flame Lance (H)'],
+  Aqua:     ['Bubble Barrage (L)', 'Tidal Surge (M)', 'Mist Veil (M — lowers accuracy)', 'Depth Charge (H)'],
+  Terra:    ['Stone Toss (L)', 'Quake Stomp (M)', 'Boulder Crash (H)', 'Dust Screen (M)'],
+  Ventus:   ['Gust Slash (L)', 'Tailwind (M — speed boost)', 'Cyclone Cutter (H)', 'Whirlwind Throw (M)'],
+  Umbra:    ['Shadow Lunge (L)', 'Shade Wrap (M — DoT)', 'Void Pulse (M)', 'Dark Echo (H)'],
+  Lux:      ['Flash Burst (L — blinds)', 'Radiant Beam (M)', 'Prism Strike (H)', 'Aura Flare (M)'],
+  Sonus:    ['Resonance Wave (L)', 'Screech (M — debuff)', 'Bass Pulse (M)', 'Echo Slam (H)'],
+  Arcanus:  ['Sigil Bolt (L)', 'Arcane Shift (M — teleport dodge)', 'Runic Seal (M — inflicts Sealed)', 'Void Arc (H)'],
+  Spiritus: ['Ether Touch (L)', 'Soul Drain (M — HP drain)', 'Spectral Veil (M — evasion)', 'Astral Surge (H)'],
+  Normal:   ['Tackle (L)', 'Quick Strike (L)', 'Headbutt (M)', 'Endeavour (H — damage = HP difference)'],
+  Flying:   ['Wing Slash (L)', 'Updraft (M — evasion)', 'Dive Bomb (H)', 'Tailfeather Blade (M)'],
+  Ferrous:  ['Iron Bash (L)', 'Magnetise (M — draws next hit to self)', 'Rust Bite (M)', 'Metal Storm (H)'],
+  Venom:    ['Poison Fang (L)', 'Toxic Cloud (M)', 'Venom Burst (H)', 'Acid Splash (M)'],
+  Natura:   ['Spore Cloud (M)', 'Vine Whip (L)', 'Seed Bomb (M)', 'Root Lock (H — immobilise)'],
+};
+
+const SIG_MOVES = [
+  { line: 'Cindrel / Scaldrix / Pyrathon',   s1: 'Cinder Snap — burn DoT',        s2: 'Magma Crash — def down',        s3: 'Pyroclast — AoE burn' },
+  { line: 'Aquill / Tidecrest / Abyssant',    s1: 'Barrel Roll — reflect 50%',     s2: 'Tidal Slam — flinch',           s3: 'Abyssal Surge — multi-hit' },
+  { line: 'Brezzet / Galekin / Stormveil',    s1: 'Wind Dart — always first',      s2: 'Gale Spin — confuse',           s3: 'Storm Break — hits through evasion' },
+  { line: 'Glowick / Lanternis',              s1: 'Pulse Glow — lower SPD',        s2: 'Lantern Burst — blind AoE',     s3: '—' },
+  { line: 'Murkling / Void-Drath',            s1: 'Shadowmeld — untargetable 1t',  s2: 'Shade Siphon — drain HP',       s3: '—' },
+  { line: 'Peblix / Crustone / Castellus',    s1: 'Shell Roll — def boost+tackle', s2: 'Stone Crush — ignore def',      s3: 'Fortress Smash — AoE+def down' },
+  { line: 'Humtick / Resonar',               s1: 'Chirp Strike — may paralyse',   s2: 'Resonant Screech — AoE debuff', s3: '—' },
+  { line: 'Crystub / Gemlash / Prismark',     s1: 'Gem Shard — hits 2-3×',        s2: 'Crystal Edge — crit boost',     s3: 'Prism Cannon — ignores resist' },
+  { line: 'Cloakrit / Wraithel',             s1: 'Void Step — dodge+counter',     s2: 'Abyss Clamp — traps target',    s3: '—' },
+  { line: 'Ashpaw / Cinderox / Emberlord',   s1: 'Ember Pounce — burn on hit',    s2: 'Cinder Roar — ATK debuff AoE',  s3: 'Inferno Crush — massive burn' },
+  { line: 'Driftull / Misthorn',             s1: 'Steam Vent — always hits',      s2: 'Scalding Surge — burn+def down',s3: '—' },
+  { line: 'Buzzlit / Echorex / Stridion',    s1: 'Buzz Dive — SPD-based dmg',     s2: 'Echo Pulse — sound wave stun',  s3: 'Strident Burst — AoE sonic' },
+  { line: 'Galecub / Tempestris',            s1: 'Wind Burst — push+flinch',      s2: 'Tempest Spin — evasion+AoE',    s3: '—' },
+  { line: 'Sporik / Mycorath / Terrafung',   s1: 'Spore Pop — random status',     s2: 'Myco Drain — HP siphon',        s3: 'Terra Bloom — AoE root' },
+  { line: 'Spectrix / Auraveil',             s1: 'Prism Refract — splits dmg',    s2: 'Aura Shield — absorb one hit',  s3: '—' },
+  { line: 'Flintlet / Scorchback',           s1: 'Flint Click — burn+low dmg',    s2: 'Scorchback Lunge — high burn',  s3: '—' },
+  { line: 'Glintfin / Prismaray / Aurorant', s1: 'Salt Skate — always crits rear',s2: 'Prism Flash — blind all',       s3: 'Aurora Wave — massive Lux AoE' },
+  { line: 'Runekit / Cipherast',             s1: 'Sigil Brand — Sealed debuff',   s2: 'Cipher Lock — 2-turn lock',     s3: '—' },
+  { line: 'Windmite / Cyclorid / Vortecis',  s1: 'Sail Spin — dodge+counter',     s2: 'Cyclone Core — wind vortex',    s3: 'Vortex Engine — AoE pull+dmg' },
+  { line: 'Duskrat / Penumbrix',             s1: 'Shadow Scatter — decoy copies', s2: 'Penumbra Drain — life steal',   s3: '—' },
+  { line: 'Bassolt / Tremovox / Resonarch',  s1: 'Bass Thump — shockwave',        s2: 'Subwave Pulse — AoE stun',      s3: 'Subsonic Roar — AoE ATK debuff all' },
+  { line: 'Glassling / Vitramor',            s1: 'Ether Drift — phasing dodge',   s2: 'Vitreous Beam — Spiritus heavy',s3: '—' },
+  { line: 'Tidepup / Saltwort / Brinelord',  s1: 'Brine Slap — reduces SPD',      s2: 'Salt Crust — def boost+splash', s3: 'Brinelord Tide — AoE+salt slow' },
+  { line: 'Fluxling / Miragent',             s1: 'Flux Flare — random power',     s2: 'Mirage Dash — confuse on dodge',s3: '—' },
+  { line: 'Lumenox / Halorath / Solance',    s1: 'Inner Glow — ATK boost',        s2: 'Halo Beam — piercing Lux',      s3: 'Solance Flare — AoE blind+burn' },
+  { line: 'Scaldit / Steamback',             s1: 'Steam Pop — always hits',       s2: 'Scalding Back — burn on contact',s3: '—' },
+  { line: 'Darkspore / Noctiveil / Eclipsus',s1: 'Spore Drift — poison all',      s2: 'Nocti Veil — blind+poison',     s3: 'Eclipse Burst — AoE dark+poison' },
+  { line: 'Chuffin / Galecluck',             s1: 'Puff Up — intimidate ATK down', s2: 'Gale Cluck — wind+flinch',      s3: '—' },
+  { line: 'Tremlet / Quakehorn',             s1: 'Tremor — ground shake',         s2: 'Quake Horn — single heavy hit', s3: '—' },
+  { line: 'Omenix ★',                        s1: 'Eclipse Stare — Fear (skip)',    s2: '—',                             s3: '—' },
+  { line: 'Lunveil ★',                       s1: '—',                              s2: '—',                             s3: 'Lunar Rend — AoE, ignores resist' },
+];
+
+const FX_LIST = [
+  { key: 'fx-burn',      used: 'Ember Snap, Scorch Burst, Cinder Snap, Cinder Roar' },
+  { key: 'fx-explosion', used: 'Flame Lance, Depth Charge, Boulder Crash' },
+  { key: 'fx-bubble',    used: 'Bubble Barrage' },
+  { key: 'fx-splash',    used: 'Tidal Surge, Acid Splash' },
+  { key: 'fx-mist',      used: 'Mist Veil, Spore Cloud, Ash Cloud' },
+  { key: 'fx-rocks',     used: 'Stone Toss, Boulder Crash' },
+  { key: 'fx-quake',     used: 'Quake Stomp — screen-shake + dust' },
+  { key: 'fx-wind',      used: 'Gust Slash, Cyclone Cutter, Updraft' },
+  { key: 'fx-shadow',    used: 'Shadow Lunge, Shade Wrap, Shadowmeld' },
+  { key: 'fx-dark-pulse',used: 'Void Pulse, Dark Echo' },
+  { key: 'fx-flash',     used: 'Flash Burst, Radiant Beam, Halo Beam' },
+  { key: 'fx-prism',     used: 'Prism Strike, Aura Flare, Prism Cannon' },
+  { key: 'fx-sound-wave',used: 'Resonance Wave, Bass Pulse, Echo Slam' },
+  { key: 'fx-screech',   used: 'Screech, Subsonic Roar' },
+  { key: 'fx-sigil',     used: 'Sigil Bolt, Runic Seal, Sigil Brand' },
+  { key: 'fx-vine',      used: 'Vine Whip, Root Lock' },
+  { key: 'fx-seed',      used: 'Seed Bomb' },
+  { key: 'fx-poison',    used: 'Poison Fang, Toxic Cloud, Venom Burst, Spore Drift' },
+  { key: 'fx-iron',      used: 'Iron Bash, Metal Storm' },
+  { key: 'fx-magnetise', used: 'Magnetise — visual pull/attract' },
+  { key: 'fx-ether',     used: 'Ether Touch, Soul Drain, Spectral Veil' },
+];
+
+const CONSTITUTIONS = [
+  { name: 'Hardy',       flavour: 'Perfectly balanced, no modifier',          hp:   0, atk:   0, def:   0, spd:   0 },
+  { name: 'Short-fuse',  flavour: 'Aggressive, acts before thinking',         hp:   0, atk: +15, def: -20, spd: +15 },
+  { name: 'Steadfast',   flavour: 'Unmovable, endures everything',            hp: +15, atk:   0, def: +20, spd: -25 },
+  { name: 'Skittish',    flavour: 'Flees fast, hard to pin down',             hp: -10, atk: -10, def: -20, spd: +40 },
+  { name: 'Tenacious',   flavour: 'Outlasts opponents, never quits',          hp: +25, atk:   0, def: +10, spd: -25 },
+  { name: 'Reckless',    flavour: 'All-in offence, ignores damage',           hp: -15, atk: +25, def: -20, spd: +10 },
+  { name: 'Composed',    flavour: 'Methodical, hard to rattle',               hp: +10, atk: -15, def: +25, spd: -20 },
+  { name: 'Nimble',      flavour: 'Fast and evasive, light build',            hp: -15, atk:   0, def: -15, spd: +30 },
+  { name: 'Stoic',       flavour: 'Takes hits, rarely retaliates',            hp: +20, atk: -25, def: +15, spd: -10 },
+  { name: 'Cunning',     flavour: 'Calculated striker, picks moments',        hp: -10, atk: +20, def:   0, spd: +10 },
+  { name: 'Sluggish',    flavour: 'Slow but devastating',                     hp: +10, atk: +20, def: +10, spd: -40 },
+  { name: 'Vigorous',    flavour: 'Robust all-rounder, no real weakness',     hp: +10, atk: +10, def: +10, spd: -20 },
+  { name: 'Frail',       flavour: 'Extreme glass cannon',                     hp: -25, atk: +30, def: -25, spd: +20 },
+  { name: 'Lumbering',   flavour: 'Heavy hitter, poor speed',                 hp: +15, atk: +15, def: +10, spd: -40 },
+  { name: 'Timid',       flavour: 'Defensive, avoids direct conflict',        hp: +10, atk: -20, def: +20, spd: -10 },
+  { name: 'Spirited',    flavour: 'Balanced burst, energetic',                hp:   0, atk: +10, def: -10, spd: +10 },
+];
+
+const PERSONALITIES = [
+  { id: 'cindrel',   name: 'Cindrel',   personality: 'Feisty, restless',             behaviour: 'Needs frequent play, gets bored/destructive fast, loves spicy food' },
+  { id: 'aquill',    name: 'Aquill',    personality: 'Relaxed, friendly, affectionate', behaviour: 'Very easy to keep happy, needs lots of petting, slow hunger decay' },
+  { id: 'brezzet',   name: 'Brezzet',   personality: 'Curious, easily distracted',   behaviour: 'Attention drains fast but refills easily, likes novelty' },
+  { id: 'glowick',   name: 'Glowick',   personality: 'Shy, cautious',               behaviour: 'Needs quiet, dislikes too many interactions, thrives on patience' },
+  { id: 'murkling',  name: 'Murkling',  personality: 'Mischievous, cryptic',         behaviour: 'Does unexpected things — sometimes ignores you, sometimes overreacts' },
+  { id: 'peblix',    name: 'Peblix',    personality: 'Stubborn, steady',             behaviour: 'Very slow all decay rates, hard to excite but also hard to upset' },
+  { id: 'humtick',   name: 'Humtick',   personality: 'Hyper, chatty',               behaviour: 'Constant attention needed, plays music to self, loudly reacts to everything' },
+  { id: 'crystub',   name: 'Crystub',   personality: 'Gentle, trusting',             behaviour: 'Cries easily when neglected, instantly forgives, loves shinies' },
+  { id: 'cloakrit',  name: 'Cloakrit',  personality: 'Secretive, defensive',         behaviour: 'Hides when stressed, shows affection rarely but meaningfully' },
+  { id: 'ashpaw',    name: 'Ashpaw',    personality: 'Brave, aggressive',            behaviour: 'Wants to fight constantly, neglect leads to anger not sadness' },
+  { id: 'driftull',  name: 'Driftull',  personality: 'Lazy, warm, content',          behaviour: 'Very low needs, hard to make sick, just wants warmth and food' },
+  { id: 'buzzlit',   name: 'Buzzlit',   personality: 'Energetic, clumsy',            behaviour: 'Lots of movement, knocks things over, gets into trouble' },
+  { id: 'galecub',   name: 'Galecub',   personality: 'Playful, fast',               behaviour: 'Zoomies behaviour, hard to get to sleep, needs exercise' },
+  { id: 'sporik',    name: 'Sporik',    personality: 'Calm, slow, philosophical',    behaviour: 'Lowest decay rate of all, meditative idle, barely reacts' },
+  { id: 'spectrix',  name: 'Spectrix',  personality: 'Delicate, ethereal',           behaviour: 'Very sensitive — even minor neglect causes visible distress, fragile' },
+  { id: 'flintlet',  name: 'Flintlet',  personality: 'Scrappy, independent',         behaviour: "Doesn't need much care, but rewards attention with loyalty" },
+  { id: 'glintfin',  name: 'Glintfin',  personality: 'Graceful, vain',              behaviour: 'Hates being sick/dirty, needs grooming, reacts badly to rain/mud' },
+  { id: 'runekit',   name: 'Runekit',   personality: 'Intelligent, aloof',           behaviour: 'Engages on its own terms, responds to puzzle/play more than petting' },
+  { id: 'windmite',  name: 'Windmite',  personality: 'Stoic, patient',              behaviour: 'Very slow needs, rarely expressive, loyal' },
+  { id: 'duskrat',   name: 'Duskrat',   personality: 'Nervous, skittish',            behaviour: 'High anxiety, startles easily, needs calm regular routine' },
+  { id: 'bassolt',   name: 'Bassolt',   personality: 'Grumpy, gruff',               behaviour: 'Hard to please, loud complaints, but secretly appreciates care' },
+  { id: 'glassling', name: 'Glassling', personality: 'Gentle, dreamy',              behaviour: 'Drifts off, needs gentle prompting, very peaceful' },
+  { id: 'tidepup',   name: 'Tidepup',   personality: 'Bouncy, eager',               behaviour: 'Thrives on routine, excited by everything, fast hunger' },
+  { id: 'fluxling',  name: 'Fluxling',  personality: 'Erratic, unpredictable',       behaviour: 'Mood swings, random needs spikes, hard to read' },
+  { id: 'lumenox',   name: 'Lumenox',   personality: 'Warm, steady',                behaviour: 'Easy to care for, glows brighter when happy, dim when sad' },
+  { id: 'scaldit',   name: 'Scaldit',   personality: 'Territorial, proud',           behaviour: 'Dislikes being touched unless trust is high, earns loyalty over time' },
+  { id: 'darkspore', name: 'Darkspore', personality: 'Eerie, independent',           behaviour: 'Does its own thing, thrives on neglect more than most' },
+  { id: 'chuffin',   name: 'Chuffin',   personality: 'Charismatic, dramatic',        behaviour: 'Performs for attention, pouts when ignored, loud' },
+  { id: 'tremlet',   name: 'Tremlet',   personality: 'Timid, gentle',               behaviour: 'Very sensitive (meek rather than ethereal), slow to trust' },
+  { id: 'omenix',    name: 'Omenix ★',  personality: 'Aloof, mysterious, unsettling', behaviour: 'Hard to read, rare reactions, when it reacts it\'s intense. Pet dragon, not pet cat.' },
+  { id: 'lunveil',   name: 'Lunveil ★', personality: 'Aloof, ancient, unknowable',  behaviour: 'Almost never reacts to care directly. Keeping it feels like an honour, not a relationship.' },
+];
+
+// ── Tab switching ──
+document.querySelectorAll('.tab-btn').forEach(btn => {
+  btn.onclick = () => {
+    document.querySelectorAll('.tab-btn').forEach(b => b.classList.toggle('active', b === btn));
+    document.querySelectorAll('.tab-panel').forEach(p => p.classList.toggle('active', p.id === `tab-${btn.dataset.tab}`));
+  };
+});
+
+// ── Build Systems tab content ──
+function typePill(t) {
+  return `<span class="type-pill badge-${t}" style="color:${TYPE_COLORS[t]||'#aaa'};background:${TYPE_COLORS[t]||'#aaa'}18;border:1px solid ${TYPE_COLORS[t]||'#aaa'}30;">${t}</span>`;
+}
+
+function buildSystems(species) {
+  // Type tables
+  const primTbody = document.getElementById('type-table-primary');
+  const secTbody  = document.getElementById('type-table-secondary');
+  Object.entries(TYPE_INFO).forEach(([type, info]) => {
+    const tr = document.createElement('tr');
+    tr.innerHTML = `<td>${typePill(type)}</td><td>${info.desc}</td>`;
+    (info.primary ? primTbody : secTbody).appendChild(tr);
+  });
+
+  // Type distribution
+  const distEl = document.getElementById('type-distribution');
+  const primTypes = Object.entries(TYPE_INFO).filter(([,v]) => v.primary).map(([k]) => k);
+  const secTypes  = Object.entries(TYPE_INFO).filter(([,v]) => !v.primary).map(([k]) => k);
+  const allTypes  = [...primTypes, ...secTypes];
+  let distHtml = '<table class="sys-table"><thead><tr><th>Type</th><th>Primaries</th><th>Secondaries</th></tr></thead><tbody>';
+  allTypes.forEach(type => {
+    const prims = species.filter(sp => sp.type === type).map(sp => sp.stages[0].name);
+    const secs  = species.filter(sp => sp.secondaryType === type).map(sp => sp.stages[0].name);
+    if (prims.length === 0 && secs.length === 0) return;
+    distHtml += `<tr>
+      <td>${typePill(type)}</td>
+      <td class="note">${prims.join(', ') || '—'}</td>
+      <td class="note">${secs.join(', ') || '—'}</td>
+    </tr>`;
+  });
+  distHtml += '</tbody></table>';
+  distEl.innerHTML = distHtml;
+
+  // Move pools
+  const poolsEl = document.getElementById('move-pools-grid');
+  let poolHtml = '<div class="sys-grid-2">';
+  Object.entries(MOVE_POOLS).forEach(([type, moves]) => {
+    poolHtml += `<div style="margin-bottom:12px;"><div style="margin-bottom:6px;">${typePill(type)}</div>`;
+    poolHtml += moves.map(m => {
+      const tier = m.match(/\(([LMH])/)?.[1] || 'M';
+      return `<div style="margin:2px 0;font-size:11px;color:#888;"><span class="move-tier tier-${tier}">${tier}</span>${m.replace(/\s*\([^)]+\)/,'')}</div>`;
+    }).join('');
+    poolHtml += '</div>';
+  });
+  poolHtml += '</div>';
+  poolsEl.innerHTML = poolHtml;
+
+  // Signature moves
+  const sigTbody = document.querySelector('#sig-moves-table tbody');
+  SIG_MOVES.forEach(row => {
+    const tr = document.createElement('tr');
+    const isLegend = row.line.includes('★');
+    tr.innerHTML = `
+      <td style="${isLegend ? 'color:#f5e642' : ''}">${row.line}</td>
+      <td class="note">${row.s1 !== '—' ? `<span class="move-tier tier-S">S1</span>${row.s1}` : '<span style="color:#333">—</span>'}</td>
+      <td class="note">${row.s2 !== '—' ? `<span class="move-tier tier-S">S2</span>${row.s2}` : '<span style="color:#333">—</span>'}</td>
+      <td class="note">${row.s3 !== '—' ? `<span class="move-tier tier-S">S3</span>${row.s3}` : '<span style="color:#333">—</span>'}</td>
+    `;
+    sigTbody.appendChild(tr);
+  });
+
+  // FX table
+  const fxEl = document.getElementById('fx-table');
+  let fxHtml = '<table class="sys-table"><thead><tr><th>Effect</th><th>Used By</th></tr></thead><tbody>';
+  FX_LIST.forEach(fx => {
+    fxHtml += `<tr><td style="color:#6fb8c8;font-size:10px;">${fx.key}</td><td class="note">${fx.used}</td></tr>`;
+  });
+  fxHtml += '</tbody></table>';
+  fxEl.innerHTML = fxHtml;
+
+  // Constitutions
+  const consTbody = document.querySelector('#constitution-table tbody');
+  CONSTITUTIONS.forEach(c => {
+    const fmt = (v) => {
+      if (v === 0) return '<span style="color:#444">—</span>';
+      const col = v > 0 ? '#5cb85c' : '#e05555';
+      return `<span style="color:${col}">${v > 0 ? '+' : ''}${v}%</span>`;
+    };
+    const tr = document.createElement('tr');
+    const isHardy = c.name === 'Hardy';
+    tr.innerHTML = `
+      <td style="${isHardy ? 'color:#888' : ''}">${c.name}</td>
+      <td class="note">${c.flavour}</td>
+      <td>${fmt(c.hp)}</td>
+      <td>${fmt(c.atk)}</td>
+      <td>${fmt(c.def)}</td>
+      <td>${fmt(c.spd)}</td>
+    `;
+    consTbody.appendChild(tr);
+  });
+
+  // Personalities
+  const persTbody = document.querySelector('#personality-table tbody');
+  PERSONALITIES.forEach(p => {
+    const sp = species.find(s => s.id === p.id);
+    const types = sp ? [sp.type, sp.secondaryType].filter(Boolean) : [];
+    const isLegend = p.name.includes('★');
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td style="${isLegend ? 'color:#f5e642' : ''}">
+        ${p.name}
+        <div style="margin-top:3px;">${types.map(t => typePill(t)).join('')}</div>
+      </td>
+      <td>${p.personality.split(', ').map(tag => `<span class="personality-tag">${tag}</span>`).join('')}</td>
+      <td class="note">${p.behaviour}</td>
+    `;
+    persTbody.appendChild(tr);
+  });
+}
+
+// ── DEX tab (unchanged logic) ──
 let votes = JSON.parse(localStorage.getItem(STORAGE_KEY) || '{}');
 let allSpecies = [];
 let activeType = 'All';
 let activeView = 'all';
-
-// Per-card animation state: cardId → { anim: string, timers: { stageKey: intervalId } }
 const cardAnimState = {};
 
 function saveVotes() { localStorage.setItem(STORAGE_KEY, JSON.stringify(votes)); }
@@ -394,7 +1075,6 @@ function applyFilters() {
   document.querySelectorAll('.dex-card').forEach(card => {
     const types = card.dataset.types.split(',');
     const typeOk = activeType === 'All' || types.includes(activeType);
-
     let viewOk = true;
     if (activeView === 'redo') {
       viewOk = card.classList.contains('has-redo');
@@ -402,7 +1082,6 @@ function applyFilters() {
       viewOk = !card.classList.contains('all-approved') && !card.classList.contains('has-redo') ||
                 card.querySelectorAll('.evo-stage:not(.approved):not(.redo)').length > 0;
     }
-
     card.classList.toggle('hidden', !typeOk || !viewOk);
   });
 }
@@ -418,22 +1097,20 @@ function refreshCardState(card, sp) {
   card.classList.toggle('has-redo', anyRedo);
 }
 
-// Get animation frames for a stage from species data.
-// Reads from sp.animations map first, then falls back to per-stage idleFrames/attackFrames.
 function getFrames(sp, stageKey, animName) {
   const key = `${stageKey}-${animName}`;
   if (sp.animations && sp.animations[key] && sp.animations[key].length > 0) {
     return sp.animations[key];
   }
-  // Fallback: per-stage fields
   const stageNum = parseInt(stageKey.replace('stage', ''));
   const stage = sp.stages.find(s => s.stage === stageNum);
   if (!stage) return null;
-  const frames = animName === 'idle' ? stage.idleFrames : stage.attackFrames;
-  return frames && frames.length > 0 ? frames : null;
+  // Only fall back to per-stage fields for the two legacy keys
+  if (animName === 'idle')   return stage.idleFrames?.length   > 0 ? stage.idleFrames   : null;
+  if (animName === 'attack') return stage.attackFrames?.length > 0 ? stage.attackFrames : null;
+  return null;
 }
 
-// Get transition frames from sp.transitions map
 function getTransitionFrames(sp, transKey) {
   if (sp.transitions && sp.transitions[transKey] && sp.transitions[transKey].length > 0) {
     return sp.transitions[transKey];
@@ -441,61 +1118,56 @@ function getTransitionFrames(sp, transKey) {
   return null;
 }
 
-// Start cycling animation frames on an img element
 function startAnimation(img, wrap, frames, fps) {
   if (!frames || frames.length === 0) return null;
+  // frame0 is always the static base pose — skip it in the loop to avoid
+  // a one-frame transparency flash (especially visible on near-transparent sprites like Murkling)
+  const loopFrames = frames.length > 1 ? frames.slice(1) : frames;
   let idx = 0;
   const badge = wrap.querySelector('.frame-badge');
   wrap.classList.add('animating');
-  // Preload frames
-  frames.forEach(src => { const i = new Image(); i.src = src; });
+  loopFrames.forEach(src => { const i = new Image(); i.src = src; });
+  img.src = loopFrames[0];
   const timer = setInterval(() => {
-    idx = (idx + 1) % frames.length;
-    img.src = frames[idx];
-    if (badge) badge.textContent = `${idx + 1}/${frames.length}`;
+    idx = (idx + 1) % loopFrames.length;
+    img.src = loopFrames[idx];
+    if (badge) badge.textContent = `${idx + 1}/${loopFrames.length}`;
   }, 1000 / fps);
-  if (badge) badge.textContent = `1/${frames.length}`;
+  if (badge) badge.textContent = `1/${loopFrames.length}`;
   return timer;
 }
 
-// Stop cycling and restore base sprite
 function stopAnimation(img, wrap, baseSprite, timer) {
   clearInterval(timer);
   wrap.classList.remove('animating');
   if (baseSprite) img.src = baseSprite;
 }
 
-// Switch animation for an entire card
 function setCardAnim(cardId, sp, animName, stageImgs, stageWraps) {
   const state = cardAnimState[cardId];
-
-  // Clear existing timers
   Object.values(state.timers).forEach(t => clearInterval(t));
   state.timers = {};
-
   state.anim = animName;
-
   sp.stages.forEach((stage, si) => {
     const stageKey = `stage${stage.stage}`;
     const img = stageImgs[si];
     const wrap = stageWraps[si];
     if (!img || !wrap) return;
-
-    const wrap_ = wrap;
-    wrap_.classList.remove('animating');
-
+    wrap.classList.remove('animating');
     if (animName === 'static') {
-      // Restore base sprite
       if (stage.sprite) img.src = stage.sprite;
       return;
     }
-
+    // Tamagotchi anims only animate stage 1 — hold static sprite for higher stages
+    if (TAMAGOTCHI_ANIMS.has(animName) && stage.stage !== 1) {
+      if (stage.sprite) img.src = stage.sprite;
+      return;
+    }
     const frames = getFrames(sp, stageKey, animName);
     if (frames) {
-      const timer = startAnimation(img, wrap_, frames, ANIM_FPS);
+      const timer = startAnimation(img, wrap, frames, ANIM_FPS);
       if (timer) state.timers[stageKey] = timer;
     } else {
-      // No frames for this anim — restore base sprite
       if (stage.sprite) img.src = stage.sprite;
     }
   });
@@ -507,6 +1179,7 @@ fetch('/synamon/species.json?v=' + Date.now())
     allSpecies = species;
     buildFilters(species);
     buildViewButtons();
+    buildSystems(species);
     const grid = document.getElementById('dex-grid');
     species.forEach((sp, i) => grid.appendChild(makeCard(sp, i + 1)));
     updateProgress();
@@ -518,7 +1191,6 @@ function buildFilters(species) {
   species.forEach(sp => { allTypes.add(sp.type); if (sp.secondaryType) allTypes.add(sp.secondaryType); });
   const bar = document.getElementById('type-filters');
   bar.style.cssText = 'display:flex;gap:6px;flex-wrap:wrap;';
-
   ['All', ...Object.keys(TYPE_COLORS).filter(t => allTypes.has(t))].forEach(type => {
     const btn = document.createElement('button');
     btn.className = 'type-btn' + (type === 'All' ? ' active' : '');
@@ -562,7 +1234,6 @@ function makeCard(sp, num) {
   const typeList = [sp.type, sp.secondaryType].filter(Boolean);
   card.dataset.types = typeList.join(',');
 
-  // Header
   const header = document.createElement('div');
   header.className = 'card-header';
   header.innerHTML = `
@@ -574,12 +1245,6 @@ function makeCard(sp, num) {
   `;
   card.appendChild(header);
 
-  // Check if any animations exist for this species
-  const hasAnyAnim = ANIM_NAMES.some(anim =>
-    sp.stages.some(s => getFrames(sp, `stage${s.stage}`, anim))
-  );
-
-  // Animation selector (always shown; buttons dim when no frames available)
   const animSelector = document.createElement('div');
   animSelector.className = 'anim-selector';
 
@@ -591,11 +1256,14 @@ function makeCard(sp, num) {
     btn.className = 'anim-btn' + (animName === 'static' ? ' active' : '');
     btn.textContent = label;
 
-    // Check if any stage has frames for this anim
-    const hasFrames = animName !== 'static' && sp.stages.some(s => getFrames(sp, `stage${s.stage}`, animName));
+    // Tamagotchi anims: only check stage 1 for availability
+    const checkStages = (animName !== 'static' && TAMAGOTCHI_ANIMS.has(animName))
+      ? sp.stages.filter(s => s.stage === 1)
+      : sp.stages;
+    const hasFrames = animName !== 'static' && checkStages.some(s => getFrames(sp, `stage${s.stage}`, animName));
+
     if (hasFrames) btn.classList.add('has-frames');
     if (!hasFrames && animName !== 'static') btn.style.opacity = '0.3';
-
     btn.onclick = () => {
       document.querySelectorAll(`#${cardId} .anim-btn`).forEach(b => b.classList.remove('active'));
       btn.classList.add('active');
@@ -604,12 +1272,22 @@ function makeCard(sp, num) {
     return btn;
   };
 
+  // Static button first
   animSelector.appendChild(makeAnimBtn('Static', 'static'));
-  ANIM_NAMES.forEach(anim => animSelector.appendChild(makeAnimBtn(anim.charAt(0).toUpperCase() + anim.slice(1), anim)));
+
+  // Group label + buttons per group
+  ANIM_GROUPS.forEach(group => {
+    const lbl = document.createElement('span');
+    lbl.className = 'anim-group-label';
+    lbl.textContent = group.label;
+    animSelector.appendChild(lbl);
+    group.anims.forEach(anim => {
+      animSelector.appendChild(makeAnimBtn(anim.charAt(0).toUpperCase() + anim.slice(1), anim));
+    });
+  });
 
   card.appendChild(animSelector);
 
-  // Evo strip
   const strip = document.createElement('div');
   strip.className = 'evo-strip';
 
@@ -619,7 +1297,6 @@ function makeCard(sp, num) {
     const stageEl = document.createElement('div');
     stageEl.className = 'evo-stage';
     stageEl.dataset.key = key;
-
     const v = votes[key];
     if (v === 'ok')   stageEl.classList.add('approved');
     if (v === 'redo') stageEl.classList.add('redo');
@@ -632,293 +1309,176 @@ function makeCard(sp, num) {
     img.alt = stage.name;
     if (stage.sprite) {
       img.src = stage.sprite;
-      img.onerror = () => {
-        img.style.display = 'none';
-        wrap.appendChild(makePending());
-      };
+      // onerror only for initial sprite load — cleared on first success so animation
+      // src changes don't accidentally trigger it on a slow/missing frame
+      img.onerror = () => { img.style.display = 'none'; wrap.appendChild(makePending()); };
+      img.onload  = () => { img.onerror = null; img.onload = null; };
     } else {
       img.style.display = 'none';
       wrap.appendChild(makePending());
     }
 
-    // Frame counter badge (hidden unless animating)
     const badge = document.createElement('div');
     badge.className = 'frame-badge';
-    badge.textContent = '';
-
     wrap.appendChild(img);
     wrap.appendChild(badge);
-
     stageImgs[si] = img;
     stageWraps[si] = wrap;
 
-    const nameEl = document.createElement('div');
-    nameEl.className = 'stage-name';
-    nameEl.textContent = stage.name;
-
-    const labelEl = document.createElement('div');
-    labelEl.className = 'stage-label';
-    labelEl.textContent = si === 0 ? 'Base' : si === sp.stages.length - 1 ? 'Final' : `Evo ${si + 1}`;
+    const nameEl  = document.createElement('div'); nameEl.className  = 'stage-name';  nameEl.textContent  = stage.name;
+    const labelEl = document.createElement('div'); labelEl.className = 'stage-label'; labelEl.textContent = si === 0 ? 'Base' : si === sp.stages.length - 1 ? 'Final' : `Evo ${si + 1}`;
 
     const voteRow = document.createElement('div');
     voteRow.className = 'vote-row';
 
     const okBtn = document.createElement('button');
-    okBtn.className = 'vote-btn vote-ok';
-    okBtn.textContent = '✓';
-    okBtn.title = 'Approve';
+    okBtn.className = 'vote-btn vote-ok'; okBtn.textContent = '✓'; okBtn.title = 'Approve';
     okBtn.onclick = (e) => {
       e.stopPropagation();
       votes[key] = votes[key] === 'ok' ? null : 'ok';
       saveVotes();
       stageEl.classList.toggle('approved', votes[key] === 'ok');
       stageEl.classList.toggle('redo', false);
-      refreshCardState(card, sp);
-      updateProgress();
-      applyFilters();
+      refreshCardState(card, sp); updateProgress(); applyFilters();
     };
 
     const redoBtn = document.createElement('button');
-    redoBtn.className = 'vote-btn vote-redo';
-    redoBtn.textContent = '✗';
-    redoBtn.title = 'Flag for redo';
+    redoBtn.className = 'vote-btn vote-redo'; redoBtn.textContent = '✗'; redoBtn.title = 'Flag for redo';
     redoBtn.onclick = (e) => {
       e.stopPropagation();
       votes[key] = votes[key] === 'redo' ? null : 'redo';
       saveVotes();
       stageEl.classList.toggle('redo', votes[key] === 'redo');
       stageEl.classList.toggle('approved', false);
-      refreshCardState(card, sp);
-      updateProgress();
-      applyFilters();
+      refreshCardState(card, sp); updateProgress(); applyFilters();
     };
 
-    voteRow.appendChild(okBtn);
-    voteRow.appendChild(redoBtn);
-
-    stageEl.appendChild(wrap);
-    stageEl.appendChild(nameEl);
-    stageEl.appendChild(labelEl);
-    stageEl.appendChild(voteRow);
+    voteRow.appendChild(okBtn); voteRow.appendChild(redoBtn);
+    stageEl.appendChild(wrap); stageEl.appendChild(nameEl); stageEl.appendChild(labelEl); stageEl.appendChild(voteRow);
     strip.appendChild(stageEl);
   });
 
   card.appendChild(strip);
 
-  // Transitions section (only for species with 2+ stages)
   if (sp.stages.length >= 2) {
     const stages = [...sp.stages].sort((a, b) => a.stage - b.stage);
-    const baseStage = stages[0].stage;
-    const finalStage = stages[stages.length - 1].stage;
-
-    // Build list of transition keys to show
-    const transKeys = [];
+    const baseStage  = stages[0].stage;
+    const transKeys  = [];
     for (let i = 0; i < stages.length - 1; i++) {
       transKeys.push({ key: `stage${stages[i].stage}-to-stage${stages[i+1].stage}`, label: `Evo ${stages[i].stage}→${stages[i+1].stage}` });
     }
-    // Devolution: all non-base stages back to base
     for (let i = 1; i < stages.length; i++) {
       transKeys.push({ key: `stage${stages[i].stage}-to-stage${baseStage}`, label: `Devo ${stages[i].stage}→${baseStage}` });
     }
 
-    const transSection = document.createElement('div');
-    transSection.className = 'trans-section';
-
-    const transSelector = document.createElement('div');
-    transSelector.className = 'trans-selector';
-
-    const transPreview = document.createElement('div');
-    transPreview.className = 'trans-preview';
+    const transSection  = document.createElement('div'); transSection.className  = 'trans-section';
+    const transSelector = document.createElement('div'); transSelector.className = 'trans-selector';
+    const transPreview  = document.createElement('div'); transPreview.className  = 'trans-preview';
 
     const transImg = document.createElement('img');
-    transImg.width = 64;
-    transImg.height = 64;
-    transImg.style.imageRendering = 'pixelated';
-    transImg.style.display = 'none';
-    transImg.alt = '';
+    transImg.width = 64; transImg.height = 64;
+    transImg.style.imageRendering = 'pixelated'; transImg.style.display = 'none';
 
     const transPlaceholder = document.createElement('div');
     transPlaceholder.style.cssText = 'width:64px;height:64px;display:flex;align-items:center;justify-content:center;color:#2a2a42;font-size:9px;';
     transPlaceholder.textContent = '← select';
 
-    const transBadge = document.createElement('div');
-    transBadge.className = 'frame-badge';
-
-    const replayBtn = document.createElement('button');
-    replayBtn.className = 'anim-btn';
-    replayBtn.textContent = '↺';
-    replayBtn.title = 'Replay';
+    const transBadge = document.createElement('div'); transBadge.className = 'frame-badge';
+    const replayBtn  = document.createElement('button');
+    replayBtn.className = 'anim-btn'; replayBtn.textContent = '↺'; replayBtn.title = 'Replay';
     replayBtn.style.cssText = 'display:none;position:absolute;bottom:6px;right:6px;font-size:11px;padding:1px 5px;';
 
     transPreview.style.position = 'relative';
-    transPreview.appendChild(transPlaceholder);
-    transPreview.appendChild(transImg);
-    transPreview.appendChild(transBadge);
-    transPreview.appendChild(replayBtn);
+    transPreview.appendChild(transPlaceholder); transPreview.appendChild(transImg);
+    transPreview.appendChild(transBadge); transPreview.appendChild(replayBtn);
 
-    let activeTransTimer = null;
-    let activeTransBtn = null;
-    let activeFrames = null;
-    let activeTransKey = null;
+    let activeTransTimer = null, activeTransBtn = null, activeFrames = null, activeTransKey = null;
 
     function stopTrans() {
       if (activeTransTimer) { clearInterval(activeTransTimer); activeTransTimer = null; }
     }
 
-    // Full three-phase sequence: idle-start → transition → idle-end (loops)
     function playFullSequence(transFrames, transKey) {
       stopTrans();
       replayBtn.style.display = 'none';
       transPreview.classList.add('animating');
-
-      // Parse stage numbers from key e.g. "stage1-to-stage2"
       const m = transKey.match(/stage(\d+)-to-stage(\d+)/);
       const fromStage = m ? parseInt(m[1]) : null;
       const toStage   = m ? parseInt(m[2]) : null;
-
       function getIdleFrames(stageNum) {
-        if (!stageNum) return null;
-        const stageKey = `stage${stageNum}`;
-        return getFrames(sp, stageKey, 'idle');
+        return stageNum ? getFrames(sp, `stage${stageNum}`, 'idle') : null;
       }
-
       const startIdleFrames = getIdleFrames(fromStage);
       const endIdleFrames   = getIdleFrames(toStage);
+      [...(startIdleFrames || []), ...transFrames, ...(endIdleFrames || [])].forEach(src => { const i = new Image(); i.src = src; });
 
-      // Preload everything
-      [...(startIdleFrames || []), ...transFrames, ...(endIdleFrames || [])].forEach(src => {
-        const i = new Image(); i.src = src;
-      });
-
-      // Phase 1: idle loop on start form
-      // If no idle frames, skip straight to transition
       if (startIdleFrames && startIdleFrames.length > 0) {
         let idx = 0;
-        transImg.src = startIdleFrames[0];
-        transBadge.textContent = `idle`;
-
+        transImg.src = startIdleFrames[0]; transBadge.textContent = 'idle';
         activeTransTimer = setInterval(() => {
           idx = (idx + 1) % startIdleFrames.length;
           transImg.src = startIdleFrames[idx];
-          // When we complete a loop (back to frame 0), hand off to transition
-          if (idx === 0) {
-            stopTrans();
-            runTransition();
-          }
+          if (idx === 0) { stopTrans(); runTransition(); }
         }, 1000 / ANIM_FPS);
-      } else {
-        runTransition();
-      }
+      } else { runTransition(); }
 
-      // Phase 2: play transition once
       function runTransition() {
         let idx = 0;
-        transImg.src = transFrames[0];
-        transBadge.textContent = `1/${transFrames.length}`;
-
+        transImg.src = transFrames[0]; transBadge.textContent = `1/${transFrames.length}`;
         activeTransTimer = setInterval(() => {
           idx++;
-          if (idx >= transFrames.length) {
-            stopTrans();
-            runEndIdle();
-            return;
-          }
-          transImg.src = transFrames[idx];
-          transBadge.textContent = `${idx + 1}/${transFrames.length}`;
+          if (idx >= transFrames.length) { stopTrans(); runEndIdle(); return; }
+          transImg.src = transFrames[idx]; transBadge.textContent = `${idx + 1}/${transFrames.length}`;
         }, 1000 / ANIM_FPS);
       }
 
-      // Phase 3: idle loop on end form, loops forever
       function runEndIdle() {
         if (!endIdleFrames || endIdleFrames.length === 0) {
-          // No end idle — show last transition frame and offer replay
-          transPreview.classList.remove('animating');
-          transBadge.textContent = '';
-          replayBtn.style.display = 'block';
-          return;
+          transPreview.classList.remove('animating'); transBadge.textContent = ''; replayBtn.style.display = 'block'; return;
         }
-
         let idx = 0;
-        transImg.src = endIdleFrames[0];
-        transBadge.textContent = `idle`;
-
+        transImg.src = endIdleFrames[0]; transBadge.textContent = 'idle';
         activeTransTimer = setInterval(() => {
-          idx = (idx + 1) % endIdleFrames.length;
-          transImg.src = endIdleFrames[idx];
+          idx = (idx + 1) % endIdleFrames.length; transImg.src = endIdleFrames[idx];
         }, 1000 / ANIM_FPS);
-
-        // Show replay button so user can restart the whole sequence
         replayBtn.style.display = 'block';
       }
     }
 
-    replayBtn.onclick = () => {
-      if (activeFrames && activeTransKey) playFullSequence(activeFrames, activeTransKey);
-    };
+    replayBtn.onclick = () => { if (activeFrames && activeTransKey) playFullSequence(activeFrames, activeTransKey); };
 
     const makeTransBtn = ({ key, label }) => {
       const frames = getTransitionFrames(sp, key);
       const btn = document.createElement('button');
-      btn.className = 'anim-btn';
-      btn.textContent = label;
-      if (frames) {
-        btn.classList.add('has-frames');
-      } else {
-        btn.style.opacity = '0.3';
-        btn.style.cursor = 'default';
-      }
+      btn.className = 'anim-btn'; btn.textContent = label;
+      if (frames) btn.classList.add('has-frames'); else { btn.style.opacity = '0.3'; btn.style.cursor = 'default'; }
       btn.onclick = () => {
         if (!frames) return;
-
         const wasActive = btn === activeTransBtn;
-
-        // Deactivate previous
         stopTrans();
         if (activeTransBtn) { activeTransBtn.classList.remove('active'); activeTransBtn = null; }
-        activeFrames = null;
-        activeTransKey = null;
-        transPreview.classList.remove('animating');
-        transBadge.textContent = '';
-        replayBtn.style.display = 'none';
-        transImg.style.display = 'none';
-        transPlaceholder.style.display = 'flex';
-
-        if (wasActive) return; // toggle off
-
-        activeTransBtn = btn;
-        activeFrames = frames;
-        activeTransKey = key;
-        btn.classList.add('active');
-
-        transPlaceholder.style.display = 'none';
-        transImg.style.display = 'block';
-
+        activeFrames = null; activeTransKey = null;
+        transPreview.classList.remove('animating'); transBadge.textContent = ''; replayBtn.style.display = 'none';
+        transImg.style.display = 'none'; transPlaceholder.style.display = 'flex';
+        if (wasActive) return;
+        activeTransBtn = btn; activeFrames = frames; activeTransKey = key;
+        btn.classList.add('active'); transPlaceholder.style.display = 'none'; transImg.style.display = 'block';
         playFullSequence(frames, key);
       };
       return btn;
     };
 
     const hasAnyTransition = transKeys.some(({ key }) => getTransitionFrames(sp, key));
-
-    if (hasAnyTransition) {
-      transKeys.forEach(tk => transSelector.appendChild(makeTransBtn(tk)));
-      transSection.appendChild(transSelector);
-      transSection.appendChild(transPreview);
-    } else {
-      // Show empty state with dimmed buttons so user knows section exists
-      transKeys.forEach(tk => transSelector.appendChild(makeTransBtn(tk)));
-      transSection.appendChild(transSelector);
-      const emptyMsg = document.createElement('div');
-      emptyMsg.className = 'trans-empty';
-      emptyMsg.textContent = 'No transitions generated yet';
+    transKeys.forEach(tk => transSelector.appendChild(makeTransBtn(tk)));
+    transSection.appendChild(transSelector);
+    if (!hasAnyTransition) {
+      const emptyMsg = document.createElement('div'); emptyMsg.className = 'trans-empty'; emptyMsg.textContent = 'No transitions generated yet';
       transSection.appendChild(emptyMsg);
-      transSection.appendChild(transPreview);
     }
-
+    transSection.appendChild(transPreview);
     card.appendChild(transSection);
   }
 
-  // Detail
   const detail = document.createElement('div');
   detail.className = 'detail-panel';
   detail.innerHTML = `
@@ -932,7 +1492,6 @@ function makeCard(sp, num) {
     <div class="evo-line">${sp.stages.map(s=>`${s.name}${s.evolveAt?` →Lv.${s.evolveAt}`:''}`).join(' · ')}</div>
   `;
   card.appendChild(detail);
-
   refreshCardState(card, sp);
   return card;
 }
