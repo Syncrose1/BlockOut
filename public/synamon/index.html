@@ -152,6 +152,51 @@
   .anim-btn.has-frames { color: #777; border-color: #3a3a5a; }
   .anim-btn.has-frames.active { border-color: #6fb8c8; color: #6fb8c8; }
 
+  /* ── Transition strip ── */
+  .trans-section {
+    background: #0b0b17;
+    border-top: 1px solid #1a1a2a;
+    padding: 0;
+  }
+  .trans-selector {
+    display: flex;
+    gap: 4px;
+    padding: 5px 8px 4px;
+    flex-wrap: wrap;
+    border-bottom: 1px solid #13131f;
+  }
+  .trans-preview {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 8px 0 10px;
+    min-height: 80px;
+    position: relative;
+  }
+  .trans-preview img {
+    image-rendering: pixelated;
+    width: 64px;
+    height: 64px;
+  }
+  .trans-preview .frame-badge {
+    position: absolute;
+    bottom: 6px;
+    right: calc(50% - 40px);
+    font-size: 8px;
+    background: #000a;
+    color: #6fb8c8;
+    padding: 1px 4px;
+    border-radius: 3px;
+    display: none;
+  }
+  .trans-preview.animating .frame-badge { display: block; }
+  .trans-empty {
+    font-size: 9px;
+    color: #333;
+    text-align: center;
+    padding: 14px 0 16px;
+  }
+
   /* ── Evolution strip ── */
   .evo-strip {
     display: flex;
@@ -388,6 +433,14 @@ function getFrames(sp, stageKey, animName) {
   return frames && frames.length > 0 ? frames : null;
 }
 
+// Get transition frames from sp.transitions map
+function getTransitionFrames(sp, transKey) {
+  if (sp.transitions && sp.transitions[transKey] && sp.transitions[transKey].length > 0) {
+    return sp.transitions[transKey];
+  }
+  return null;
+}
+
 // Start cycling animation frames on an img element
 function startAnimation(img, wrap, frames, fps) {
   if (!frames || frames.length === 0) return null;
@@ -448,7 +501,7 @@ function setCardAnim(cardId, sp, animName, stageImgs, stageWraps) {
   });
 }
 
-fetch('/synamon/species.json')
+fetch('/synamon/species.json?v=' + Date.now())
   .then(r => r.json())
   .then(species => {
     allSpecies = species;
@@ -651,6 +704,219 @@ function makeCard(sp, num) {
   });
 
   card.appendChild(strip);
+
+  // Transitions section (only for species with 2+ stages)
+  if (sp.stages.length >= 2) {
+    const stages = [...sp.stages].sort((a, b) => a.stage - b.stage);
+    const baseStage = stages[0].stage;
+    const finalStage = stages[stages.length - 1].stage;
+
+    // Build list of transition keys to show
+    const transKeys = [];
+    for (let i = 0; i < stages.length - 1; i++) {
+      transKeys.push({ key: `stage${stages[i].stage}-to-stage${stages[i+1].stage}`, label: `Evo ${stages[i].stage}→${stages[i+1].stage}` });
+    }
+    // Devolution: all non-base stages back to base
+    for (let i = 1; i < stages.length; i++) {
+      transKeys.push({ key: `stage${stages[i].stage}-to-stage${baseStage}`, label: `Devo ${stages[i].stage}→${baseStage}` });
+    }
+
+    const transSection = document.createElement('div');
+    transSection.className = 'trans-section';
+
+    const transSelector = document.createElement('div');
+    transSelector.className = 'trans-selector';
+
+    const transPreview = document.createElement('div');
+    transPreview.className = 'trans-preview';
+
+    const transImg = document.createElement('img');
+    transImg.width = 64;
+    transImg.height = 64;
+    transImg.style.imageRendering = 'pixelated';
+    transImg.style.display = 'none';
+    transImg.alt = '';
+
+    const transPlaceholder = document.createElement('div');
+    transPlaceholder.style.cssText = 'width:64px;height:64px;display:flex;align-items:center;justify-content:center;color:#2a2a42;font-size:9px;';
+    transPlaceholder.textContent = '← select';
+
+    const transBadge = document.createElement('div');
+    transBadge.className = 'frame-badge';
+
+    const replayBtn = document.createElement('button');
+    replayBtn.className = 'anim-btn';
+    replayBtn.textContent = '↺';
+    replayBtn.title = 'Replay';
+    replayBtn.style.cssText = 'display:none;position:absolute;bottom:6px;right:6px;font-size:11px;padding:1px 5px;';
+
+    transPreview.style.position = 'relative';
+    transPreview.appendChild(transPlaceholder);
+    transPreview.appendChild(transImg);
+    transPreview.appendChild(transBadge);
+    transPreview.appendChild(replayBtn);
+
+    let activeTransTimer = null;
+    let activeTransBtn = null;
+    let activeFrames = null;
+    let activeTransKey = null;
+
+    function stopTrans() {
+      if (activeTransTimer) { clearInterval(activeTransTimer); activeTransTimer = null; }
+    }
+
+    // Full three-phase sequence: idle-start → transition → idle-end (loops)
+    function playFullSequence(transFrames, transKey) {
+      stopTrans();
+      replayBtn.style.display = 'none';
+      transPreview.classList.add('animating');
+
+      // Parse stage numbers from key e.g. "stage1-to-stage2"
+      const m = transKey.match(/stage(\d+)-to-stage(\d+)/);
+      const fromStage = m ? parseInt(m[1]) : null;
+      const toStage   = m ? parseInt(m[2]) : null;
+
+      function getIdleFrames(stageNum) {
+        if (!stageNum) return null;
+        const stageKey = `stage${stageNum}`;
+        return getFrames(sp, stageKey, 'idle');
+      }
+
+      const startIdleFrames = getIdleFrames(fromStage);
+      const endIdleFrames   = getIdleFrames(toStage);
+
+      // Preload everything
+      [...(startIdleFrames || []), ...transFrames, ...(endIdleFrames || [])].forEach(src => {
+        const i = new Image(); i.src = src;
+      });
+
+      // Phase 1: idle loop on start form
+      // If no idle frames, skip straight to transition
+      if (startIdleFrames && startIdleFrames.length > 0) {
+        let idx = 0;
+        transImg.src = startIdleFrames[0];
+        transBadge.textContent = `idle`;
+
+        activeTransTimer = setInterval(() => {
+          idx = (idx + 1) % startIdleFrames.length;
+          transImg.src = startIdleFrames[idx];
+          // When we complete a loop (back to frame 0), hand off to transition
+          if (idx === 0) {
+            stopTrans();
+            runTransition();
+          }
+        }, 1000 / ANIM_FPS);
+      } else {
+        runTransition();
+      }
+
+      // Phase 2: play transition once
+      function runTransition() {
+        let idx = 0;
+        transImg.src = transFrames[0];
+        transBadge.textContent = `1/${transFrames.length}`;
+
+        activeTransTimer = setInterval(() => {
+          idx++;
+          if (idx >= transFrames.length) {
+            stopTrans();
+            runEndIdle();
+            return;
+          }
+          transImg.src = transFrames[idx];
+          transBadge.textContent = `${idx + 1}/${transFrames.length}`;
+        }, 1000 / ANIM_FPS);
+      }
+
+      // Phase 3: idle loop on end form, loops forever
+      function runEndIdle() {
+        if (!endIdleFrames || endIdleFrames.length === 0) {
+          // No end idle — show last transition frame and offer replay
+          transPreview.classList.remove('animating');
+          transBadge.textContent = '';
+          replayBtn.style.display = 'block';
+          return;
+        }
+
+        let idx = 0;
+        transImg.src = endIdleFrames[0];
+        transBadge.textContent = `idle`;
+
+        activeTransTimer = setInterval(() => {
+          idx = (idx + 1) % endIdleFrames.length;
+          transImg.src = endIdleFrames[idx];
+        }, 1000 / ANIM_FPS);
+
+        // Show replay button so user can restart the whole sequence
+        replayBtn.style.display = 'block';
+      }
+    }
+
+    replayBtn.onclick = () => {
+      if (activeFrames && activeTransKey) playFullSequence(activeFrames, activeTransKey);
+    };
+
+    const makeTransBtn = ({ key, label }) => {
+      const frames = getTransitionFrames(sp, key);
+      const btn = document.createElement('button');
+      btn.className = 'anim-btn';
+      btn.textContent = label;
+      if (frames) {
+        btn.classList.add('has-frames');
+      } else {
+        btn.style.opacity = '0.3';
+        btn.style.cursor = 'default';
+      }
+      btn.onclick = () => {
+        if (!frames) return;
+
+        const wasActive = btn === activeTransBtn;
+
+        // Deactivate previous
+        stopTrans();
+        if (activeTransBtn) { activeTransBtn.classList.remove('active'); activeTransBtn = null; }
+        activeFrames = null;
+        activeTransKey = null;
+        transPreview.classList.remove('animating');
+        transBadge.textContent = '';
+        replayBtn.style.display = 'none';
+        transImg.style.display = 'none';
+        transPlaceholder.style.display = 'flex';
+
+        if (wasActive) return; // toggle off
+
+        activeTransBtn = btn;
+        activeFrames = frames;
+        activeTransKey = key;
+        btn.classList.add('active');
+
+        transPlaceholder.style.display = 'none';
+        transImg.style.display = 'block';
+
+        playFullSequence(frames, key);
+      };
+      return btn;
+    };
+
+    const hasAnyTransition = transKeys.some(({ key }) => getTransitionFrames(sp, key));
+
+    if (hasAnyTransition) {
+      transKeys.forEach(tk => transSelector.appendChild(makeTransBtn(tk)));
+      transSection.appendChild(transSelector);
+      transSection.appendChild(transPreview);
+    } else {
+      // Show empty state with dimmed buttons so user knows section exists
+      transKeys.forEach(tk => transSelector.appendChild(makeTransBtn(tk)));
+      transSection.appendChild(transSelector);
+      const emptyMsg = document.createElement('div');
+      emptyMsg.className = 'trans-empty';
+      emptyMsg.textContent = 'No transitions generated yet';
+      transSection.appendChild(emptyMsg);
+      transSection.appendChild(transPreview);
+    }
+
+    card.appendChild(transSection);
+  }
 
   // Detail
   const detail = document.createElement('div');
