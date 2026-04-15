@@ -1,0 +1,73 @@
+{
+  "tool": "create_map_object",
+  "image_size": { "width": 64, "height": 64 },
+  "view": "side",
+  "outline": "single color outline",
+  "shading": "medium shading",
+  "detail": "medium detail",
+  "approved_at": "2026-04-10",
+
+  "framing_rules": {
+    "stage_1": "Full body visible, centered, friendly/idle pose. Chibi proportions — oversized head, chubby body, expressive eyes.",
+    "stage_2": "Full body visible, upright or mid-action pose. More angular and confident than stage 1. Less cute, more character.",
+    "stage_3": "Full body filling the canvas vertically. Battle-ready stance — rearing, looming, or coiled. Should feel large even at 64px. Tail or lower body can be implied at canvas edge."
+  },
+
+  "style_references": [
+    {
+      "name": "Chuffin",
+      "species_id": "chuffin",
+      "file": "_review/chuffin-mo.png",
+      "notes": "Round body, tiny wings out, huge surprised eyes. Sets the tone for cute/small Flying/Natura types."
+    },
+    {
+      "name": "Murkling",
+      "species_id": "murkling",
+      "file": "_review/murkling-mo.png",
+      "outline": "lineless",
+      "shading": "flat shading",
+      "detail": "low detail",
+      "notes": "Dark silhouette, two white dot eyes only. Template for Umbra types — override outline/shading/detail for shadow creatures."
+    },
+    {
+      "name": "Cindrel v4",
+      "species_id": "cindrel",
+      "stage": 1,
+      "file": "_review/cindrel-v4.png",
+      "notes": "Charcoal-grey gecko, orange underbelly, low wide-set legs, smoking snout. Stage 1 quadruped reference."
+    },
+    {
+      "name": "Scaldrix",
+      "species_id": "cindrel",
+      "stage": 2,
+      "file": "_review/scaldrix.png",
+      "notes": "Upright bipedal, slate-black with orange underbelly, flame vents on spine, lean and angular. Stage 2 reference."
+    },
+    {
+      "name": "Pyrathon v3",
+      "species_id": "cindrel",
+      "stage": 3,
+      "file": "_review/pyrathon-v3.png",
+      "notes": "Wingless serpent rearing up in battle stance, coiling base, magma-cracked dark armour, orange lava fissures. Stage 3 reference — fills canvas vertically."
+    }
+  ],
+
+  "type_overrides": {
+    "Umbra": {
+      "outline": "lineless",
+      "shading": "flat shading",
+      "detail": "low detail",
+      "notes": "Shadow/dark creatures use lineless flat shading for that smudged silhouette look."
+    }
+  },
+
+  "prompt_guidelines": [
+    "Always name the Synamon at the start of the prompt",
+    "Describe body shape explicitly — do not rely on type alone",
+    "Include distinguishing visual feature (smoke, glow, crystal growth, etc.)",
+    "End with: pixel art, transparent background",
+    "For stage 3: include 'battle stance' or 'rearing up' to get the right posture",
+    "For winged creatures: explicitly say 'wings spread' or 'wings folded' — be deliberate",
+    "For legless creatures: explicitly say 'no legs, no wings, snake-like body'"
+  ]
+}

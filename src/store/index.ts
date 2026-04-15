@@ -5,6 +5,9 @@ import { getCategoryColor } from '../utils/colors';
 // Safe circular dep: analytics.ts uses useStore only inside function bodies,
 // so by the time any action below runs, both modules are fully initialized.
 import { logActivity } from '../utils/analytics';
+import type { SynamonState } from '../types/synamon';
+import { initialSynamonState, makeSynamonActions } from './synamonSlice';
+import { xpForTaskCompletion, xpForPomodoroSession } from '../utils/synamonMath';
 
 function todayStr(): string {
   return new Date().toISOString().slice(0, 10);
@@ -237,6 +240,26 @@ interface BlockOutState {
   overviewBlocks: ScheduleBlock[];
   setOverviewBlocks: (blocks: ScheduleBlock[]) => void;
 
+  // Synamon system
+  synamon: SynamonState;
+  catchSynamon: (speciesId: string, nickname?: string) => void;
+  releaseSynamon: (uid: string) => void;
+  setActiveSynamon: (uid: string) => void;
+  nicknameSynamon: (uid: string, nickname: string) => void;
+  giveSynamonXp: (amount: number) => void;
+  feedActiveSynamon: () => void;
+  playWithActiveSynamon: () => void;
+  tickSynamonDecay: () => void;
+  confirmEvolution: (uid: string) => void;
+  setSynamonWidgetOpen: (open: boolean) => void;
+  setSynamonWidgetPosition: (x: number, y: number) => void;
+  setShowCollection: (show: boolean) => void;
+  setShowBattle: (show: boolean) => void;
+  clearPendingXp: () => void;
+  startBattle: (playerUid: string, opponentUid: string) => void;
+  executeBattleTurn: () => void;
+  endBattle: () => void;
+
   // Persistence
   loadData: (data: {
     tasks: Record<string, Task>;
@@ -264,6 +287,10 @@ export const useStore = create<BlockOutState>((set, get) => ({
   timeBlocks: {},
   activeBlockId: null,
   streak: { completionDates: [], currentStreak: 0, longestStreak: 0 },
+
+  // Synamon system
+  synamon: initialSynamonState,
+  ...makeSynamonActions(set, get),
 
   viewMode: (localStorage.getItem('blockout-view-mode') as ViewMode) || 'treemap',
   selectedCategoryId: null,
@@ -473,7 +500,13 @@ export const useStore = create<BlockOutState>((set, get) => ({
     });
     // Log after set so we read the committed state, not a stale closure.
     const committed = get().tasks[id];
-    if (committed) logActivity(id, committed.completed ? 'completed' : 'started');
+    if (committed) {
+      logActivity(id, committed.completed ? 'completed' : 'started');
+      // Award XP to active Synamon on task completion
+      if (committed.completed) {
+        get().giveSynamonXp(xpForTaskCompletion(committed.weight));
+      }
+    }
   },
 
   updateTask: (id, updates) => {
@@ -832,6 +865,8 @@ export const useStore = create<BlockOutState>((set, get) => ({
         if (p.mode === 'work') {
           const sessions = p.sessionsCompleted + 1;
           const nextMode = sessions % 4 === 0 ? 'longBreak' : 'break';
+          // Award XP after state update (fire-and-forget)
+          setTimeout(() => get().giveSynamonXp(xpForPomodoroSession()), 0);
           return {
             pomodoro: {
               ...p,
@@ -1850,6 +1885,21 @@ export const useStore = create<BlockOutState>((set, get) => ({
       ...(data as any).overviewBlocks !== undefined && { overviewBlocks: (data as any).overviewBlocks },
       // Track lastModified for cloud sync
       lastModified: (data as any).lastModified || Date.now(),
+      // Synamon state — restore collection, preserve UI state (not persisted)
+      ...((data as any).synamon && {
+        synamon: {
+          ...initialSynamonState,
+          collection: (data as any).synamon.collection ?? {},
+          activeUid: (data as any).synamon.activeUid ?? null,
+          starterChosen: (data as any).synamon.starterChosen ?? false,
+          discoveredSpecies: (data as any).synamon.discoveredSpecies ?? [],
+          totalBattlesWon: (data as any).synamon.totalBattlesWon ?? 0,
+          totalBattlesLost: (data as any).synamon.totalBattlesLost ?? 0,
+          widgetOpen: (data as any).synamon.widgetOpen ?? false,
+          widgetX: (data as any).synamon.widgetX ?? 80,
+          widgetY: (data as any).synamon.widgetY ?? 80,
+        },
+      }),
     }));
   },
   getSerializableState: () => {
@@ -1894,6 +1944,17 @@ export const useStore = create<BlockOutState>((set, get) => ({
       chainTasks: s.chainTasks,
       overviewBlocks: s.overviewBlocks,
       lastModified: s.lastModified || Date.now(),
+      synamon: {
+        collection: s.synamon.collection,
+        activeUid: s.synamon.activeUid,
+        starterChosen: s.synamon.starterChosen,
+        discoveredSpecies: s.synamon.discoveredSpecies,
+        totalBattlesWon: s.synamon.totalBattlesWon,
+        totalBattlesLost: s.synamon.totalBattlesLost,
+        widgetOpen: s.synamon.widgetOpen,
+        widgetX: s.synamon.widgetX,
+        widgetY: s.synamon.widgetY,
+      },
     };
   },
 }));

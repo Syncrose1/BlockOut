@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Synamon Phase 1 — Style Review v4</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: #1a1a2e; color: #e0e0e0; font-family: monospace; padding: 32px; }
+  h1 { font-size: 20px; margin-bottom: 6px; color: #fff; }
+  .subtitle { font-size: 12px; color: #888; margin-bottom: 32px; }
+  h2 { font-size: 13px; color: #666; text-transform: uppercase; letter-spacing: 2px; margin: 40px 0 20px; padding-bottom: 8px; border-bottom: 1px solid #2a2a3e; }
+  .row { display: flex; gap: 32px; flex-wrap: wrap; margin-bottom: 16px; }
+  .card { text-align: center; }
+  .card .name { font-size: 13px; color: #c9a96e; margin-bottom: 3px; }
+  .card .meta { font-size: 10px; color: #555; margin-bottom: 10px; }
+  .card img {
+    image-rendering: pixelated;
+    image-rendering: crisp-edges;
+    width: 192px;
+    height: 192px;
+    background: #0d0d1a;
+    border: 1px solid #2a2a3e;
+    border-radius: 6px;
+    padding: 16px;
+    display: block;
+  }
+  .card img.sm {
+    width: 128px;
+    height: 128px;
+    padding: 10px;
+  }
+  .badge { display: inline-block; font-size: 9px; font-weight: bold; text-transform: uppercase;
+    padding: 2px 6px; border-radius: 3px; margin: 0 2px; }
+  .Ignis  { background: #ff6b3522; color: #ff6b35; border: 1px solid #ff6b3544; }
+  .Terra  { background: #8b5e3c22; color: #c49a6c; border: 1px solid #8b5e3c44; }
+  .Umbra  { background: #6f42c122; color: #9b72d0; border: 1px solid #6f42c144; }
+  .Flying { background: #87ceeb22; color: #87ceeb; border: 1px solid #87ceeb44; }
+  .evo-arrow { display: flex; align-items: center; color: #333; font-size: 24px; padding-bottom: 20px; }
+  .approved { border-color: #5cb85c !important; }
+  .approved-label { font-size: 10px; color: #5cb85c; margin-top: 6px; }
+</style>
+</head>
+<body>
+<h1>Synamon — Phase 1 Style Review v4</h1>
+<p class="subtitle">create_map_object · freeform · 64×64 · transparent bg · chibi pokemon-style</p>
+
+<h2>✓ Approved style references</h2>
+<div class="row">
+  <div class="card">
+    <div class="name">Chuffin <span class="badge Flying">Flying</span></div>
+    <div class="meta">round puffin · surprised expression · wings out</div>
+    <img class="approved" src="chuffin-mo.png">
+    <div class="approved-label">✓ APPROVED</div>
+  </div>
+  <div class="card">
+    <div class="name">Murkling <span class="badge Umbra">Umbra</span></div>
+    <div class="meta">shadow ferret · lineless · dark silhouette · white eyes</div>
+    <img class="approved" src="murkling-mo.png">
+    <div class="approved-label">✓ APPROVED</div>
+  </div>
+</div>
+
+<h2>Cindrel line — evolution range test</h2>
+<div class="row" style="align-items: flex-end;">
+  <div class="card">
+    <div class="name">Cindrel <span class="badge Ignis">Ignis</span><span class="badge Terra">Terra</span></div>
+    <div class="meta">charcoal-grey gecko · orange underbelly · smoking snout · stage 1</div>
+    <img src="cindrel-v4.png">
+  </div>
+  <div class="evo-arrow">→</div>
+  <div class="card">
+    <div class="name">Scaldrix <span class="badge Ignis">Ignis</span><span class="badge Terra">Terra</span></div>
+    <div class="meta">bipedal · slate-black · flame vents · angular · stage 2</div>
+    <img src="scaldrix.png">
+  </div>
+  <div class="evo-arrow">→</div>
+  <div class="card">
+    <div class="name">Pyrathon <span class="badge Ignis">Ignis</span><span class="badge Terra">Terra</span></div>
+    <div class="meta">serpentine dragon · magma-cracked armour · coiled · imposing · stage 3</div>
+    <img src="pyrathon.png">
+  </div>
+</div>
+
+<p style="font-size:11px;color:#555;margin-top:24px;">
+  The evolution range shows the generator can go from small+cute → angular+teenage → large+imposing.<br>
+  Cindrel v4 (charcoal gecko) is more distinct from Charmander. Scaldrix reads as a clear evolution. Pyrathon is genuinely threatening.<br>
+  Approve Cindrel v4 or request another attempt before locking and proceeding to Phase 2 (all 30 species).
+</p>
+</body>
+</html>
