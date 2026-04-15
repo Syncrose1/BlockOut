@@ -65,6 +65,25 @@ Claude will read `MEMORY.md` (the index) and load context from the individual fi
 
 ---
 
+## Installing the generate-monsters skill
+
+The `generate-monsters` skill is a custom Claude Code skill (not a marketplace skill). It needs to be installed manually.
+
+```bash
+# Find your Claude skills directory
+SKILLS_DIR="$HOME/.claude/skills"
+
+mkdir -p "$SKILLS_DIR/generate-monsters/scripts"
+cp /path/to/BlockOut/.claude-memory/skills/generate-monsters/SKILL.md "$SKILLS_DIR/generate-monsters/"
+cp /path/to/BlockOut/.claude-memory/skills/generate-monsters/scripts/* "$SKILLS_DIR/generate-monsters/scripts/"
+```
+
+Verify by opening a new Claude Code session — `/generate-monsters` should appear in the skill list.
+
+All other skills visible in the system (generate-image, frontend-design, etc.) are marketplace skills and will reinstall automatically — you don't need to copy those.
+
+---
+
 ## Note on staleness
 
 These files were exported at a point in time. If you've made changes on the original machine since exporting, the memory may be slightly out of date. Cross-reference with `SYNAMON.md` in the repo root for the most current design state.
