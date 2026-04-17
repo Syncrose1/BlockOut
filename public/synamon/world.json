@@ -1,0 +1,177 @@
+{
+  "sceneSize": {
+    "width": 256,
+    "height": 128
+  },
+  "heroCanvas": 96,
+  "zones": [
+    {
+      "key": "aureum-basin",
+      "label": "Aureum Basin",
+      "groundY": 120,
+      "creatureScale": 0.65,
+      "affinityTypes": [
+        "Aqua",
+        "Ignis",
+        "Spiritus"
+      ],
+      "plate": "/synamon/_world/aureum-basin/plate.png",
+      "hero": {
+        "key": "hero-steam",
+        "label": "Aureum steam plume",
+        "anchor": {
+          "x": 70,
+          "y": 30
+        },
+        "displayScale": 0.45,
+        "seed": "/synamon/_world/aureum-basin/hero/seed.png",
+        "frames": [
+          "/synamon/_world/aureum-basin/hero/frame0.png",
+          "/synamon/_world/aureum-basin/hero/frame1.png",
+          "/synamon/_world/aureum-basin/hero/frame2.png",
+          "/synamon/_world/aureum-basin/hero/frame3.png",
+          "/synamon/_world/aureum-basin/hero/frame4.png",
+          "/synamon/_world/aureum-basin/hero/frame5.png",
+          "/synamon/_world/aureum-basin/hero/frame6.png",
+          "/synamon/_world/aureum-basin/hero/frame7.png",
+          "/synamon/_world/aureum-basin/hero/frame8.png"
+        ]
+      },
+      "prompts": {
+        "plate": "wide pixel art landscape of a geothermal hot spring shoreline at dawn, pale pink-orange sky with distant fog-shrouded coral cliffs on the horizon, steaming mineral pool in the mid-distance with pink rocky outcrops, wide flat pink-amber mineral-crusted rocky shore filling the foreground bottom third where a small creature could stand, warm pink and amber palette, pixel art landscape backdrop, side-view perspective with solid ground terrain filling the bottom quarter of the image, a creature could stand on the foreground ground, painterly atmospheric pixel art, soft gradient sky, depth via layered silhouettes, lineless, medium shading, low detail",
+        "hero": {
+          "seed": "small soft white steam wisp curling upward, cluster of vapor wisps, flat shading, transparent background, pixel art",
+          "action": "gentle steam plume rising lazily upward, soft wisps curling and dispersing, peaceful ambient motion, smooth seamless loop, gentle ambient motion, returns to start state by the final frame"
+        }
+      }
+    },
+    {
+      "key": "salt-flats",
+      "label": "Salt Flats Twilight",
+      "groundY": 114,
+      "creatureScale": 0.7,
+      "affinityTypes": [
+        "Lux",
+        "Ventus",
+        "Spiritus"
+      ],
+      "plate": "/synamon/_world/salt-flats/plate.png",
+      "hero": null,
+      "prompts": {
+        "plate": "wide pixel art side-view landscape of a vast dry cracked salt flat desert at twilight, violet-to-gold gradient sky with first stars appearing, distant pale chalk mountains on the horizon, scattered pale mauve salt crystal formations in the mid distance, wide flat dry white cracked salt crust ground filling the entire bottom third of the image, no water, dry desert salt pan, mauve and gold palette, pixel art landscape backdrop, side-view perspective with solid ground terrain filling the bottom quarter of the image, a creature could stand on the foreground ground, painterly atmospheric pixel art, soft gradient sky, depth via layered silhouettes, lineless, medium shading, low detail"
+      }
+    },
+    {
+      "key": "resonant-rift",
+      "label": "Resonant Rift",
+      "groundY": 112,
+      "creatureScale": 0.7,
+      "affinityTypes": [
+        "Sonus",
+        "Arcanus",
+        "Lux"
+      ],
+      "plate": "/synamon/_world/resonant-rift/plate.png",
+      "hero": {
+        "key": "hero-crystal",
+        "label": "Resonant Rift crystal pulse",
+        "anchor": {
+          "x": 150,
+          "y": 16
+        },
+        "displayScale": 0.5,
+        "seed": "/synamon/_world/resonant-rift/hero/seed.png",
+        "frames": [
+          "/synamon/_world/resonant-rift/hero/frame0.png",
+          "/synamon/_world/resonant-rift/hero/frame1.png",
+          "/synamon/_world/resonant-rift/hero/frame2.png",
+          "/synamon/_world/resonant-rift/hero/frame3.png",
+          "/synamon/_world/resonant-rift/hero/frame4.png",
+          "/synamon/_world/resonant-rift/hero/frame5.png",
+          "/synamon/_world/resonant-rift/hero/frame6.png",
+          "/synamon/_world/resonant-rift/hero/frame7.png",
+          "/synamon/_world/resonant-rift/hero/frame8.png"
+        ]
+      },
+      "prompts": {
+        "plate": "wide pixel art landscape of a deep crystal canyon, narrow strip of overcast sky between towering luminous crystal pillars rising on both sides, distant pillars receding into harmonic haze, glowing crystal pillars with cyan and violet vein stripes in the mid distance, wide flat cracked stone canyon floor with small fractured crystal shards filling the foreground bottom third, deep teal and violet palette with refractive shimmer, pixel art landscape backdrop, side-view perspective with solid ground terrain filling the bottom quarter of the image, a creature could stand on the foreground ground, painterly atmospheric pixel art, soft gradient sky, depth via layered silhouettes, lineless, medium shading, low detail",
+        "hero": {
+          "seed": "tall glowing cyan-violet crystal pillar, pixel art crystal shape with luminous core, flat shading, transparent background, pixel art",
+          "action": "crystal pulsing gently with soft inner light, glow expanding and contracting in a slow harmonic rhythm, ambient magical pulse, smooth seamless loop, gentle ambient motion, returns to start state by the final frame"
+        }
+      }
+    },
+    {
+      "key": "fossil-reef",
+      "label": "Fossil Reef Grove",
+      "groundY": 122,
+      "creatureScale": 0.7,
+      "affinityTypes": [
+        "Terra",
+        "Natura",
+        "Normal"
+      ],
+      "plate": "/synamon/_world/fossil-reef/plate.png",
+      "hero": null,
+      "prompts": {
+        "plate": "wide pixel art side-view landscape of a sun-bleached fossil reef grove under a pale warm afternoon sky, distant petrified coral arches and spires on the horizon, fossilised coral formations in dusty cream stone in the mid distance, wide flat dry limestone ground with scattered fossil shells and small petrified plants in the foreground seen from a low side angle, the ground-line runs across the lower third of the image, cream and dusty rose palette, pixel art landscape backdrop, side-view perspective with solid ground terrain filling the bottom quarter of the image, a creature could stand on the foreground ground, painterly atmospheric pixel art, soft gradient sky, depth via layered silhouettes, lineless, medium shading, low detail"
+      }
+    },
+    {
+      "key": "bio-grotto",
+      "label": "Bioluminescent Grotto",
+      "groundY": 112,
+      "creatureScale": 0.8,
+      "affinityTypes": [
+        "Umbra",
+        "Natura",
+        "Spiritus"
+      ],
+      "plate": "/synamon/_world/bio-grotto/plate.png",
+      "hero": {
+        "key": "hero-veins",
+        "label": "Grotto bioluminescent vein",
+        "anchor": {
+          "x": 8,
+          "y": 16
+        },
+        "displayScale": 0.4,
+        "seed": "/synamon/_world/bio-grotto/hero/seed.png",
+        "frames": [
+          "/synamon/_world/bio-grotto/hero/frame0.png",
+          "/synamon/_world/bio-grotto/hero/frame1.png",
+          "/synamon/_world/bio-grotto/hero/frame2.png",
+          "/synamon/_world/bio-grotto/hero/frame3.png",
+          "/synamon/_world/bio-grotto/hero/frame4.png",
+          "/synamon/_world/bio-grotto/hero/frame5.png",
+          "/synamon/_world/bio-grotto/hero/frame6.png",
+          "/synamon/_world/bio-grotto/hero/frame7.png",
+          "/synamon/_world/bio-grotto/hero/frame8.png"
+        ]
+      },
+      "prompts": {
+        "plate": "wide pixel art landscape of a dark underground cave interior, cave ceiling with stalactites and bioluminescent mineral veins of turquoise and violet glowing across the rock above, glowing cave formations and luminous mineral seams on dark rock walls in the mid distance, wide flat dark stone cave floor with glowing pebbles and patches of bioluminescent moss filling the foreground bottom third, atmospheric and mysterious with soft ambient cave glow, pixel art landscape backdrop, side-view perspective with solid ground terrain filling the bottom quarter of the image, a creature could stand on the foreground ground, painterly atmospheric pixel art, soft gradient sky, depth via layered silhouettes, lineless, medium shading, low detail",
+        "hero": {
+          "seed": "glowing turquoise mineral vein pattern on dark cave rock, bright luminous seam, flat shading, transparent background, pixel art",
+          "action": "mineral vein pulsing in brightness, glow swelling and dimming in a slow steady rhythm, ambient bioluminescent breathing, smooth seamless loop, gentle ambient motion, returns to start state by the final frame"
+        }
+      }
+    },
+    {
+      "key": "starlight-plateau",
+      "label": "Starlight Plateau",
+      "groundY": 116,
+      "creatureScale": 0.7,
+      "affinityTypes": [
+        "Spiritus",
+        "Lux",
+        "Ventus"
+      ],
+      "plate": "/synamon/_world/starlight-plateau/plate.png",
+      "hero": null,
+      "prompts": {
+        "plate": "wide pixel art side-view landscape of a mythic high-altitude plateau under a vast starry night sky, milky way arching overhead, distant mountain ridge silhouette at the horizon, a few standing stones in the mid distance, flat rocky plateau ground with sparse grass tufts and small stones in the foreground seen from a low side angle, the flat ground-line runs across the lower third of the image, deep navy-indigo with cool silver star points and slight starlight rim lighting, pixel art landscape backdrop, side-view perspective with solid ground terrain filling the bottom quarter of the image, a creature could stand on the foreground ground, painterly atmospheric pixel art, soft gradient sky, depth via layered silhouettes, lineless, medium shading, low detail"
+      }
+    }
+  ]
+}

@@ -1,0 +1,557 @@
+{
+  "canvasSize": 96,
+  "frameCount": 12,
+  "fx": [
+    {
+      "key": "fx-burn",
+      "label": "Burn",
+      "seedPrompt": "small orange pixel art flame particle, flat shading, transparent background",
+      "actionPrompt": "fire erupting and blasting outward aggressively, wild flames exploding in all directions with embers flying, violent impact burst, chaotic explosive motion, dramatic eruption, peaks early then progressively dissipates and fades to nothing, completely empty transparent canvas by the final frame",
+      "usedBy": [
+        "Ember Snap",
+        "Scorch Burst",
+        "Cinder Snap",
+        "Cinder Roar"
+      ],
+      "seed": "/synamon/_fx/fx-burn/seed.png",
+      "frames": [
+        "/synamon/_fx/fx-burn/frame0.png",
+        "/synamon/_fx/fx-burn/frame1.png",
+        "/synamon/_fx/fx-burn/frame2.png",
+        "/synamon/_fx/fx-burn/frame3.png",
+        "/synamon/_fx/fx-burn/frame4.png",
+        "/synamon/_fx/fx-burn/frame5.png",
+        "/synamon/_fx/fx-burn/frame6.png",
+        "/synamon/_fx/fx-burn/frame7.png",
+        "/synamon/_fx/fx-burn/frame8.png",
+        "/synamon/_fx/fx-burn/frame9.png",
+        "/synamon/_fx/fx-burn/frame10.png",
+        "/synamon/_fx/fx-burn/frame11.png",
+        "/synamon/_fx/fx-burn/frame12.png"
+      ]
+    },
+    {
+      "key": "fx-explosion",
+      "label": "Explosion",
+      "seedPrompt": "bright yellow-orange blast core, flat shading, transparent background",
+      "actionPrompt": "huge fireball detonating, rapidly expanding blast with shockwave rings and debris hurling outward, violent impact burst, chaotic explosive motion, dramatic eruption, peaks early then progressively dissipates and fades to nothing, completely empty transparent canvas by the final frame",
+      "usedBy": [
+        "Flame Lance",
+        "Depth Charge",
+        "Boulder Crash"
+      ],
+      "seed": "/synamon/_fx/fx-explosion/seed.png",
+      "frames": [
+        "/synamon/_fx/fx-explosion/frame0.png",
+        "/synamon/_fx/fx-explosion/frame1.png",
+        "/synamon/_fx/fx-explosion/frame2.png",
+        "/synamon/_fx/fx-explosion/frame3.png",
+        "/synamon/_fx/fx-explosion/frame4.png",
+        "/synamon/_fx/fx-explosion/frame5.png",
+        "/synamon/_fx/fx-explosion/frame6.png",
+        "/synamon/_fx/fx-explosion/frame7.png",
+        "/synamon/_fx/fx-explosion/frame8.png",
+        "/synamon/_fx/fx-explosion/frame9.png",
+        "/synamon/_fx/fx-explosion/frame10.png",
+        "/synamon/_fx/fx-explosion/frame11.png",
+        "/synamon/_fx/fx-explosion/frame12.png"
+      ]
+    },
+    {
+      "key": "fx-bubble",
+      "label": "Bubble",
+      "seedPrompt": "cluster of blue water bubbles, flat shading, transparent background",
+      "actionPrompt": "water bubbles violently bursting and exploding outward in every direction, violent impact burst, chaotic explosive motion, dramatic eruption, peaks early then progressively dissipates and fades to nothing, completely empty transparent canvas by the final frame",
+      "usedBy": [
+        "Bubble Barrage"
+      ],
+      "seed": "/synamon/_fx/fx-bubble/seed.png",
+      "frames": [
+        "/synamon/_fx/fx-bubble/frame0.png",
+        "/synamon/_fx/fx-bubble/frame1.png",
+        "/synamon/_fx/fx-bubble/frame2.png",
+        "/synamon/_fx/fx-bubble/frame3.png",
+        "/synamon/_fx/fx-bubble/frame4.png",
+        "/synamon/_fx/fx-bubble/frame5.png",
+        "/synamon/_fx/fx-bubble/frame6.png",
+        "/synamon/_fx/fx-bubble/frame7.png",
+        "/synamon/_fx/fx-bubble/frame8.png",
+        "/synamon/_fx/fx-bubble/frame9.png",
+        "/synamon/_fx/fx-bubble/frame10.png",
+        "/synamon/_fx/fx-bubble/frame11.png",
+        "/synamon/_fx/fx-bubble/frame12.png"
+      ]
+    },
+    {
+      "key": "fx-splash",
+      "label": "Splash",
+      "seedPrompt": "huge water splash erupting outward with droplets and spray scattered in all directions, flat shading, transparent background",
+      "actionPrompt": "powerful water geyser erupting upward and outward, droplets scattering everywhere, violent impact burst, chaotic explosive motion, dramatic eruption, peaks early then progressively dissipates and fades to nothing, completely empty transparent canvas by the final frame",
+      "usedBy": [
+        "Tidal Surge",
+        "Acid Splash"
+      ],
+      "seed": "/synamon/_fx/fx-splash/seed.png",
+      "frames": [
+        "/synamon/_fx/fx-splash/frame0.png",
+        "/synamon/_fx/fx-splash/frame1.png",
+        "/synamon/_fx/fx-splash/frame2.png",
+        "/synamon/_fx/fx-splash/frame3.png",
+        "/synamon/_fx/fx-splash/frame4.png",
+        "/synamon/_fx/fx-splash/frame5.png",
+        "/synamon/_fx/fx-splash/frame6.png",
+        "/synamon/_fx/fx-splash/frame7.png",
+        "/synamon/_fx/fx-splash/frame8.png",
+        "/synamon/_fx/fx-splash/frame9.png",
+        "/synamon/_fx/fx-splash/frame10.png",
+        "/synamon/_fx/fx-splash/frame11.png",
+        "/synamon/_fx/fx-splash/frame12.png"
+      ]
+    },
+    {
+      "key": "fx-mist",
+      "label": "Mist",
+      "seedPrompt": "explosive billowing mist shockwave expanding across canvas with vapor wisps, flat shading, transparent background",
+      "actionPrompt": "mist detonating outward in a shockwave, vapor billowing explosively, violent impact burst, chaotic explosive motion, dramatic eruption, peaks early then progressively dissipates and fades to nothing, completely empty transparent canvas by the final frame",
+      "usedBy": [
+        "Mist Veil",
+        "Spore Cloud",
+        "Ash Cloud"
+      ],
+      "seed": "/synamon/_fx/fx-mist/seed.png",
+      "frames": [
+        "/synamon/_fx/fx-mist/frame0.png",
+        "/synamon/_fx/fx-mist/frame1.png",
+        "/synamon/_fx/fx-mist/frame2.png",
+        "/synamon/_fx/fx-mist/frame3.png",
+        "/synamon/_fx/fx-mist/frame4.png",
+        "/synamon/_fx/fx-mist/frame5.png",
+        "/synamon/_fx/fx-mist/frame6.png",
+        "/synamon/_fx/fx-mist/frame7.png",
+        "/synamon/_fx/fx-mist/frame8.png",
+        "/synamon/_fx/fx-mist/frame9.png",
+        "/synamon/_fx/fx-mist/frame10.png",
+        "/synamon/_fx/fx-mist/frame11.png",
+        "/synamon/_fx/fx-mist/frame12.png"
+      ]
+    },
+    {
+      "key": "fx-rocks",
+      "label": "Rocks",
+      "seedPrompt": "rocks smashing apart mid-air with debris and impact dust scattered everywhere, flat shading, transparent background",
+      "actionPrompt": "rocks smashing together and ricocheting outward with heavy impact shockwaves, violent impact burst, chaotic explosive motion, dramatic eruption, peaks early then progressively dissipates and fades to nothing, completely empty transparent canvas by the final frame",
+      "usedBy": [
+        "Stone Toss",
+        "Boulder Crash"
+      ],
+      "seed": "/synamon/_fx/fx-rocks/seed.png",
+      "frames": [
+        "/synamon/_fx/fx-rocks/frame0.png",
+        "/synamon/_fx/fx-rocks/frame1.png",
+        "/synamon/_fx/fx-rocks/frame2.png",
+        "/synamon/_fx/fx-rocks/frame3.png",
+        "/synamon/_fx/fx-rocks/frame4.png",
+        "/synamon/_fx/fx-rocks/frame5.png",
+        "/synamon/_fx/fx-rocks/frame6.png",
+        "/synamon/_fx/fx-rocks/frame7.png",
+        "/synamon/_fx/fx-rocks/frame8.png",
+        "/synamon/_fx/fx-rocks/frame9.png",
+        "/synamon/_fx/fx-rocks/frame10.png",
+        "/synamon/_fx/fx-rocks/frame11.png",
+        "/synamon/_fx/fx-rocks/frame12.png"
+      ]
+    },
+    {
+      "key": "fx-quake",
+      "label": "Quake",
+      "seedPrompt": "brown dust cloud at ground level, flat shading, transparent background",
+      "actionPrompt": "violent ground rupture, dust and rubble erupting from cracked earth, violent impact burst, chaotic explosive motion, dramatic eruption, peaks early then progressively dissipates and fades to nothing, completely empty transparent canvas by the final frame",
+      "usedBy": [
+        "Quake Stomp"
+      ],
+      "seed": "/synamon/_fx/fx-quake/seed.png",
+      "frames": [
+        "/synamon/_fx/fx-quake/frame0.png",
+        "/synamon/_fx/fx-quake/frame1.png",
+        "/synamon/_fx/fx-quake/frame2.png",
+        "/synamon/_fx/fx-quake/frame3.png",
+        "/synamon/_fx/fx-quake/frame4.png",
+        "/synamon/_fx/fx-quake/frame5.png",
+        "/synamon/_fx/fx-quake/frame6.png",
+        "/synamon/_fx/fx-quake/frame7.png",
+        "/synamon/_fx/fx-quake/frame8.png",
+        "/synamon/_fx/fx-quake/frame9.png",
+        "/synamon/_fx/fx-quake/frame10.png",
+        "/synamon/_fx/fx-quake/frame11.png",
+        "/synamon/_fx/fx-quake/frame12.png"
+      ]
+    },
+    {
+      "key": "fx-wind",
+      "label": "Wind",
+      "seedPrompt": "multiple sharp white wind slashes crisscrossing with motion lines and air swirls, flat shading, transparent background",
+      "actionPrompt": "razor-sharp wind slash tearing through the air at high speed, whoosh streaks, violent impact burst, chaotic explosive motion, dramatic eruption, peaks early then progressively dissipates and fades to nothing, completely empty transparent canvas by the final frame",
+      "usedBy": [
+        "Gust Slash",
+        "Cyclone Cutter",
+        "Updraft"
+      ],
+      "seed": "/synamon/_fx/fx-wind/seed.png",
+      "frames": [
+        "/synamon/_fx/fx-wind/frame0.png",
+        "/synamon/_fx/fx-wind/frame1.png",
+        "/synamon/_fx/fx-wind/frame2.png",
+        "/synamon/_fx/fx-wind/frame3.png",
+        "/synamon/_fx/fx-wind/frame4.png",
+        "/synamon/_fx/fx-wind/frame5.png",
+        "/synamon/_fx/fx-wind/frame6.png",
+        "/synamon/_fx/fx-wind/frame7.png",
+        "/synamon/_fx/fx-wind/frame8.png",
+        "/synamon/_fx/fx-wind/frame9.png",
+        "/synamon/_fx/fx-wind/frame10.png",
+        "/synamon/_fx/fx-wind/frame11.png",
+        "/synamon/_fx/fx-wind/frame12.png"
+      ]
+    },
+    {
+      "key": "fx-shadow",
+      "label": "Shadow",
+      "seedPrompt": "wispy dark purple tendril, flat shading, transparent background",
+      "actionPrompt": "shadow tendrils striking violently outward, dark energy lashing and whipping aggressively, violent impact burst, chaotic explosive motion, dramatic eruption, peaks early then progressively dissipates and fades to nothing, completely empty transparent canvas by the final frame",
+      "usedBy": [
+        "Shadow Lunge",
+        "Shade Wrap",
+        "Shadowmeld"
+      ],
+      "seed": "/synamon/_fx/fx-shadow/seed.png",
+      "frames": [
+        "/synamon/_fx/fx-shadow/frame0.png",
+        "/synamon/_fx/fx-shadow/frame1.png",
+        "/synamon/_fx/fx-shadow/frame2.png",
+        "/synamon/_fx/fx-shadow/frame3.png",
+        "/synamon/_fx/fx-shadow/frame4.png",
+        "/synamon/_fx/fx-shadow/frame5.png",
+        "/synamon/_fx/fx-shadow/frame6.png",
+        "/synamon/_fx/fx-shadow/frame7.png",
+        "/synamon/_fx/fx-shadow/frame8.png",
+        "/synamon/_fx/fx-shadow/frame9.png",
+        "/synamon/_fx/fx-shadow/frame10.png",
+        "/synamon/_fx/fx-shadow/frame11.png",
+        "/synamon/_fx/fx-shadow/frame12.png"
+      ]
+    },
+    {
+      "key": "fx-dark-pulse",
+      "label": "Dark Pulse",
+      "seedPrompt": "multiple expanding dark purple shockwave rings with crackling void energy radiating outward, flat shading, transparent background",
+      "actionPrompt": "dark shockwave detonating, shadow energy rippling outward rapidly with crackling void rings, violent impact burst, chaotic explosive motion, dramatic eruption, peaks early then progressively dissipates and fades to nothing, completely empty transparent canvas by the final frame",
+      "usedBy": [
+        "Void Pulse",
+        "Dark Echo"
+      ],
+      "seed": "/synamon/_fx/fx-dark-pulse/seed.png",
+      "frames": [
+        "/synamon/_fx/fx-dark-pulse/frame0.png",
+        "/synamon/_fx/fx-dark-pulse/frame1.png",
+        "/synamon/_fx/fx-dark-pulse/frame2.png",
+        "/synamon/_fx/fx-dark-pulse/frame3.png",
+        "/synamon/_fx/fx-dark-pulse/frame4.png",
+        "/synamon/_fx/fx-dark-pulse/frame5.png",
+        "/synamon/_fx/fx-dark-pulse/frame6.png",
+        "/synamon/_fx/fx-dark-pulse/frame7.png",
+        "/synamon/_fx/fx-dark-pulse/frame8.png",
+        "/synamon/_fx/fx-dark-pulse/frame9.png",
+        "/synamon/_fx/fx-dark-pulse/frame10.png",
+        "/synamon/_fx/fx-dark-pulse/frame11.png",
+        "/synamon/_fx/fx-dark-pulse/frame12.png"
+      ]
+    },
+    {
+      "key": "fx-flash",
+      "label": "Flash",
+      "seedPrompt": "huge blinding white explosion with brilliant rays bursting outward, intense glow filling canvas, flat shading, transparent background",
+      "actionPrompt": "blinding flash detonation, brilliant white light exploding in all directions with searing rays, violent impact burst, chaotic explosive motion, dramatic eruption, peaks early then progressively dissipates and fades to nothing, completely empty transparent canvas by the final frame",
+      "usedBy": [
+        "Flash Burst",
+        "Radiant Beam",
+        "Halo Beam"
+      ],
+      "seed": "/synamon/_fx/fx-flash/seed.png",
+      "frames": [
+        "/synamon/_fx/fx-flash/frame0.png",
+        "/synamon/_fx/fx-flash/frame1.png",
+        "/synamon/_fx/fx-flash/frame2.png",
+        "/synamon/_fx/fx-flash/frame3.png",
+        "/synamon/_fx/fx-flash/frame4.png",
+        "/synamon/_fx/fx-flash/frame5.png",
+        "/synamon/_fx/fx-flash/frame6.png",
+        "/synamon/_fx/fx-flash/frame7.png",
+        "/synamon/_fx/fx-flash/frame8.png",
+        "/synamon/_fx/fx-flash/frame9.png",
+        "/synamon/_fx/fx-flash/frame10.png",
+        "/synamon/_fx/fx-flash/frame11.png",
+        "/synamon/_fx/fx-flash/frame12.png"
+      ]
+    },
+    {
+      "key": "fx-prism",
+      "label": "Prism",
+      "seedPrompt": "rainbow refraction shard, flat shading, transparent background",
+      "actionPrompt": "prismatic crystal shattering, rainbow shards and refracted beams bursting outward, violent impact burst, chaotic explosive motion, dramatic eruption, peaks early then progressively dissipates and fades to nothing, completely empty transparent canvas by the final frame",
+      "usedBy": [
+        "Prism Strike",
+        "Aura Flare",
+        "Prism Cannon"
+      ],
+      "seed": "/synamon/_fx/fx-prism/seed.png",
+      "frames": [
+        "/synamon/_fx/fx-prism/frame0.png",
+        "/synamon/_fx/fx-prism/frame1.png",
+        "/synamon/_fx/fx-prism/frame2.png",
+        "/synamon/_fx/fx-prism/frame3.png",
+        "/synamon/_fx/fx-prism/frame4.png",
+        "/synamon/_fx/fx-prism/frame5.png",
+        "/synamon/_fx/fx-prism/frame6.png",
+        "/synamon/_fx/fx-prism/frame7.png",
+        "/synamon/_fx/fx-prism/frame8.png",
+        "/synamon/_fx/fx-prism/frame9.png",
+        "/synamon/_fx/fx-prism/frame10.png",
+        "/synamon/_fx/fx-prism/frame11.png",
+        "/synamon/_fx/fx-prism/frame12.png"
+      ]
+    },
+    {
+      "key": "fx-sound-wave",
+      "label": "Sound Wave",
+      "seedPrompt": "multiple concentric cyan sonic rings rapidly expanding outward filling the canvas, flat shading, transparent background",
+      "actionPrompt": "sonic boom detonating, concentric sound rings expanding outward at rapid speed, violent impact burst, chaotic explosive motion, dramatic eruption, peaks early then progressively dissipates and fades to nothing, completely empty transparent canvas by the final frame",
+      "usedBy": [
+        "Resonance Wave",
+        "Bass Pulse",
+        "Echo Slam"
+      ],
+      "seed": "/synamon/_fx/fx-sound-wave/seed.png",
+      "frames": [
+        "/synamon/_fx/fx-sound-wave/frame0.png",
+        "/synamon/_fx/fx-sound-wave/frame1.png",
+        "/synamon/_fx/fx-sound-wave/frame2.png",
+        "/synamon/_fx/fx-sound-wave/frame3.png",
+        "/synamon/_fx/fx-sound-wave/frame4.png",
+        "/synamon/_fx/fx-sound-wave/frame5.png",
+        "/synamon/_fx/fx-sound-wave/frame6.png",
+        "/synamon/_fx/fx-sound-wave/frame7.png",
+        "/synamon/_fx/fx-sound-wave/frame8.png",
+        "/synamon/_fx/fx-sound-wave/frame9.png",
+        "/synamon/_fx/fx-sound-wave/frame10.png",
+        "/synamon/_fx/fx-sound-wave/frame11.png",
+        "/synamon/_fx/fx-sound-wave/frame12.png"
+      ]
+    },
+    {
+      "key": "fx-screech",
+      "label": "Screech",
+      "seedPrompt": "jagged magenta lightning-like shard, flat shading, transparent background",
+      "actionPrompt": "jagged sonic blast, sharp magenta shards exploding and crackling outward, violent impact burst, chaotic explosive motion, dramatic eruption, peaks early then progressively dissipates and fades to nothing, completely empty transparent canvas by the final frame",
+      "usedBy": [
+        "Screech",
+        "Subsonic Roar"
+      ],
+      "seed": "/synamon/_fx/fx-screech/seed.png",
+      "frames": [
+        "/synamon/_fx/fx-screech/frame0.png",
+        "/synamon/_fx/fx-screech/frame1.png",
+        "/synamon/_fx/fx-screech/frame2.png",
+        "/synamon/_fx/fx-screech/frame3.png",
+        "/synamon/_fx/fx-screech/frame4.png",
+        "/synamon/_fx/fx-screech/frame5.png",
+        "/synamon/_fx/fx-screech/frame6.png",
+        "/synamon/_fx/fx-screech/frame7.png",
+        "/synamon/_fx/fx-screech/frame8.png"
+      ]
+    },
+    {
+      "key": "fx-sigil",
+      "label": "Sigil",
+      "seedPrompt": "glowing blue geometric rune, flat shading, transparent background",
+      "actionPrompt": "magical rune detonating, runic energy bursting outward in beams and arcane light, violent impact burst, chaotic explosive motion, dramatic eruption, peaks early then progressively dissipates and fades to nothing, completely empty transparent canvas by the final frame",
+      "usedBy": [
+        "Sigil Bolt",
+        "Runic Seal",
+        "Sigil Brand"
+      ],
+      "seed": "/synamon/_fx/fx-sigil/seed.png",
+      "frames": [
+        "/synamon/_fx/fx-sigil/frame0.png",
+        "/synamon/_fx/fx-sigil/frame1.png",
+        "/synamon/_fx/fx-sigil/frame2.png",
+        "/synamon/_fx/fx-sigil/frame3.png",
+        "/synamon/_fx/fx-sigil/frame4.png",
+        "/synamon/_fx/fx-sigil/frame5.png",
+        "/synamon/_fx/fx-sigil/frame6.png",
+        "/synamon/_fx/fx-sigil/frame7.png",
+        "/synamon/_fx/fx-sigil/frame8.png",
+        "/synamon/_fx/fx-sigil/frame9.png",
+        "/synamon/_fx/fx-sigil/frame10.png",
+        "/synamon/_fx/fx-sigil/frame11.png",
+        "/synamon/_fx/fx-sigil/frame12.png"
+      ]
+    },
+    {
+      "key": "fx-vine",
+      "label": "Vine",
+      "seedPrompt": "multiple green thorny vines lashing out in all directions with scattered leaves, flat shading, transparent background",
+      "actionPrompt": "vines whipping and striking violently, fast thorny lash snapping outward, violent impact burst, chaotic explosive motion, dramatic eruption, peaks early then progressively dissipates and fades to nothing, completely empty transparent canvas by the final frame",
+      "usedBy": [
+        "Vine Whip",
+        "Root Lock"
+      ],
+      "seed": "/synamon/_fx/fx-vine/seed.png",
+      "frames": [
+        "/synamon/_fx/fx-vine/frame0.png",
+        "/synamon/_fx/fx-vine/frame1.png",
+        "/synamon/_fx/fx-vine/frame2.png",
+        "/synamon/_fx/fx-vine/frame3.png",
+        "/synamon/_fx/fx-vine/frame4.png",
+        "/synamon/_fx/fx-vine/frame5.png",
+        "/synamon/_fx/fx-vine/frame6.png",
+        "/synamon/_fx/fx-vine/frame7.png",
+        "/synamon/_fx/fx-vine/frame8.png",
+        "/synamon/_fx/fx-vine/frame9.png",
+        "/synamon/_fx/fx-vine/frame10.png",
+        "/synamon/_fx/fx-vine/frame11.png",
+        "/synamon/_fx/fx-vine/frame12.png"
+      ]
+    },
+    {
+      "key": "fx-seed",
+      "label": "Seed",
+      "seedPrompt": "green seeds bursting outward like shrapnel, scattered across canvas with impact dust, flat shading, transparent background",
+      "actionPrompt": "seeds explosively scattering outward, bursting like shrapnel with impact dust, violent impact burst, chaotic explosive motion, dramatic eruption, peaks early then progressively dissipates and fades to nothing, completely empty transparent canvas by the final frame",
+      "usedBy": [
+        "Seed Bomb"
+      ],
+      "seed": "/synamon/_fx/fx-seed/seed.png",
+      "frames": [
+        "/synamon/_fx/fx-seed/frame0.png",
+        "/synamon/_fx/fx-seed/frame1.png",
+        "/synamon/_fx/fx-seed/frame2.png",
+        "/synamon/_fx/fx-seed/frame3.png",
+        "/synamon/_fx/fx-seed/frame4.png",
+        "/synamon/_fx/fx-seed/frame5.png",
+        "/synamon/_fx/fx-seed/frame6.png",
+        "/synamon/_fx/fx-seed/frame7.png",
+        "/synamon/_fx/fx-seed/frame8.png",
+        "/synamon/_fx/fx-seed/frame9.png",
+        "/synamon/_fx/fx-seed/frame10.png",
+        "/synamon/_fx/fx-seed/frame11.png",
+        "/synamon/_fx/fx-seed/frame12.png"
+      ]
+    },
+    {
+      "key": "fx-poison",
+      "label": "Poison",
+      "seedPrompt": "sickly green toxic droplet, flat shading, transparent background",
+      "actionPrompt": "toxic gas eruption, sickly green cloud billowing outward violently with acidic spatter, violent impact burst, chaotic explosive motion, dramatic eruption, peaks early then progressively dissipates and fades to nothing, completely empty transparent canvas by the final frame",
+      "usedBy": [
+        "Poison Fang",
+        "Toxic Cloud",
+        "Venom Burst",
+        "Spore Drift"
+      ],
+      "seed": "/synamon/_fx/fx-poison/seed.png",
+      "frames": [
+        "/synamon/_fx/fx-poison/frame0.png",
+        "/synamon/_fx/fx-poison/frame1.png",
+        "/synamon/_fx/fx-poison/frame2.png",
+        "/synamon/_fx/fx-poison/frame3.png",
+        "/synamon/_fx/fx-poison/frame4.png",
+        "/synamon/_fx/fx-poison/frame5.png",
+        "/synamon/_fx/fx-poison/frame6.png",
+        "/synamon/_fx/fx-poison/frame7.png",
+        "/synamon/_fx/fx-poison/frame8.png",
+        "/synamon/_fx/fx-poison/frame9.png",
+        "/synamon/_fx/fx-poison/frame10.png",
+        "/synamon/_fx/fx-poison/frame11.png",
+        "/synamon/_fx/fx-poison/frame12.png"
+      ]
+    },
+    {
+      "key": "fx-iron",
+      "label": "Iron",
+      "seedPrompt": "burst of jagged grey metal shards scattered across canvas with impact sparks, flat shading, transparent background",
+      "actionPrompt": "metal shards smashing and ricocheting outward with heavy clang impact sparks, violent impact burst, chaotic explosive motion, dramatic eruption, peaks early then progressively dissipates and fades to nothing, completely empty transparent canvas by the final frame",
+      "usedBy": [
+        "Iron Bash",
+        "Metal Storm"
+      ],
+      "seed": "/synamon/_fx/fx-iron/seed.png",
+      "frames": [
+        "/synamon/_fx/fx-iron/frame0.png",
+        "/synamon/_fx/fx-iron/frame1.png",
+        "/synamon/_fx/fx-iron/frame2.png",
+        "/synamon/_fx/fx-iron/frame3.png",
+        "/synamon/_fx/fx-iron/frame4.png",
+        "/synamon/_fx/fx-iron/frame5.png",
+        "/synamon/_fx/fx-iron/frame6.png",
+        "/synamon/_fx/fx-iron/frame7.png",
+        "/synamon/_fx/fx-iron/frame8.png",
+        "/synamon/_fx/fx-iron/frame9.png",
+        "/synamon/_fx/fx-iron/frame10.png",
+        "/synamon/_fx/fx-iron/frame11.png",
+        "/synamon/_fx/fx-iron/frame12.png"
+      ]
+    },
+    {
+      "key": "fx-magnetise",
+      "label": "Magnetise",
+      "seedPrompt": "explosion of metal filings and red-blue magnetic energy arcs scattered chaotically, flat shading, transparent background",
+      "actionPrompt": "magnetic pulse detonating, metal filings and energy arcs snapping inward in chaotic bursts, violent impact burst, chaotic explosive motion, dramatic eruption, peaks early then progressively dissipates and fades to nothing, completely empty transparent canvas by the final frame",
+      "usedBy": [
+        "Magnetise"
+      ],
+      "seed": "/synamon/_fx/fx-magnetise/seed.png",
+      "frames": [
+        "/synamon/_fx/fx-magnetise/frame0.png",
+        "/synamon/_fx/fx-magnetise/frame1.png",
+        "/synamon/_fx/fx-magnetise/frame2.png",
+        "/synamon/_fx/fx-magnetise/frame3.png",
+        "/synamon/_fx/fx-magnetise/frame4.png",
+        "/synamon/_fx/fx-magnetise/frame5.png",
+        "/synamon/_fx/fx-magnetise/frame6.png",
+        "/synamon/_fx/fx-magnetise/frame7.png",
+        "/synamon/_fx/fx-magnetise/frame8.png",
+        "/synamon/_fx/fx-magnetise/frame9.png",
+        "/synamon/_fx/fx-magnetise/frame10.png",
+        "/synamon/_fx/fx-magnetise/frame11.png",
+        "/synamon/_fx/fx-magnetise/frame12.png"
+      ]
+    },
+    {
+      "key": "fx-ether",
+      "label": "Ether",
+      "seedPrompt": "explosion of pale blue ethereal wisps and spectral particles scattered across canvas, flat shading, transparent background",
+      "actionPrompt": "ethereal burst, ghostly wisps erupting violently and dissipating into spectral particles, violent impact burst, chaotic explosive motion, dramatic eruption, peaks early then progressively dissipates and fades to nothing, completely empty transparent canvas by the final frame",
+      "usedBy": [
+        "Ether Touch",
+        "Soul Drain",
+        "Spectral Veil"
+      ],
+      "seed": "/synamon/_fx/fx-ether/seed.png",
+      "frames": [
+        "/synamon/_fx/fx-ether/frame0.png",
+        "/synamon/_fx/fx-ether/frame1.png",
+        "/synamon/_fx/fx-ether/frame2.png",
+        "/synamon/_fx/fx-ether/frame3.png",
+        "/synamon/_fx/fx-ether/frame4.png",
+        "/synamon/_fx/fx-ether/frame5.png",
+        "/synamon/_fx/fx-ether/frame6.png",
+        "/synamon/_fx/fx-ether/frame7.png",
+        "/synamon/_fx/fx-ether/frame8.png",
+        "/synamon/_fx/fx-ether/frame9.png",
+        "/synamon/_fx/fx-ether/frame10.png",
+        "/synamon/_fx/fx-ether/frame11.png",
+        "/synamon/_fx/fx-ether/frame12.png"
+      ]
+    }
+  ]
+}

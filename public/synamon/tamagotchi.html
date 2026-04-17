@@ -1,0 +1,586 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Synamon — Tamagotchi</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --bg-deep: #0a0a14;
+    --bg-soft: #15152a;
+    --line: #2a2a42;
+    --txt: #cfcfe0;
+    --muted: #6a6a85;
+    --accent: #6fb8c8;
+  }
+
+  body {
+    background: var(--bg-deep);
+    color: var(--txt);
+    font-family: monospace;
+    padding: 24px;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 20px;
+  }
+
+  h1 { font-size: 16px; color: #fff; letter-spacing: 0.05em; }
+  .sub { font-size: 11px; color: var(--muted); }
+
+  /* ── Scene viewport ── */
+  .scene-wrap {
+    background: #000;
+    border: 1px solid var(--line);
+    box-shadow: 0 0 40px rgba(111,184,200,0.06);
+    position: relative;
+    image-rendering: pixelated;
+    image-rendering: crisp-edges;
+  }
+  .scene {
+    position: relative;
+    image-rendering: pixelated;
+    image-rendering: crisp-edges;
+    /* Scaled up via transform on wrap */
+  }
+  .scene img, .scene canvas {
+    position: absolute;
+    image-rendering: pixelated;
+    image-rendering: crisp-edges;
+    pointer-events: none;
+  }
+  .scene .plate-img,
+  .scene .particles,
+  .scene .creature-canvas {
+    width: 100%;
+    height: 100%;
+    inset: 0;
+    left: 0; top: 0;
+  }
+  .scene .hero-img {
+    position: absolute;
+  }
+  .scene .creature-canvas {
+    /* Creature painted by JS each animation frame */
+  }
+
+  /* Day/night palette modes via CSS filter on plate (cheap & cinematic) */
+  .scene.day .plate-img      { filter: brightness(1) saturate(1) hue-rotate(0deg); }
+  .scene.dusk .plate-img     { filter: brightness(0.85) saturate(0.95) hue-rotate(-8deg) sepia(0.15); }
+  .scene.night .plate-img    { filter: brightness(0.55) saturate(0.7) hue-rotate(15deg); }
+  .scene.day .creature-canvas { filter: brightness(1); }
+  .scene.dusk .creature-canvas { filter: brightness(0.92); }
+  .scene.night .creature-canvas { filter: brightness(0.8) hue-rotate(8deg); }
+
+  /* ── Controls panel ── */
+  .controls {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(220px, 1fr));
+    gap: 14px 18px;
+    background: var(--bg-soft);
+    border: 1px solid var(--line);
+    padding: 14px 18px;
+    border-radius: 4px;
+    width: min(900px, calc(100vw - 48px));
+  }
+  .control-group { display: flex; flex-direction: column; gap: 5px; }
+  .control-label {
+    font-size: 9px;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    color: var(--muted);
+  }
+  .pill-row { display: flex; flex-wrap: wrap; gap: 4px; }
+  .pill {
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    padding: 4px 10px;
+    border-radius: 999px;
+    border: 1px solid var(--line);
+    background: transparent;
+    color: var(--muted);
+    cursor: pointer;
+    transition: all 0.12s;
+  }
+  .pill:hover { color: var(--txt); border-color: var(--accent); }
+  .pill.active {
+    color: var(--bg-deep);
+    background: var(--accent);
+    border-color: var(--accent);
+  }
+
+  select {
+    background: var(--bg-deep);
+    border: 1px solid var(--line);
+    color: var(--txt);
+    padding: 6px 10px;
+    font-family: monospace;
+    font-size: 12px;
+    border-radius: 3px;
+    cursor: pointer;
+  }
+  select:focus { outline: none; border-color: var(--accent); }
+
+  .meta-line {
+    font-size: 10px;
+    color: var(--muted);
+    text-align: center;
+  }
+  .meta-line .accent { color: var(--accent); }
+
+  /* ── Action buttons (drives anim selection) ── */
+  .action-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    justify-content: center;
+    width: min(900px, calc(100vw - 48px));
+  }
+  .action-btn {
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    padding: 7px 14px;
+    border: 1px solid var(--line);
+    background: var(--bg-soft);
+    color: var(--txt);
+    cursor: pointer;
+    border-radius: 3px;
+    transition: all 0.12s;
+  }
+  .action-btn:hover { border-color: var(--accent); color: var(--accent); }
+  .action-btn.active { background: var(--accent); color: var(--bg-deep); border-color: var(--accent); }
+
+  /* Top nav back to dex */
+  .navlinks {
+    position: fixed;
+    top: 14px;
+    right: 18px;
+    display: flex;
+    gap: 14px;
+    font-size: 10px;
+    color: var(--muted);
+  }
+  .navlinks a { color: var(--muted); text-decoration: none; }
+  .navlinks a:hover { color: var(--accent); }
+</style>
+</head>
+<body>
+  <div class="navlinks">
+    <a href="/synamon/">Synadex</a>
+  </div>
+
+  <h1>SYNAMON · TAMAGOTCHI</h1>
+  <div class="sub">Cinematic creature scene · 256×128 plate × 4 scale</div>
+
+  <div class="scene-wrap" id="sceneWrap">
+    <div class="scene day" id="scene">
+      <img class="plate-img" id="plateImg" alt="">
+      <img class="hero-img" id="heroImg" alt="" style="display:none">
+      <canvas class="particles" id="particlesCanvas"></canvas>
+      <canvas class="creature-canvas" id="creatureCanvas"></canvas>
+    </div>
+  </div>
+
+  <div class="meta-line" id="metaLine">—</div>
+
+  <div class="controls">
+    <div class="control-group">
+      <div class="control-label">Zone</div>
+      <select id="zoneSelect"></select>
+    </div>
+    <div class="control-group">
+      <div class="control-label">Species</div>
+      <select id="speciesSelect"></select>
+    </div>
+    <div class="control-group">
+      <div class="control-label">Stage</div>
+      <div class="pill-row" id="stageRow">
+        <button class="pill" data-stage="1">Stage 1</button>
+        <button class="pill" data-stage="2">Stage 2</button>
+        <button class="pill" data-stage="3">Stage 3</button>
+      </div>
+    </div>
+    <div class="control-group">
+      <div class="control-label">Time of day</div>
+      <div class="pill-row" id="todRow">
+        <button class="pill active" data-tod="day">Day</button>
+        <button class="pill" data-tod="dusk">Dusk</button>
+        <button class="pill" data-tod="night">Night</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="action-row" id="actionRow"></div>
+
+<script>
+// ─── Constants ─────────────────────────────────────────────────────────────
+const SCENE_W = 256;
+const SCENE_H = 128;
+const SCALE = 4;
+const SCENE_PX_W = SCENE_W * SCALE;
+const SCENE_PX_H = SCENE_H * SCALE;
+
+const HERO_FPS = 6;        // gentle ambient tempo
+const CREATURE_FPS = 8;    // creature anim tempo
+const PARTICLE_DT_CAP = 0.05; // clamp dt to avoid burst spawn after tab switch
+
+// ─── State ─────────────────────────────────────────────────────────────────
+const state = {
+  world: null,
+  particles: null,
+  species: null,
+  zoneKey: 'aureum-basin',
+  speciesId: 'cindrel',
+  stage: 1,
+  anim: 'idle',
+  tod: 'day',
+  // Loaded sprites
+  creatureFrames: [],   // HTMLImageElement[]
+  heroFrames: [],       // HTMLImageElement[]
+  particleSprites: {},  // key -> HTMLImageElement
+  // Live particle instances
+  livingParticles: [],
+};
+
+const $ = (q) => document.querySelector(q);
+const $$ = (q) => document.querySelectorAll(q);
+
+// ─── Boot ──────────────────────────────────────────────────────────────────
+async function boot() {
+  // Fixed-size scene container
+  const wrap = $('#sceneWrap');
+  wrap.style.width = SCENE_PX_W + 'px';
+  wrap.style.height = SCENE_PX_H + 'px';
+
+  const scene = $('#scene');
+  scene.style.width = SCENE_W + 'px';
+  scene.style.height = SCENE_H + 'px';
+  scene.style.transform = `scale(${SCALE})`;
+  scene.style.transformOrigin = 'top left';
+
+  const partCanvas = $('#particlesCanvas');
+  partCanvas.width = SCENE_W;
+  partCanvas.height = SCENE_H;
+
+  const cretCanvas = $('#creatureCanvas');
+  cretCanvas.width = SCENE_W;
+  cretCanvas.height = SCENE_H;
+
+  // Load registries
+  const [worldR, partsR, speciesR] = await Promise.all([
+    fetch('/synamon/world.json').then(r => r.json()),
+    fetch('/synamon/_world/particles.json').then(r => r.json()),
+    fetch('/synamon/species.json').then(r => r.json()),
+  ]);
+  state.world = worldR;
+  state.particles = partsR;
+  state.species = speciesR;
+
+  // Preload particle sprites
+  for (const p of partsR.particles) {
+    const img = new Image();
+    img.src = p.sprite;
+    state.particleSprites[p.key] = img;
+  }
+
+  buildControls();
+  await applySelection();
+  startLoops();
+}
+
+// ─── Controls UI ───────────────────────────────────────────────────────────
+function buildControls() {
+  const zoneSel = $('#zoneSelect');
+  zoneSel.innerHTML = state.world.zones
+    .map(z => `<option value="${z.key}">${z.label}</option>`).join('');
+  zoneSel.value = state.zoneKey;
+  zoneSel.addEventListener('change', () => { state.zoneKey = zoneSel.value; applySelection(); });
+
+  const speciesSel = $('#speciesSelect');
+  // species.json file order = dex order
+  speciesSel.innerHTML = state.species
+    .map((s, i) => `<option value="${s.id}">${String(i + 1).padStart(3, '0')} · ${s.name}</option>`).join('');
+  speciesSel.value = state.speciesId;
+  speciesSel.addEventListener('change', () => {
+    state.speciesId = speciesSel.value;
+    state.stage = 1; // reset stage when changing species
+    syncStagePills();
+    applySelection();
+  });
+
+  $$('#stageRow .pill').forEach(b => {
+    b.addEventListener('click', () => {
+      state.stage = Number(b.dataset.stage);
+      syncStagePills();
+      applySelection();
+    });
+  });
+
+  $$('#todRow .pill').forEach(b => {
+    b.addEventListener('click', () => {
+      state.tod = b.dataset.tod;
+      $$('#todRow .pill').forEach(x => x.classList.toggle('active', x === b));
+      const sc = $('#scene');
+      sc.classList.remove('day', 'dusk', 'night');
+      sc.classList.add(state.tod);
+    });
+  });
+
+  syncStagePills();
+}
+
+function syncStagePills() {
+  const sp = state.species.find(s => s.id === state.speciesId);
+  const stages = sp?.stages?.length ?? 1;
+  $$('#stageRow .pill').forEach(b => {
+    const n = Number(b.dataset.stage);
+    b.disabled = n > stages;
+    b.style.opacity = n > stages ? '0.25' : '';
+    b.classList.toggle('active', n === state.stage);
+  });
+  if (state.stage > stages) state.stage = 1;
+}
+
+function rebuildActionRow() {
+  const sp = state.species.find(s => s.id === state.speciesId);
+  const anims = sp?.animations ?? {};
+  const stagePrefix = `stage${state.stage}-`;
+  // All anim keys present for this stage — strip prefix to get bare action names
+  const known = new Set(
+    Object.keys(anims)
+      .filter(k => k.startsWith(stagePrefix))
+      .map(k => k.slice(stagePrefix.length))
+  );
+  // Curated order — match tamagotchi UX expectations
+  const order = [
+    'idle', 'happy', 'excited', 'celebrating', 'focused',
+    'sad', 'hungry', 'sick', 'sleep', 'feed', 'pet', 'play',
+    'levelup', 'attack',
+  ];
+  const buttons = order.filter(a => known.has(a));
+  // Reset to idle if current anim no longer available for this stage
+  if (!known.has(state.anim)) {
+    state.anim = known.has('idle') ? 'idle' : (buttons[0] ?? 'idle');
+  }
+  const row = $('#actionRow');
+  row.innerHTML = buttons.map(a =>
+    `<button class="action-btn ${a === state.anim ? 'active' : ''}" data-anim="${a}">${a}</button>`
+  ).join('');
+  row.querySelectorAll('.action-btn').forEach(b => {
+    b.addEventListener('click', () => {
+      state.anim = b.dataset.anim;
+      row.querySelectorAll('.action-btn').forEach(x => x.classList.toggle('active', x === b));
+      loadCreatureFrames();
+    });
+  });
+}
+
+// ─── Apply selection ───────────────────────────────────────────────────────
+async function applySelection() {
+  const zone = state.world.zones.find(z => z.key === state.zoneKey);
+  if (!zone) return;
+
+  // Plate
+  $('#plateImg').src = zone.plate;
+
+  // Hero anim — 96×96 at zone.hero.anchor
+  state.heroFrames = [];
+  const heroImg = $('#heroImg');
+  if (zone.hero && zone.hero.frames?.length) {
+    heroImg.style.display = '';
+    heroImg.style.left = zone.hero.anchor.x + 'px';
+    heroImg.style.top = zone.hero.anchor.y + 'px';
+    heroImg.style.width = state.world.heroCanvas + 'px';
+    heroImg.style.height = state.world.heroCanvas + 'px';
+    state.heroFrames = await Promise.all(zone.hero.frames.map(loadImage));
+  } else {
+    heroImg.style.display = 'none';
+  }
+
+  // Reset particles per zone, anim cursors per selection
+  state.livingParticles = [];
+  heroIdx = 0; heroAcc = 0;
+  cretIdx = 0; cretAcc = 0;
+
+  // Creature
+  rebuildActionRow();
+  await loadCreatureFrames();
+  updateMeta();
+}
+
+function updateMeta() {
+  const zone = state.world.zones.find(z => z.key === state.zoneKey);
+  const sp = state.species.find(s => s.id === state.speciesId);
+  const stage = sp?.stages?.[state.stage - 1];
+  const types = [sp?.type, sp?.secondaryType].filter(Boolean).join(' / ') || '?';
+  const stageName = stage?.name ?? sp?.name ?? '?';
+  $('#metaLine').innerHTML =
+    `<span class="accent">${stageName}</span> · ${types} · stage ${state.stage} of ${sp?.stages?.length ?? '?'} · ` +
+    `in <span class="accent">${zone.label}</span> · ${state.tod}`;
+}
+
+async function loadCreatureFrames() {
+  const sp = state.species.find(s => s.id === state.speciesId);
+  const stage = sp?.stages?.[state.stage - 1];
+  if (!sp) { state.creatureFrames = []; return; }
+
+  const animKey = `stage${state.stage}-${state.anim}`;
+  const frames = sp.animations?.[animKey];
+  if (Array.isArray(frames) && frames.length) {
+    state.creatureFrames = await Promise.all(frames.map(loadImage));
+    return;
+  }
+  // Fallback to idle, then to stage sprite
+  const idleFrames = sp.animations?.[`stage${state.stage}-idle`];
+  if (Array.isArray(idleFrames) && idleFrames.length) {
+    state.creatureFrames = await Promise.all(idleFrames.map(loadImage));
+    return;
+  }
+  if (stage?.sprite) {
+    state.creatureFrames = [await loadImage(stage.sprite)];
+    return;
+  }
+  state.creatureFrames = [];
+}
+
+function loadImage(src) {
+  return new Promise((resolve) => {
+    const img = new Image();
+    img.onload = () => resolve(img);
+    img.onerror = () => resolve(img); // fail silently — drawImage handles broken
+    img.src = src;
+  });
+}
+
+// ─── Render loops ──────────────────────────────────────────────────────────
+let lastT = performance.now();
+let heroIdx = 0, heroAcc = 0;
+let cretIdx = 0, cretAcc = 0;
+
+function startLoops() {
+  requestAnimationFrame(tick);
+}
+
+function tick(now) {
+  let dt = (now - lastT) / 1000;
+  lastT = now;
+  if (dt > 0.25) dt = 0.25; // tab-switch safety
+
+  // Hero anim
+  if (state.heroFrames.length > 0) {
+    heroAcc += dt;
+    const interval = 1 / HERO_FPS;
+    while (heroAcc >= interval) {
+      heroAcc -= interval;
+      heroIdx = (heroIdx + 1) % state.heroFrames.length;
+    }
+    $('#heroImg').src = state.heroFrames[heroIdx].src;
+  }
+
+  // Creature anim
+  if (state.creatureFrames.length > 0) {
+    cretAcc += dt;
+    const interval = 1 / CREATURE_FPS;
+    while (cretAcc >= interval) {
+      cretAcc -= interval;
+      cretIdx = (cretIdx + 1) % state.creatureFrames.length;
+    }
+    drawCreature();
+  }
+
+  // Particles
+  updateAndDrawParticles(Math.min(dt, PARTICLE_DT_CAP));
+
+  requestAnimationFrame(tick);
+}
+
+function drawCreature() {
+  const ctx = $('#creatureCanvas').getContext('2d');
+  ctx.imageSmoothingEnabled = false;
+  ctx.clearRect(0, 0, SCENE_W, SCENE_H);
+  if (state.creatureFrames.length === 0) return;
+  const img = state.creatureFrames[cretIdx];
+  if (!img.naturalWidth) return;
+
+  const zone = state.world.zones.find(z => z.key === state.zoneKey);
+  const groundY = zone?.groundY ?? 108;
+
+  // Source sprites are 64×64; tamagotchi makes creature the star, so scale toward
+  // 50% of the 128-tall scene. Bigger as the line evolves.
+  const srcW = img.naturalWidth;
+  const srcH = img.naturalHeight;
+  const stageScale = 0.7 + (state.stage - 1) * 0.15; // 0.7, 0.85, 1.0
+  const drawW = Math.round(srcW * stageScale);
+  const drawH = Math.round(srcH * stageScale);
+
+  const x = Math.round((SCENE_W - drawW) / 2);
+  const y = Math.round(groundY - drawH);
+
+  ctx.drawImage(img, x, y, drawW, drawH);
+}
+
+// ─── Particles ─────────────────────────────────────────────────────────────
+let particleSpawnAcc = {}; // key -> accumulator
+
+function applicableParticles() {
+  return state.particles.particles.filter(p => p.zones.includes(state.zoneKey));
+}
+
+function updateAndDrawParticles(dt) {
+  const ctx = $('#particlesCanvas').getContext('2d');
+  ctx.imageSmoothingEnabled = false;
+  ctx.clearRect(0, 0, SCENE_W, SCENE_H);
+
+  const apps = applicableParticles();
+
+  // Spawn
+  for (const p of apps) {
+    particleSpawnAcc[p.key] = (particleSpawnAcc[p.key] || 0) + dt * p.spawnRate;
+    while (particleSpawnAcc[p.key] >= 1) {
+      particleSpawnAcc[p.key] -= 1;
+      spawnParticle(p);
+    }
+  }
+
+  // Update + draw
+  const alive = [];
+  for (const inst of state.livingParticles) {
+    inst.age += dt;
+    if (inst.age >= inst.life) continue;
+    inst.x += inst.vx * dt;
+    inst.y += inst.vy * dt;
+    // Fade in/out across lifetime
+    const t = inst.age / inst.life;
+    const fade = t < 0.15 ? (t / 0.15) : t > 0.85 ? ((1 - t) / 0.15) : 1;
+    const sprite = state.particleSprites[inst.key];
+    if (sprite && sprite.naturalWidth) {
+      ctx.globalAlpha = inst.alpha * fade;
+      ctx.drawImage(sprite, Math.round(inst.x), Math.round(inst.y));
+    }
+    alive.push(inst);
+  }
+  ctx.globalAlpha = 1;
+  state.livingParticles = alive;
+}
+
+function spawnParticle(def) {
+  // Spawn randomly across width, in upper 60% of the scene (so they read as drifting in air)
+  const x = Math.random() * SCENE_W;
+  const y = 12 + Math.random() * (SCENE_H * 0.65);
+  const vx = def.drift.vx[0] + Math.random() * (def.drift.vx[1] - def.drift.vx[0]);
+  const vy = def.drift.vy[0] + Math.random() * (def.drift.vy[1] - def.drift.vy[0]);
+  const life = def.lifetime[0] + Math.random() * (def.lifetime[1] - def.lifetime[0]);
+  state.livingParticles.push({
+    key: def.key, x, y, vx, vy, life, age: 0, alpha: def.alpha,
+  });
+}
+
+// ─── Go ────────────────────────────────────────────────────────────────────
+boot().catch(err => console.error('Tamagotchi boot failed:', err));
+</script>
+</body>
+</html>

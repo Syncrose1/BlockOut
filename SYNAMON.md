@@ -95,15 +95,29 @@ HP(lv)   = baseHP   × (1 + (lv − 1) × GROWTH_RATE) + lv × 5
 ```
 `GROWTH_RATE` ≈ 0.02 (2% per level). Exact value TBD during implementation.
 
-### Role Archetypes
+### Role Archetypes (Stage 1 templates, BST=360)
 | Archetype | HP | ATK | DEF | SPD | Examples |
 |---|---|---|---|---|---|
-| Tank | 90 | 60 | 110 | 40 | Peblix, Tremlet, Bassolt |
-| Striker | 60 | 110 | 40 | 90 | Cindrel, Ashpaw, Flintlet |
-| Support | 70 | 50 | 80 | 80 | Aquill, Glassling, Spectrix |
-| Balanced | 75 | 75 | 75 | 75 | Chuffin, Galecub, Tidepup |
-| Glass Cannon | 45 | 120 | 30 | 110 | Fluxling, Buzzlit, Brezzet |
-| Bulky Attacker | 85 | 95 | 65 | 50 | Driftull, Sporik |
+| Tank | 105 | 65 | 135 | 55 | Peblix, Tremlet, Bassolt |
+| Striker | 70 | 130 | 50 | 110 | Cindrel, Ashpaw, Flintlet, Murkling, Runekit, Duskrat, Darkspore |
+| Support | 90 | 60 | 100 | 110 | Aquill, Glassling, Spectrix, Glowick, Cloakrit, Windmite |
+| Balanced | 90 | 90 | 90 | 90 | Chuffin, Galecub, Tidepup, Glintfin, Lumenox, Scaldit |
+| Glass Cannon | 55 | 140 | 40 | 125 | Fluxling, Buzzlit, Brezzet, Humtick |
+| Bulky Attacker | 100 | 115 | 80 | 65 | Driftull, Sporik, Crystub |
+
+### Evolution Stat Gains (+50 BST per stage)
+| Archetype | +HP | +ATK | +DEF | +SPD |
+|---|---|---|---|---|
+| Tank | 20 | 10 | 15 | 5 |
+| Striker | 10 | 20 | 5 | 15 |
+| Support | 15 | 5 | 15 | 15 |
+| Balanced | 12 | 13 | 12 | 13 |
+| Glass Cannon | 5 | 25 | 5 | 15 |
+| Bulky Attacker | 15 | 20 | 10 | 5 |
+
+### Legendaries (BST=500, single-stage)
+- **Omenix** — HP140 / ATK100 / DEF140 / SPD120 (mystical support-tank)
+- **Lunveil** — HP110 / ATK160 / DEF100 / SPD130 (offensive apex)
 
 ### Damage Formula
 ```
@@ -407,13 +421,19 @@ TYPE_COLORS = { Ignis, Aqua, Terra, Ventus, Umbra, Lux, Sonus, Arcanus, Spiritus
       "stage2-to-stage1":   [...],
       // etc.
     },
-    "baseStats": { "hp": 60, "atk": 90, "def": 45, "spd": 85 },  // placeholder values, need recalc
+    "baseStats": { "hp": 75, "atk": 128, "def": 55, "spd": 105 },  // stage-1 alias
     "dexEntry": "A palm-sized lizard with ember-orange scales..."
   }
 ]
 ```
 
-**Note:** `baseStats` in species.json are placeholder values from initial generation — they have NOT been recalculated to match the new BST=360 archetype system. This needs doing before battle implementation.
+**Note:** `baseStats` now lives on each stage (plus a species-level alias for stage 1). All 31 species have been recalibrated via `scripts/recalc-basestats.ts` using a 3-layer model:
+
+- **Layer 1** — Archetype template (BST=360 stage 1, +50/stage via evo gain)
+- **Layer 2** — Per-species hand-picked variation (±15% per stat, ±10 BST drift), baked into species.json
+- **Layer 3** — Constitution modifiers applied at catch/hatch (runtime only — see `project_synamon_constitutions.md`)
+
+Legendaries (Omenix, Lunveil) are single-stage at BST=500 with bespoke templates and no evo gain.
 
 ---
 
@@ -425,29 +445,29 @@ TYPE_COLORS = { Ignis, Aqua, Terra, Ventus, Umbra, Lux, Sonus, Arcanus, Spiritus
 | Phase 2 | 74 sprites generated (all stages all species) | ✅ Done |
 | Phase 3 | Idle + attack animations — all 31 species, all stages | ✅ Done |
 | Phase 4a | Evo/devo transitions — all 31 species, 86 transitions, 50 frames each | ✅ Done |
-| Phase 4b | Focused animations — 30/31 base forms (scaldit pending credit reset) | 🟡 30/31 |
-| Phase 4c | Celebrating animations — 31 base forms | ⏳ Not started |
-| Phase 4d | Remaining tamagotchi anims (happy, feed, pet, sleep, play, excited, sad, hungry, sick, levelup) | ⏳ Not started |
-| Phase 5 | Battle effect animations (fx-burn, fx-explosion, etc. ~20 effects) | ⏳ Not started |
-| Phase 6 | Recalculate baseStats to BST=360 archetype system | ⏳ Not started |
+| Phase 4b | Focused animations — 31/31 base forms | ✅ Done |
+| Phase 4c | Celebrating, happy, excited, sad, sleep, sick, feed, pet, hungry, play — all 31/31 | ✅ Done |
+| Phase 4d | Levelup — procedural 18-frame animations per species (no API, ImageMagick+zlib) | ✅ Done |
+| Phase 5 | Battle effect animations — 21 shared FX overlays, 12-frame impact bursts at 96×96, hard-transparent final frame | ✅ Done |
+| Phase 6 | Recalculate baseStats to 3-layer system (archetype + species variation + constitution) | ✅ Done |
 | Phase 7 | Battle system implementation | ⏳ Not started |
-| Phase 8 | Tamagotchi system implementation (BlockOut integration) | ⏳ Not started |
+| Phase 8a | Tamagotchi world — 6 zone plates via pixflux, 3 hero anims, 5 particle sprites, world.json registry | ✅ Done |
+| Phase 8b | Tamagotchi scene renderer — `tamagotchi.html` cinematic viewer (plate + hero + particles + creature + day/night) | ✅ Done |
+| Phase 8c | Supabase creature schema — `0001_synamon_creatures.sql` migration (creatures, events, dex, companion) | ✅ Done |
+| Phase 8d | Asset hosting strategy — R2 + versioned manifest (see `SYNAMON_HOSTING.md`) | ✅ Done |
+| Phase 8e | Tamagotchi full integration — React component in BlockOut, stat decay, interaction loop, notifications | ⏳ Not started |
 
 ---
 
 ## Immediate Next Steps
 
-1. **Wait for PixelLab credits to reset** then run:
-   ```bash
-   npx tsx scripts/generate-animations.ts --anim focused --species scaldit
-   npx tsx scripts/generate-animations.ts --anim celebrating
-   ```
+1. **Tamagotchi integration (Phase 8e)**: Port `tamagotchi.html` into a React component (`src/components/Synamon/TamagotchiScene.tsx`). Wire up Supabase reads/writes for creature state (happiness, hunger, energy). Add stat-decay ticking (hourly via server cron or client-side on focus).
 
-2. **Recalculate baseStats** for all 31 species against the BST=360 archetype targets — the current values in species.json are placeholders.
+2. **Provision R2** and run `scripts/publish-synamon-assets.ts` to host shared assets at `assets.syncratic.app/synamon/`.
 
-3. **Continue tamagotchi Phase 2 animations** (`happy`, `feed`, `pet`, `sleep`) after celebrating.
+3. **Battle system (Phase 7)**: Implement turn-based battles consuming per-stage `baseStats` + runtime constitution modifiers.
 
-4. **Generate battle effect animations** (~20 effects, ~160 frames total) — these are simpler, transparent-background particle overlays.
+4. **Implement tamagotchi system** (BlockOut integration — hatch/feed/pet/sleep loops tied to task completion).
 
 ---
 

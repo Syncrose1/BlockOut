@@ -527,6 +527,152 @@
     margin-left: 6px;
   }
 
+  /* ── FX tab ── */
+  .fx-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+    gap: 16px;
+  }
+  .fx-card {
+    background: #16162a;
+    border: 1px solid #2a2a42;
+    border-radius: 8px;
+    padding: 14px 10px 12px;
+    text-align: center;
+    transition: border-color 0.15s;
+  }
+  .fx-card:hover { border-color: #44446a; }
+  .fx-card.pending { opacity: 0.5; }
+  .fx-sprite-wrap {
+    width: 96px;
+    height: 96px;
+    margin: 0 auto 10px;
+    position: relative;
+    background:
+      linear-gradient(45deg, #12121e 25%, transparent 25%, transparent 75%, #12121e 75%) 0 0 / 10px 10px,
+      linear-gradient(45deg, #12121e 25%, transparent 25%, transparent 75%, #12121e 75%) 5px 5px / 10px 10px,
+      #0b0b14;
+    border: 1px solid #1e1e36;
+    border-radius: 4px;
+  }
+  .fx-sprite {
+    width: 96px;
+    height: 96px;
+    image-rendering: pixelated;
+    image-rendering: crisp-edges;
+    display: block;
+  }
+  .fx-sprite.hidden { display: none; }
+  .fx-pending {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #3a3a5a;
+    font-size: 9px;
+    text-align: center;
+    line-height: 1.4;
+    white-space: pre;
+  }
+  .fx-key { font-size: 11px; color: #6fb8c8; font-weight: bold; letter-spacing: 0.03em; }
+  .fx-label { font-size: 10px; color: #888; margin-top: 2px; }
+  .fx-used { font-size: 9px; color: #444; margin-top: 8px; line-height: 1.5; }
+  .fx-empty {
+    grid-column: 1 / -1;
+    font-size: 11px;
+    color: #555;
+    padding: 40px 20px;
+    text-align: center;
+    border: 1px dashed #2a2a42;
+    border-radius: 6px;
+    line-height: 1.8;
+  }
+  .fx-empty code {
+    background: #0b0b17;
+    border: 1px solid #1e1e36;
+    color: #6fb8c8;
+    padding: 2px 6px;
+    border-radius: 3px;
+    font-size: 10px;
+  }
+
+  /* ── World tab ── */
+  .world-grid {
+    display: flex;
+    flex-direction: column;
+    gap: 24px;
+  }
+  .world-card {
+    background: #16162a;
+    border: 1px solid #2a2a42;
+    border-radius: 8px;
+    padding: 16px;
+    transition: border-color 0.15s;
+  }
+  .world-card:hover { border-color: #44446a; }
+  .world-card-header {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 12px;
+  }
+  .world-card-header h3 {
+    font-size: 13px;
+    color: #fff;
+    margin: 0;
+    letter-spacing: 0.04em;
+  }
+  .world-scene-wrap {
+    position: relative;
+    overflow: hidden;
+    border: 1px solid #1e1e36;
+    border-radius: 4px;
+    cursor: pointer;
+  }
+  .world-scene {
+    position: relative;
+    image-rendering: pixelated;
+    image-rendering: crisp-edges;
+    transform-origin: top left;
+  }
+  .world-scene img,
+  .world-scene canvas {
+    position: absolute;
+    left: 0; top: 0;
+    image-rendering: pixelated;
+    image-rendering: crisp-edges;
+    pointer-events: none;
+  }
+  .world-meta {
+    display: flex;
+    gap: 12px;
+    align-items: center;
+    margin-top: 10px;
+    flex-wrap: wrap;
+  }
+  .world-tod-btn {
+    font-size: 9px;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    padding: 3px 9px;
+    border-radius: 999px;
+    border: 1px solid #2a2a42;
+    background: transparent;
+    color: #666;
+    cursor: pointer;
+    transition: all 0.12s;
+  }
+  .world-tod-btn:hover { color: #aaa; border-color: #6fb8c8; }
+  .world-tod-btn.active { color: #0a0a14; background: #6fb8c8; border-color: #6fb8c8; }
+
+  .world-scene.day  img.world-plate { filter: brightness(1); }
+  .world-scene.dusk img.world-plate { filter: brightness(0.85) saturate(0.95) hue-rotate(-8deg) sepia(0.15); }
+  .world-scene.night img.world-plate { filter: brightness(0.55) saturate(0.7) hue-rotate(15deg); }
+  .world-scene.day  canvas.world-creature { filter: brightness(1); }
+  .world-scene.dusk canvas.world-creature { filter: brightness(0.92); }
+  .world-scene.night canvas.world-creature { filter: brightness(0.8) hue-rotate(8deg); }
+
   @media (max-width: 700px) {
     .sys-grid-2, .sys-grid-3 { grid-template-columns: 1fr; }
   }
@@ -540,6 +686,8 @@
 <div class="tab-bar">
   <button class="tab-btn active" data-tab="dex">Dex</button>
   <button class="tab-btn" data-tab="systems">Systems</button>
+  <button class="tab-btn" data-tab="fx">FX</button>
+  <button class="tab-btn" data-tab="worlds">Worlds</button>
 </div>
 
 <!-- ═══════════════════════════════════════════════════ DEX TAB -->
@@ -757,16 +905,39 @@
 
 </div><!-- /tab-systems -->
 
+<!-- ═══════════════════════════════════════════════════ FX TAB -->
+<div class="tab-panel" id="tab-fx">
+  <p class="sys-note" style="margin-bottom:18px;">
+    Shared battle-effect overlays. 96×96 transparent-background animations played over the defending sprite during attack resolution.
+    Generated via <code style="color:#6fb8c8;">scripts/generate-fx.ts</code> and consumed by the Phase 7 battle renderer.
+  </p>
+  <div class="fx-grid" id="fx-grid">
+    <div class="fx-empty">Loading fx.json…</div>
+  </div>
+</div><!-- /tab-fx -->
+
+<!-- ═══════════════════════════════════════════════════ WORLDS TAB -->
+<div class="tab-panel" id="tab-worlds">
+  <p class="sys-note" style="margin-bottom:18px;">
+    Tamagotchi backdrops — 6 ecological zones of the Luminal Reaches. Each zone is a cinematic 256×128 plate with optional animated hero element and ambient particles.
+    Generated via <code style="color:#6fb8c8;">scripts/generate-world.ts</code>. Click a zone to toggle time of day.
+  </p>
+  <div class="world-grid" id="world-grid">
+    <div class="fx-empty">Loading world.json…</div>
+  </div>
+</div><!-- /tab-worlds -->
+
 <script>
 const STORAGE_KEY = 'synamon-review-v1';
 const ANIM_FPS = 8;
 
-// Tamagotchi anims only exist on stage 1 (base form). Stages 2+ hold static sprite.
+// Tamagotchi anims only exist on stage 1 (base form), EXCEPT levelup which exists for all stages.
 const TAMAGOTCHI_ANIMS = new Set([
   'focused', 'celebrating', 'happy', 'excited',
   'feed', 'pet', 'play', 'sleep',
-  'sad', 'hungry', 'sick', 'levelup',
+  'sad', 'hungry', 'sick',
 ]);
+// levelup is no longer in TAMAGOTCHI_ANIMS — it has all-stage coverage.
 
 // All supported animation keys — grouped for the selector UI
 const ANIM_GROUPS = [
@@ -1186,6 +1357,80 @@ fetch('/synamon/species.json?v=' + Date.now())
     applyFilters();
   });
 
+// ── FX tab ──
+fetch('/synamon/fx.json?v=' + Date.now())
+  .then(r => r.ok ? r.json() : null)
+  .then(data => { renderFxTab(data); })
+  .catch(() => { renderFxTab(null); });
+
+function renderFxTab(data) {
+  const grid = document.getElementById('fx-grid');
+  if (!grid) return;
+  grid.innerHTML = '';
+  if (!data || !Array.isArray(data.fx) || data.fx.length === 0) {
+    const empty = document.createElement('div');
+    empty.className = 'fx-empty';
+    empty.innerHTML = 'No FX generated yet.<br>Run <code>npx tsx scripts/generate-fx.ts</code> to populate <code>public/synamon/fx.json</code>.';
+    grid.appendChild(empty);
+    return;
+  }
+
+  data.fx.forEach(fx => {
+    const card = document.createElement('div');
+    card.className = 'fx-card';
+
+    const wrap = document.createElement('div');
+    wrap.className = 'fx-sprite-wrap';
+
+    const img = document.createElement('img');
+    img.className = 'fx-sprite';
+    img.alt = fx.label || fx.key;
+
+    const badge = document.createElement('div');
+    badge.className = 'frame-badge';
+
+    wrap.appendChild(img);
+    wrap.appendChild(badge);
+
+    const hasFrames = Array.isArray(fx.frames) && fx.frames.length > 0;
+    if (hasFrames) {
+      startAnimation(img, wrap, fx.frames, ANIM_FPS);
+    } else if (fx.seed) {
+      img.src = fx.seed;
+      const note = document.createElement('div');
+      note.className = 'fx-pending';
+      note.textContent = 'seed only\nno frames';
+      wrap.appendChild(note);
+      img.classList.add('hidden');
+    } else {
+      card.classList.add('pending');
+      img.classList.add('hidden');
+      const note = document.createElement('div');
+      note.className = 'fx-pending';
+      note.textContent = '⏳\npending';
+      wrap.appendChild(note);
+    }
+
+    const keyEl = document.createElement('div');
+    keyEl.className = 'fx-key';
+    keyEl.textContent = fx.key;
+
+    const labelEl = document.createElement('div');
+    labelEl.className = 'fx-label';
+    labelEl.textContent = fx.label || '';
+
+    const usedEl = document.createElement('div');
+    usedEl.className = 'fx-used';
+    usedEl.textContent = Array.isArray(fx.usedBy) && fx.usedBy.length ? fx.usedBy.join(' · ') : '';
+
+    card.appendChild(wrap);
+    card.appendChild(keyEl);
+    card.appendChild(labelEl);
+    card.appendChild(usedEl);
+    grid.appendChild(card);
+  });
+}
+
 function buildFilters(species) {
   const allTypes = new Set();
   species.forEach(sp => { allTypes.add(sp.type); if (sp.secondaryType) allTypes.add(sp.secondaryType); });
@@ -1494,6 +1739,276 @@ function makeCard(sp, num) {
   card.appendChild(detail);
   refreshCardState(card, sp);
   return card;
+}
+
+// ── Worlds tab ──
+const WORLD_SCALE = 3;  // 256×128 → 768×384 display
+const WORLD_SCENE_W = 256;
+const WORLD_SCENE_H = 128;
+const WORLD_HERO_FPS = 6;
+const WORLD_CREATURE_FPS = 8;
+const WORLD_PARTICLE_DT_CAP = 0.05;
+
+let worldData = null;
+let particleData = null;
+const worldCardStates = {};
+
+fetch('/synamon/world.json?v=' + Date.now())
+  .then(r => r.ok ? r.json() : null)
+  .then(data => { worldData = data; return fetch('/synamon/_world/particles.json?v=' + Date.now()); })
+  .then(r => r.ok ? r.json() : null)
+  .then(pData => {
+    particleData = pData;
+    if (worldData) renderWorldTab();
+  })
+  .catch(() => renderWorldTab());
+
+function renderWorldTab() {
+  const grid = document.getElementById('world-grid');
+  if (!grid) return;
+  grid.innerHTML = '';
+
+  if (!worldData || !worldData.zones?.length) {
+    grid.innerHTML = '<div class="fx-empty">No world zones generated yet.<br>Run <code>npx tsx scripts/generate-world.ts</code></div>';
+    return;
+  }
+
+  // Pick a test synamon for each zone (first species whose primary type matches zone affinity)
+  const testSpecies = {};
+  worldData.zones.forEach(zone => {
+    const sp = allSpecies.find(s => zone.affinityTypes.includes(s.type));
+    testSpecies[zone.key] = sp || allSpecies[0];
+  });
+
+  worldData.zones.forEach(zone => {
+    const card = document.createElement('div');
+    card.className = 'world-card';
+
+    // Header
+    const header = document.createElement('div');
+    header.className = 'world-card-header';
+    header.innerHTML = `
+      <h3>${zone.label}</h3>
+      ${zone.affinityTypes.map(t => typePill(t)).join('')}
+      ${zone.hero ? `<span style="font-size:9px;color:#6fb8c8;margin-left:auto;">★ ${zone.hero.label}</span>` : ''}
+    `;
+    card.appendChild(header);
+
+    // Scene wrap
+    const wrap = document.createElement('div');
+    wrap.className = 'world-scene-wrap';
+    wrap.style.width = (WORLD_SCENE_W * WORLD_SCALE) + 'px';
+    wrap.style.height = (WORLD_SCENE_H * WORLD_SCALE) + 'px';
+
+    const scene = document.createElement('div');
+    scene.className = 'world-scene day';
+    scene.style.width = WORLD_SCENE_W + 'px';
+    scene.style.height = WORLD_SCENE_H + 'px';
+    scene.style.transform = `scale(${WORLD_SCALE})`;
+    scene.style.transformOrigin = 'top left';
+
+    // Plate
+    const plateImg = document.createElement('img');
+    plateImg.className = 'world-plate';
+    plateImg.src = zone.plate;
+    plateImg.style.width = WORLD_SCENE_W + 'px';
+    plateImg.style.height = WORLD_SCENE_H + 'px';
+    scene.appendChild(plateImg);
+
+    // Hero
+    const heroImg = document.createElement('img');
+    heroImg.className = 'world-hero';
+    if (zone.hero?.frames?.length) {
+      const hScale = zone.hero.displayScale ?? 1;
+      const hSize = Math.round(worldData.heroCanvas * hScale);
+      heroImg.style.left = zone.hero.anchor.x + 'px';
+      heroImg.style.top = zone.hero.anchor.y + 'px';
+      heroImg.style.width = hSize + 'px';
+      heroImg.style.height = hSize + 'px';
+      heroImg.src = zone.hero.frames[0];
+    } else {
+      heroImg.style.display = 'none';
+    }
+    scene.appendChild(heroImg);
+
+    // Particles canvas
+    const partCanvas = document.createElement('canvas');
+    partCanvas.className = 'world-particles';
+    partCanvas.width = WORLD_SCENE_W;
+    partCanvas.height = WORLD_SCENE_H;
+    partCanvas.style.width = WORLD_SCENE_W + 'px';
+    partCanvas.style.height = WORLD_SCENE_H + 'px';
+    scene.appendChild(partCanvas);
+
+    // Creature canvas
+    const cretCanvas = document.createElement('canvas');
+    cretCanvas.className = 'world-creature';
+    cretCanvas.width = WORLD_SCENE_W;
+    cretCanvas.height = WORLD_SCENE_H;
+    cretCanvas.style.width = WORLD_SCENE_W + 'px';
+    cretCanvas.style.height = WORLD_SCENE_H + 'px';
+    scene.appendChild(cretCanvas);
+
+    wrap.appendChild(scene);
+    card.appendChild(wrap);
+
+    // Meta row with time-of-day toggles
+    const meta = document.createElement('div');
+    meta.className = 'world-meta';
+    const tods = ['day', 'dusk', 'night'];
+    tods.forEach(tod => {
+      const btn = document.createElement('button');
+      btn.className = 'world-tod-btn' + (tod === 'day' ? ' active' : '');
+      btn.textContent = tod;
+      btn.dataset.tod = tod;
+      btn.onclick = () => {
+        meta.querySelectorAll('.world-tod-btn').forEach(b => b.classList.toggle('active', b === btn));
+        scene.classList.remove('day', 'dusk', 'night');
+        scene.classList.add(tod);
+      };
+      meta.appendChild(btn);
+    });
+    const sp = testSpecies[zone.key];
+    const spLabel = document.createElement('span');
+    spLabel.style.cssText = 'font-size:10px;color:#888;margin-left:auto;';
+    spLabel.textContent = `test: ${sp.stages[0].name}`;
+    meta.appendChild(spLabel);
+    card.appendChild(meta);
+
+    grid.appendChild(card);
+
+    // ── Load creature frames & hero frames, start animation loop ──
+    const st = {
+      heroFrames: [],
+      heroIdx: 0, heroAcc: 0,
+      cretFrames: [],
+      cretIdx: 0, cretAcc: 0,
+      particles: [],
+      spawnAcc: {},
+      scene, heroImg, partCanvas, cretCanvas,
+      zone, sp,
+    };
+    worldCardStates[zone.key] = st;
+
+    // Load hero frames
+    if (zone.hero?.frames?.length) {
+      Promise.all(zone.hero.frames.map(worldLoadImg)).then(imgs => { st.heroFrames = imgs; });
+    }
+
+    // Load creature idle frames
+    const idleFrames = sp.animations?.['stage1-idle'] || sp.stages[0]?.idleFrames || [];
+    if (idleFrames.length) {
+      Promise.all(idleFrames.map(worldLoadImg)).then(imgs => { st.cretFrames = imgs; });
+    }
+
+    // Preload applicable particle sprites
+    if (particleData?.particles) {
+      const appParts = particleData.particles.filter(p => p.zones.includes(zone.key));
+      st.applicableParticles = appParts;
+      st.partSprites = {};
+      appParts.forEach(p => {
+        const img = new Image();
+        img.src = p.sprite;
+        st.partSprites[p.key] = img;
+      });
+    }
+  });
+
+  // Start shared animation loop for all world cards
+  let lastWorldT = performance.now();
+  function worldTick(now) {
+    let dt = (now - lastWorldT) / 1000;
+    lastWorldT = now;
+    if (dt > 0.25) dt = 0.25;
+
+    Object.values(worldCardStates).forEach(st => {
+      // Hero
+      if (st.heroFrames.length > 0) {
+        st.heroAcc += dt;
+        const interval = 1 / WORLD_HERO_FPS;
+        while (st.heroAcc >= interval) {
+          st.heroAcc -= interval;
+          st.heroIdx = (st.heroIdx + 1) % st.heroFrames.length;
+        }
+        st.heroImg.src = st.heroFrames[st.heroIdx].src;
+      }
+
+      // Creature
+      if (st.cretFrames.length > 0) {
+        st.cretAcc += dt;
+        const interval = 1 / WORLD_CREATURE_FPS;
+        while (st.cretAcc >= interval) {
+          st.cretAcc -= interval;
+          st.cretIdx = (st.cretIdx + 1) % st.cretFrames.length;
+        }
+        const ctx = st.cretCanvas.getContext('2d');
+        ctx.imageSmoothingEnabled = false;
+        ctx.clearRect(0, 0, WORLD_SCENE_W, WORLD_SCENE_H);
+        const img = st.cretFrames[st.cretIdx];
+        if (img?.naturalWidth) {
+          const cScale = st.zone.creatureScale ?? 0.7;
+          const drawW = Math.round(img.naturalWidth * cScale);
+          const drawH = Math.round(img.naturalHeight * cScale);
+          const x = Math.round((WORLD_SCENE_W - drawW) / 2);
+          const y = Math.round(st.zone.groundY - drawH);
+          ctx.drawImage(img, x, y, drawW, drawH);
+        }
+      }
+
+      // Particles
+      if (st.applicableParticles?.length) {
+        const pdt = Math.min(dt, WORLD_PARTICLE_DT_CAP);
+        const ctx = st.partCanvas.getContext('2d');
+        ctx.imageSmoothingEnabled = false;
+        ctx.clearRect(0, 0, WORLD_SCENE_W, WORLD_SCENE_H);
+
+        // Spawn
+        st.applicableParticles.forEach(p => {
+          st.spawnAcc[p.key] = (st.spawnAcc[p.key] || 0) + pdt * p.spawnRate;
+          while (st.spawnAcc[p.key] >= 1) {
+            st.spawnAcc[p.key] -= 1;
+            const x = Math.random() * WORLD_SCENE_W;
+            const y = 12 + Math.random() * (WORLD_SCENE_H * 0.65);
+            const vx = p.drift.vx[0] + Math.random() * (p.drift.vx[1] - p.drift.vx[0]);
+            const vy = p.drift.vy[0] + Math.random() * (p.drift.vy[1] - p.drift.vy[0]);
+            const life = p.lifetime[0] + Math.random() * (p.lifetime[1] - p.lifetime[0]);
+            st.particles.push({ key: p.key, x, y, vx, vy, life, age: 0, alpha: p.alpha });
+          }
+        });
+
+        // Update + draw
+        const alive = [];
+        for (const inst of st.particles) {
+          inst.age += pdt;
+          if (inst.age >= inst.life) continue;
+          inst.x += inst.vx * pdt;
+          inst.y += inst.vy * pdt;
+          const t = inst.age / inst.life;
+          const fade = t < 0.15 ? (t / 0.15) : t > 0.85 ? ((1 - t) / 0.15) : 1;
+          const sprite = st.partSprites?.[inst.key];
+          if (sprite?.naturalWidth) {
+            ctx.globalAlpha = inst.alpha * fade;
+            ctx.drawImage(sprite, Math.round(inst.x), Math.round(inst.y));
+          }
+          alive.push(inst);
+        }
+        ctx.globalAlpha = 1;
+        st.particles = alive;
+      }
+    });
+
+    requestAnimationFrame(worldTick);
+  }
+  requestAnimationFrame(worldTick);
+}
+
+function worldLoadImg(src) {
+  return new Promise(resolve => {
+    const img = new Image();
+    img.onload = () => resolve(img);
+    img.onerror = () => resolve(img);
+    img.src = src;
+  });
 }
 </script>
 </body>

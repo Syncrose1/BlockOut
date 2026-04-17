@@ -1,0 +1,131 @@
+{
+  "size": 8,
+  "particles": [
+    {
+      "key": "dust-mote",
+      "label": "Warm dust mote",
+      "sprite": "/synamon/_world/_particles/dust-mote.png",
+      "drift": {
+        "vx": [
+          -3,
+          3
+        ],
+        "vy": [
+          -2,
+          1
+        ]
+      },
+      "spawnRate": 0.6,
+      "lifetime": [
+        4,
+        8
+      ],
+      "alpha": 0.5,
+      "zones": [
+        "aureum-basin",
+        "fossil-reef"
+      ]
+    },
+    {
+      "key": "sparkle-glint",
+      "label": "Twinkle sparkle",
+      "sprite": "/synamon/_world/_particles/sparkle-glint.png",
+      "drift": {
+        "vx": [
+          -1,
+          1
+        ],
+        "vy": [
+          -1,
+          1
+        ]
+      },
+      "spawnRate": 0.4,
+      "lifetime": [
+        1.2,
+        2.4
+      ],
+      "alpha": 0.9,
+      "zones": [
+        "salt-flats",
+        "starlight-plateau",
+        "resonant-rift"
+      ]
+    },
+    {
+      "key": "ember",
+      "label": "Drifting ember",
+      "sprite": "/synamon/_world/_particles/ember.png",
+      "drift": {
+        "vx": [
+          -2,
+          2
+        ],
+        "vy": [
+          -6,
+          -2
+        ]
+      },
+      "spawnRate": 0.5,
+      "lifetime": [
+        2,
+        4
+      ],
+      "alpha": 0.85,
+      "zones": [
+        "aureum-basin",
+        "resonant-rift"
+      ]
+    },
+    {
+      "key": "bio-spore",
+      "label": "Bioluminescent spore",
+      "sprite": "/synamon/_world/_particles/bio-spore.png",
+      "drift": {
+        "vx": [
+          -1,
+          1
+        ],
+        "vy": [
+          -3,
+          -1
+        ]
+      },
+      "spawnRate": 0.7,
+      "lifetime": [
+        3,
+        6
+      ],
+      "alpha": 0.8,
+      "zones": [
+        "bio-grotto"
+      ]
+    },
+    {
+      "key": "firefly",
+      "label": "Firefly glow",
+      "sprite": "/synamon/_world/_particles/firefly.png",
+      "drift": {
+        "vx": [
+          -4,
+          4
+        ],
+        "vy": [
+          -3,
+          3
+        ]
+      },
+      "spawnRate": 0.25,
+      "lifetime": [
+        4,
+        8
+      ],
+      "alpha": 0.85,
+      "zones": [
+        "bio-grotto",
+        "aureum-basin",
+        "fossil-reef"
+      ]
+    }
+  ]
+}

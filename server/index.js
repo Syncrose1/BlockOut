@@ -20,6 +20,12 @@ if (fs.existsSync(distPath)) {
   app.use(express.static(distPath));
 }
 
+// Serve Synadex page from public/synamon
+const synamonPath = path.join(__dirname, '..', 'public', 'synamon');
+if (fs.existsSync(synamonPath)) {
+  app.use('/synamon', express.static(synamonPath));
+}
+
 function checkAuth(req, res) {
   if (!SECRET) return true; // token not configured — open access
   const auth = req.headers['authorization'] || '';
