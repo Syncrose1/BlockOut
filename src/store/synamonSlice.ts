@@ -112,6 +112,7 @@ function makeSynamonActions(set: (fn: (s: any) => any) => void, get: () => any) 
           level: 1,
           xp: 0,
           nickname,
+          zoneKey: 'aureum-basin',
           hunger: 80,
           happiness: 80,
           energy: 100,

@@ -1,6 +1,7 @@
 import { useStore } from '../store';
 import { useMemo, useState } from 'react';
 import { debouncedSave } from '../utils/persistence';
+import { upsertCreature, setActiveCompanion, upsertDexEntry } from '../utils/synamonSync';
 import { CategorySettingsModal, BlockSettingsModal } from './Modals';
 import { AnalyticsModal } from './AnalyticsModal';
 import { SynamonPanel } from './SynamonPanel';
@@ -57,6 +58,7 @@ export function Sidebar() {
   const synamonStarterChosen = useStore((s) => s.synamon.starterChosen);
   const synamonCollection = useStore((s) => s.synamon.collection);
   const setSynamonPanelOpen = useStore((s) => s.setSynamonPanelOpen);
+  const catchSynamon = useStore((s) => s.catchSynamon);
   const hasCompanion = !!synamonActiveUid && synamonStarterChosen && !!synamonCollection[synamonActiveUid];
 
   const sortedBlocks = useMemo(() => {
@@ -475,6 +477,41 @@ export function Sidebar() {
             Restart Tour
           </button>
 
+          {/* Adopt starter — temporary until Synamon app handles induction */}
+          {!hasCompanion && (
+            <button
+              onClick={() => {
+                catchSynamon('aquill', 'Aquill');
+                // Push to Supabase after store updates
+                setTimeout(() => {
+                  const state = useStore.getState();
+                  const uid = state.synamon.activeUid;
+                  if (uid) {
+                    const syn = state.synamon.collection[uid];
+                    if (syn) {
+                      upsertCreature(syn);
+                      setActiveCompanion(uid, syn.zoneKey ?? 'aureum-basin');
+                      upsertDexEntry('aquill', true, 1);
+                    }
+                  }
+                }, 100);
+              }}
+              style={{
+                marginLeft: 'auto',
+                background: 'none',
+                border: '1px solid var(--accent)',
+                borderRadius: 'var(--radius-md)',
+                color: 'var(--accent)',
+                cursor: 'pointer',
+                padding: '4px 8px',
+                fontSize: 11,
+                transition: 'all 0.2s',
+              }}
+            >
+              Adopt Aquill
+            </button>
+          )}
+
           {/* Synamon companion button */}
           {hasCompanion && (
             <button
@@ -516,25 +553,6 @@ export function Sidebar() {
           )}
         </div>
 
-        {/* Get a companion link — only shown when no companion and user is authenticated */}
-        {!hasCompanion && (
-          <a
-            href="/synamon/"
-            target="_blank"
-            rel="noopener noreferrer"
-            style={{
-              color: 'var(--text-tertiary)',
-              fontSize: 11,
-              textDecoration: 'none',
-              opacity: 0.7,
-              transition: 'opacity 0.2s',
-            }}
-            onMouseEnter={(e) => { e.currentTarget.style.opacity = '1'; }}
-            onMouseLeave={(e) => { e.currentTarget.style.opacity = '0.7'; }}
-          >
-            Get a Synamon companion →
-          </a>
-        )}
       </div>
 
       {/* Synamon companion panel */}
