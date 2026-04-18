@@ -1,8 +1,11 @@
-import { useEffect, useRef, useState, useCallback } from 'react';
+import { useEffect, useRef, useState, useCallback, useMemo } from 'react';
 import { useStore } from '../store';
 import { motion, AnimatePresence, useMotionValue } from 'framer-motion';
 import { PomodoroModal } from './PomodoroModal';
+import { SynamonSprite } from './SynamonSprite';
+import { getSpecies } from '../store/synamonSlice';
 import type { ActiveTimerMode } from '../types';
+import type { OwnedSynamon } from '../types/synamon';
 
 // ── SVG Icons ─────────────────────────────────────────────────────────────
 
@@ -89,6 +92,25 @@ export function Pomodoro() {
   const lapStopwatch = useStore((s) => s.lapStopwatch);
 
   const activeMode = pomodoro.activeTimerMode;
+
+  // Synamon companion
+  const activeUid = useStore((s) => s.synamon.activeUid);
+  const starterChosen = useStore((s) => s.synamon.starterChosen);
+  const synamonCollection = useStore((s) => s.synamon.collection);
+  const activeSynamon = activeUid ? synamonCollection[activeUid] as OwnedSynamon | undefined : undefined;
+  const hasCompanion = !!activeSynamon && starterChosen;
+
+  const companionIdleFrames = useMemo(() => {
+    if (!activeSynamon) return [];
+    const species = getSpecies(activeSynamon.speciesId);
+    if (!species) return [];
+    const idleKey = `stage${activeSynamon.stage}-idle`;
+    const frames = species.animations?.[idleKey];
+    if (Array.isArray(frames) && frames.length) return frames;
+    const stageData = species.stages.find(s => s.stage === activeSynamon.stage);
+    if (stageData?.sprite) return [stageData.sprite];
+    return [];
+  }, [activeSynamon?.speciesId, activeSynamon?.stage]);
 
   // Modal state
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -322,7 +344,7 @@ export function Pomodoro() {
         whileDrag={{ cursor: 'grabbing' }}
         transition={{ type: 'spring', damping: 20, stiffness: 300 }}
       >
-        {/* Burger menu — opens analytics modal */}
+        {/* Burger menu / Synamon icon — opens analytics modal */}
         <div
           className="pomodoro-grip"
           title="View analytics"
@@ -330,7 +352,9 @@ export function Pomodoro() {
           style={{
             display: 'flex',
             flexDirection: 'column',
-            gap: 3,
+            alignItems: 'center',
+            justifyContent: 'center',
+            gap: hasCompanion ? 0 : 3,
             padding: '2px 4px',
             opacity: 0.5,
             flexShrink: 0,
@@ -341,17 +365,26 @@ export function Pomodoro() {
           onMouseEnter={(e) => (e.currentTarget.style.opacity = '0.8')}
           onMouseLeave={(e) => (e.currentTarget.style.opacity = '0.5')}
         >
-          {[0, 1, 2].map((i) => (
-            <div
-              key={i}
-              style={{
-                width: 14,
-                height: 2,
-                borderRadius: 1,
-                background: 'var(--text-tertiary)',
-              }}
+          {hasCompanion && companionIdleFrames.length > 0 ? (
+            <SynamonSprite
+              frames={companionIdleFrames}
+              size={20}
+              fps={8}
+              style={{ opacity: 0.9 }}
             />
-          ))}
+          ) : (
+            [0, 1, 2].map((i) => (
+              <div
+                key={i}
+                style={{
+                  width: 14,
+                  height: 2,
+                  borderRadius: 1,
+                  background: 'var(--text-tertiary)',
+                }}
+              />
+            ))
+          )}
         </div>
 
         {/* Mini progress ring */}
@@ -386,6 +419,17 @@ export function Pomodoro() {
             />
           )}
         </svg>
+
+        {/* Synamon companion sprite below ring */}
+        {hasCompanion && companionIdleFrames.length > 0 && (
+          <div style={{ flexShrink: 0, marginTop: -4, marginBottom: -4 }}>
+            <SynamonSprite
+              frames={companionIdleFrames}
+              size={32}
+              fps={8}
+            />
+          </div>
+        )}
 
         <div style={{ flex: 1, minWidth: 0 }}>
           {/* Mode label as dropdown trigger */}

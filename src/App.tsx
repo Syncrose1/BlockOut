@@ -3,6 +3,7 @@ import { useStore } from './store';
 import { loadData, debouncedSave, startPeriodicCloudSync } from './utils/persistence';
 import { handleDropboxCallback } from './utils/dropbox';
 import { loadTutorialData, hasShownTutorial } from './utils/tutorial';
+import { loadSynamonFromSupabase, startSynamonSyncListener } from './utils/synamonLifecycle';
 import { useIsMobile } from './hooks/useIsMobile';
 import { Sidebar } from './components/Sidebar';
 import { Topbar } from './components/Topbar';
@@ -77,6 +78,11 @@ export function App() {
         loadTutorialData();
       }
 
+      // Pull Synamon companion data from Supabase (fire-and-forget)
+      loadSynamonFromSupabase().catch(e =>
+        console.warn('[BlockOut] Synamon Supabase load skipped:', e)
+      );
+
       // After data loads, check if no view is selected
       // If nothing cached, default to "All Tasks" view
       const state = useStore.getState();
@@ -106,6 +112,11 @@ export function App() {
   // Periodic cloud push + on-unload push
   useEffect(() => {
     return startPeriodicCloudSync();
+  }, []);
+
+  // Synamon → Supabase sync listener
+  useEffect(() => {
+    return startSynamonSyncListener();
   }, []);
 
   // Close sidebar when navigating on mobile

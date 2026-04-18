@@ -23,6 +23,7 @@ A visual task management app built for people juggling tasks across different ti
 - **Onboarding tour** — guided introduction for new users
 - **Cloud sync** — multiple sync options: BlockOut Cloud (Supabase + R2), Dropbox, or self-hosted
 - **User accounts** — Supabase authentication with email/password sign-in
+- **Synamon companion** — tamagotchi-style creature embedded in the timer widget, modal, and dedicated panel; earns XP from completed tasks and Pomodoro sessions
 - **PWA support** — installable on mobile with offline caching
 - **Desktop apps** — native Windows and Linux builds via Electron
 - **Self-hosted** — runs on your own machine, accessible across a Tailnet
@@ -92,7 +93,17 @@ BlockOut/
 ├── public/
 │   ├── manifest.json        # PWA manifest
 │   ├── sw.js                # Service worker
-│   └── *.svg                # App icons
+│   ├── *.svg                # App icons
+│   └── synamon/             # Synamon creature assets
+│       ├── species.json     # Species definitions + animation frame paths
+│       ├── world.json       # Zone plates, hero anims, ground positions
+│       ├── particles.json   # Particle effect definitions
+│       ├── index.html       # Standalone Synadex viewer
+│       ├── tamagotchi.html  # Standalone cinematic scene POC
+│       └── _sprites/        # Creature sprite sheets (per species/stage)
+├── supabase/
+│   └── migrations/
+│       └── 0001_synamon_creatures.sql  # Synamon DB schema (creatures, events, dex, companion)
 ├── scripts/
 │   └── generate-icons.js    # SVG icon generator
 └── src/
@@ -100,8 +111,12 @@ BlockOut/
     ├── App.tsx              # Root layout + auth state
     ├── hooks/
     │   └── useIsMobile.ts   # Responsive breakpoint hook
-    ├── types/index.ts       # TypeScript interfaces
-    ├── store/index.ts       # Zustand state management
+    ├── types/
+    │   ├── index.ts         # BlockOut TypeScript interfaces
+    │   └── synamon.ts       # Synamon types (creatures, species, state)
+    ├── store/
+    │   ├── index.ts         # Zustand state management (main store)
+    │   └── synamonSlice.ts  # Synamon state slice (companion, XP, care)
     ├── utils/
     │   ├── treemap.ts       # Squarified treemap algorithm
     │   ├── colors.ts        # Colour palette
@@ -109,17 +124,26 @@ BlockOut/
     │   ├── dropbox.ts       # Dropbox OAuth + sync
     │   ├── supabase.ts      # Supabase auth client
     │   ├── r2sync.ts        # R2 cloud storage client
-    │   └── analytics.ts     # Export/import, activity logging
+    │   ├── analytics.ts     # Export/import, activity logging
+    │   ├── synamonAssets.ts  # Loader for world/species/particles JSON
+    │   ├── synamonMath.ts   # XP formulas, stat decay, mood calc
+    │   ├── synamonSync.ts   # Supabase CRUD for creature tables
+    │   └── synamonLifecycle.ts # Store ↔ Supabase bridge (load + sync listener)
     ├── styles/global.css    # Dark-theme styles + mobile responsive
     └── components/
         ├── Treemap.tsx      # Canvas treemap renderer (desktop)
         ├── MobileTaskList.tsx # Collapsible category list (mobile)
-        ├── Sidebar.tsx      # Blocks, pool, categories, streak
+        ├── Sidebar.tsx      # Blocks, pool, categories, streak, companion button
         ├── Topbar.tsx       # View switcher, export, auth, focus indicator
         ├── TaskChain.tsx    # Daily task chain editor
         ├── Overview.tsx     # Weekly schedule grid
         ├── Timeline.tsx     # Timeline view
-        ├── Pomodoro.tsx     # Pomodoro timer widget
+        ├── Pomodoro.tsx     # Pomodoro timer widget + companion sprite
+        ├── PomodoroModal.tsx # Expanded timer modal + zone scene background
+        ├── SynamonScene.tsx # Canvas cinematic scene renderer (zone + creature)
+        ├── SynamonPanel.tsx # Bottom slide-up companion panel (care actions)
+        ├── SynamonSprite.tsx # Animated sprite renderer (frame loop)
+        ├── SynamonWidget.tsx # Companion starter/widget wrapper
         ├── AuthModal.tsx    # Sign in / sign up modal
         └── Modals.tsx       # All other dialogs
 ```
@@ -127,6 +151,33 @@ BlockOut/
 ## Data storage
 
 All data is persisted to **IndexedDB** in the browser as the primary store. The Express server also stores data in `data.json` as a secondary option. No external database required for basic use.
+
+## Synamon Companion
+
+BlockOut includes an optional tamagotchi-style creature companion that integrates into the Pomodoro timer workflow. Creatures earn XP when you complete tasks and Pomodoro sessions, encouraging consistent productivity.
+
+### How it works
+
+- **Timer widget**: Your companion's idle animation appears beneath the Pomodoro ring
+- **Expanded timer**: The modal banner shows your creature's world zone as a cinematic background
+- **Companion panel**: Slide-up panel from the sidebar with care actions (Feed, Pet, Play), stat bars, and mood indicators
+- **No companion = no UI**: All Synamon elements are hidden until you adopt a starter creature
+
+### Synamon Supabase Setup
+
+The companion system stores creature data in Supabase (same project as BlockOut Cloud auth). If you're already using Supabase for auth, you just need to run the migration:
+
+1. Go to your Supabase project → **SQL Editor**
+2. Paste and run the contents of `supabase/migrations/0001_synamon_creatures.sql`
+3. This creates 4 tables with row-level security:
+   - `synamon_creatures` — owned creatures with stats, level, XP
+   - `synamon_active_companion` — which creature is the active companion
+   - `synamon_creature_events` — append-only event log (fed, played, evolved)
+   - `synamon_user_dex` — species discovery tracking
+
+No additional environment variables are needed beyond the existing `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY`.
+
+Creature data syncs automatically alongside BlockOut's existing cloud sync — stats are debounced (2-second batching) to avoid write spam.
 
 ## Cloud Sync Options
 

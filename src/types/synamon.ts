@@ -34,6 +34,7 @@ export interface SynamonSpecies {
   baseStats: SynamonBaseStats;
   stages: SynamonStageAssets[];
   dexEntry?: string;              // pokédex-style description
+  animations?: Record<string, string[]>;  // e.g. "stage1-idle" → [frame paths]
 }
 
 // ─── Owned Synamon Instance ───────────────────────────────────────────────────
@@ -45,6 +46,7 @@ export interface OwnedSynamon {
   level: number;
   xp: number;                     // total XP accumulated
   nickname?: string;
+  zoneKey?: string;               // world zone the companion lives in
 
   // Tamagotchi stats (0–100, decay over real time)
   hunger: number;                 // decreases ~1/hr; 0 = starving
@@ -58,6 +60,23 @@ export interface OwnedSynamon {
 
   // Battle stats (recalculated from species+level on demand)
   currentHp?: number;             // only set during active battle
+}
+
+// ─── Daily XP Tracking ───────────────────────────────────────────────────────
+
+export interface DailyXp {
+  blockout: number;               // XP earned from BlockOut today (cap 100)
+  synamon: number;                // XP earned from Synamon app today (cap 100)
+  resetDate: string;              // YYYY-MM-DD, resets at midnight
+}
+
+// ─── Pending Events ──────────────────────────────────────────────────────────
+
+export type PendingEventType = 'evolution' | 'new_move';
+
+export interface PendingEvent {
+  type: PendingEventType;
+  message: string;
 }
 
 // ─── Battle Types ─────────────────────────────────────────────────────────────
@@ -132,4 +151,13 @@ export interface SynamonState {
 
   // Pending XP notification for widget (flash +XP text)
   pendingXpGain: number;
+
+  // Companion panel (slides up from bottom)
+  panelOpen: boolean;
+
+  // Daily XP tracking (capped per source)
+  dailyXp: DailyXp;
+
+  // Stalled events — resolved in Synamon app, displayed as banners in BlockOut
+  pendingEvents: PendingEvent[];
 }

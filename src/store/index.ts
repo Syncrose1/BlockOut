@@ -256,6 +256,10 @@ interface BlockOutState {
   setShowCollection: (show: boolean) => void;
   setShowBattle: (show: boolean) => void;
   clearPendingXp: () => void;
+  setSynamonPanelOpen: (open: boolean) => void;
+  petActiveSynamon: () => void;
+  grantProductivityXp: (amount: number, source: 'blockout' | 'synamon') => void;
+  computePendingEvents: () => void;
   startBattle: (playerUid: string, opponentUid: string) => void;
   executeBattleTurn: () => void;
   endBattle: () => void;
@@ -504,7 +508,7 @@ export const useStore = create<BlockOutState>((set, get) => ({
       logActivity(id, committed.completed ? 'completed' : 'started');
       // Award XP to active Synamon on task completion
       if (committed.completed) {
-        get().giveSynamonXp(xpForTaskCompletion(committed.weight));
+        get().grantProductivityXp(xpForTaskCompletion(committed.weight), 'blockout');
       }
     }
   },
@@ -866,7 +870,7 @@ export const useStore = create<BlockOutState>((set, get) => ({
           const sessions = p.sessionsCompleted + 1;
           const nextMode = sessions % 4 === 0 ? 'longBreak' : 'break';
           // Award XP after state update (fire-and-forget)
-          setTimeout(() => get().giveSynamonXp(xpForPomodoroSession()), 0);
+          setTimeout(() => get().grantProductivityXp(xpForPomodoroSession(), 'blockout'), 0);
           return {
             pomodoro: {
               ...p,
@@ -1898,6 +1902,7 @@ export const useStore = create<BlockOutState>((set, get) => ({
           widgetOpen: (data as any).synamon.widgetOpen ?? false,
           widgetX: (data as any).synamon.widgetX ?? 80,
           widgetY: (data as any).synamon.widgetY ?? 80,
+          dailyXp: (data as any).synamon.dailyXp ?? initialSynamonState.dailyXp,
         },
       }),
     }));
@@ -1954,6 +1959,7 @@ export const useStore = create<BlockOutState>((set, get) => ({
         widgetOpen: s.synamon.widgetOpen,
         widgetX: s.synamon.widgetX,
         widgetY: s.synamon.widgetY,
+        dailyXp: s.synamon.dailyXp,
       },
     };
   },

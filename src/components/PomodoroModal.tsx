@@ -2,8 +2,11 @@ import { useState, useMemo, useEffect } from 'react';
 import { useStore } from '../store';
 import { motion, AnimatePresence } from 'framer-motion';
 import type { PomodoroSession, TimerSession, ActiveTimerMode } from '../types';
+import type { OwnedSynamon } from '../types/synamon';
 import { requestNotificationPermission } from '../utils/pomodoroNotifications';
 import { TimerModeIcon } from './Pomodoro';
+import { SynamonScene } from './SynamonScene';
+import { getSpecies } from '../store/synamonSlice';
 
 interface PomodoroModalProps {
   isOpen: boolean;
@@ -44,6 +47,34 @@ export function PomodoroModal({ isOpen, onClose }: PomodoroModalProps) {
   const resetAllPomodoro = useStore((s) => s.resetAllPomodoro);
   const activeMode = pomodoro.activeTimerMode;
   const [selectedView, setSelectedView] = useState<'overview' | 'history' | 'stats'>('overview');
+
+  // Synamon companion
+  const activeUid = useStore((s) => s.synamon.activeUid);
+  const starterChosen = useStore((s) => s.synamon.starterChosen);
+  const synamonCollection = useStore((s) => s.synamon.collection);
+  const activeSynamon = activeUid ? synamonCollection[activeUid] as OwnedSynamon | undefined : undefined;
+  const hasCompanion = !!activeSynamon && starterChosen;
+
+  const companionIdleFrames = useMemo(() => {
+    if (!activeSynamon) return [];
+    const species = getSpecies(activeSynamon.speciesId);
+    if (!species) return [];
+    const idleKey = `stage${activeSynamon.stage}-idle`;
+    const frames = species.animations?.[idleKey];
+    if (Array.isArray(frames) && frames.length) return frames;
+    const stageData = species.stages.find(s => s.stage === activeSynamon.stage);
+    if (stageData?.sprite) return [stageData.sprite];
+    return [];
+  }, [activeSynamon?.speciesId, activeSynamon?.stage]);
+
+  const companionZone = activeSynamon?.zoneKey || 'aureum-basin';
+
+  function getTimeOfDay(): 'day' | 'dusk' | 'night' {
+    const hour = new Date().getHours();
+    if (hour >= 6 && hour < 17) return 'day';
+    if (hour >= 17 && hour < 20) return 'dusk';
+    return 'night';
+  }
 
   useEffect(() => {
     requestNotificationPermission();
@@ -265,25 +296,48 @@ export function PomodoroModal({ isOpen, onClose }: PomodoroModalProps) {
               {/* Timer display banner */}
               <div style={{
                 padding: '32px',
-                background: headerGradient,
+                background: hasCompanion ? 'transparent' : headerGradient,
                 display: 'flex', alignItems: 'center', justifyContent: 'center',
                 flexDirection: 'column', gap: 12,
+                position: 'relative',
+                overflow: 'hidden',
               }}>
+                {/* Synamon scene background replaces gradient when companion active */}
+                {hasCompanion && (
+                  <div style={{
+                    position: 'absolute', inset: 0, zIndex: 0,
+                  }}>
+                    <SynamonScene
+                      zoneKey={companionZone}
+                      speciesId={activeSynamon!.speciesId}
+                      stage={activeSynamon!.stage}
+                      timeOfDay={getTimeOfDay()}
+                      width={900}
+                      height={250}
+                      showParticles={false}
+                      showHero={false}
+                      creatureFramePaths={companionIdleFrames}
+                    />
+                  </div>
+                )}
                 <div style={{
                   fontSize: 72, fontWeight: 700, color: 'white',
                   fontFamily: 'var(--font-mono)', letterSpacing: -2,
-                  textShadow: '0 2px 10px rgba(0,0,0,0.2)',
+                  textShadow: hasCompanion ? '0 2px 8px rgba(0,0,0,0.7)' : '0 2px 10px rgba(0,0,0,0.2)',
+                  position: 'relative', zIndex: 1,
                 }}>
                   {headerTime}
                 </div>
                 <div style={{
                   fontSize: 18, color: 'white', opacity: 0.9,
                   textTransform: 'uppercase', letterSpacing: 2, fontWeight: 500,
+                  textShadow: hasCompanion ? '0 1px 6px rgba(0,0,0,0.6)' : 'none',
+                  position: 'relative', zIndex: 1,
                 }}>
                   {headerLabel}
                 </div>
                 {headerIsRunning && (
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 8 }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 8, position: 'relative', zIndex: 1 }}>
                     <span style={{
                       width: 8, height: 8, borderRadius: '50%',
                       background: 'white', animation: 'pulse 2s infinite',
@@ -300,6 +354,7 @@ export function PomodoroModal({ isOpen, onClose }: PomodoroModalProps) {
                     marginTop: 16, width: '100%', maxWidth: 400,
                     background: 'rgba(0,0,0,0.2)', borderRadius: 8,
                     overflow: 'hidden',
+                    position: 'relative', zIndex: 1,
                   }}>
                     {/* Lap table header */}
                     <div style={{
@@ -357,7 +412,7 @@ export function PomodoroModal({ isOpen, onClose }: PomodoroModalProps) {
 
                 {/* Action buttons - pomodoro only */}
                 {activeMode === 'pomodoro' && (
-                  <div style={{ display: 'flex', gap: 12, marginTop: 16 }}>
+                  <div style={{ display: 'flex', gap: 12, marginTop: 16, position: 'relative', zIndex: 1 }}>
                     <button
                       onClick={() => skipPomodoro()}
                       style={{

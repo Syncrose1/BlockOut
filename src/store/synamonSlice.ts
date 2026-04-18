@@ -4,7 +4,7 @@
  */
 
 import { v4 as uuid } from 'uuid';
-import type { SynamonState, OwnedSynamon, BattleParticipant, BattleState } from '../types/synamon';
+import type { SynamonState, OwnedSynamon, BattleParticipant, BattleState, DailyXp, PendingEvent } from '../types/synamon';
 import type { SynamonSpecies } from '../types/synamon';
 import {
   levelFromXp, xpForLevel, applyIdleDecay, feedSynamon, playWithSynamon,
@@ -55,6 +55,10 @@ export const initialSynamonState: SynamonState = {
   },
 
   pendingXpGain: 0,
+
+  panelOpen: false,
+  dailyXp: { blockout: 0, synamon: 0, resetDate: new Date().toISOString().slice(0, 10) },
+  pendingEvents: [],
 };
 
 // ─── Action Implementations ───────────────────────────────────────────────────
@@ -256,6 +260,110 @@ function makeSynamonActions(set: (fn: (s: any) => any) => void, get: () => any) 
       set((state: any) => ({ synamon: { ...state.synamon, pendingXpGain: 0 } }));
     },
 
+    setSynamonPanelOpen: (open: boolean) => {
+      set((state: any) => ({ synamon: { ...state.synamon, panelOpen: open } }));
+    },
+
+    petActiveSynamon: () => {
+      set((state: any) => {
+        const uid = state.synamon.activeUid;
+        const syn = state.synamon.collection[uid];
+        if (!syn) return state;
+        return {
+          synamon: {
+            ...state.synamon,
+            collection: {
+              ...state.synamon.collection,
+              [uid]: {
+                ...syn,
+                happiness: Math.min(100, syn.happiness + 15),
+                lastPlayedAt: Date.now(),
+              },
+            },
+          },
+        };
+      });
+    },
+
+    grantProductivityXp: (amount: number, source: 'blockout' | 'synamon') => {
+      set((state: any) => {
+        const uid = state.synamon.activeUid;
+        if (!uid) return state;
+        const syn = state.synamon.collection[uid];
+        if (!syn) return state;
+
+        const today = new Date().toISOString().slice(0, 10);
+        let dailyXp: DailyXp = state.synamon.dailyXp;
+        // Reset daily counters if day changed
+        if (dailyXp.resetDate !== today) {
+          dailyXp = { blockout: 0, synamon: 0, resetDate: today };
+        }
+
+        const sourceCap = 100;
+        const totalCap = 150;
+        const currentSourceXp = source === 'blockout' ? dailyXp.blockout : dailyXp.synamon;
+        const currentTotal = dailyXp.blockout + dailyXp.synamon;
+
+        // Enforce caps: max 100 per source, 150 total
+        const cappedBySource = Math.max(0, Math.min(amount, sourceCap - currentSourceXp));
+        const cappedByTotal = Math.max(0, Math.min(cappedBySource, totalCap - currentTotal));
+        if (cappedByTotal <= 0) return state;
+
+        const newXp = syn.xp + cappedByTotal;
+        const newLevel = levelFromXp(newXp);
+        const updated: OwnedSynamon = { ...syn, xp: newXp, level: newLevel };
+
+        const species = getSpecies(syn.speciesId);
+        let showEvolution = state.synamon.showEvolution;
+        let evolutionTarget = state.synamon.evolutionTarget;
+
+        if (newLevel > syn.level && species && shouldEvolve(updated, species)) {
+          showEvolution = true;
+          evolutionTarget = { uid, fromStage: syn.stage, toStage: syn.stage + 1 };
+        }
+
+        const newDailyXp: DailyXp = {
+          ...dailyXp,
+          [source]: (source === 'blockout' ? dailyXp.blockout : dailyXp.synamon) + cappedByTotal,
+        };
+
+        return {
+          synamon: {
+            ...state.synamon,
+            collection: { ...state.synamon.collection, [uid]: updated },
+            pendingXpGain: cappedByTotal,
+            dailyXp: newDailyXp,
+            showEvolution,
+            evolutionTarget,
+          },
+        };
+      });
+    },
+
+    computePendingEvents: () => {
+      set((state: any) => {
+        const uid = state.synamon.activeUid;
+        if (!uid) return { synamon: { ...state.synamon, pendingEvents: [] } };
+        const syn = state.synamon.collection[uid] as OwnedSynamon | undefined;
+        if (!syn) return { synamon: { ...state.synamon, pendingEvents: [] } };
+
+        const species = getSpecies(syn.speciesId);
+        if (!species) return { synamon: { ...state.synamon, pendingEvents: [] } };
+
+        const events: PendingEvent[] = [];
+        const currentStage = species.stages.find(s => s.stage === syn.stage);
+        if (currentStage?.evolveAt && syn.level >= currentStage.evolveAt) {
+          const name = syn.nickname || currentStage.name || species.name;
+          events.push({
+            type: 'evolution',
+            message: `That's odd... your ${name} seems to be changing...`,
+          });
+        }
+
+        return { synamon: { ...state.synamon, pendingEvents: events } };
+      });
+    },
+
     // ── Battle ────────────────────────────────────────────────────────────
     startBattle: (playerUid: string, opponentUid: string) => {
       set((state: any) => {
@@ -271,14 +379,12 @@ function makeSynamonActions(set: (fn: (s: any) => any) => void, get: () => any) 
         const opponentStats = getBattleStats(opponentSyn, opponentSpecies);
 
         const toParticipant = (syn: OwnedSynamon, species: SynamonSpecies, stats: ReturnType<typeof getBattleStats>): BattleParticipant => ({
+          ...stats,
           uid: syn.uid,
-          speciesId: species.id,
           name: syn.nickname ?? species.stages.find(s => s.stage === syn.stage)?.name ?? species.name,
           stage: syn.stage,
-          level: syn.level,
           type: species.type,
           secondaryType: species.secondaryType,
-          ...stats,
         });
 
         const battle: BattleState = {
