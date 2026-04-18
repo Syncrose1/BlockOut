@@ -6,6 +6,7 @@ import type { OwnedSynamon } from '../types/synamon';
 import { requestNotificationPermission } from '../utils/pomodoroNotifications';
 import { TimerModeIcon } from './Pomodoro';
 import { SynamonScene } from './SynamonScene';
+import { SynamonSprite } from './SynamonSprite';
 import { getSpecies } from '../store/synamonSlice';
 
 interface PomodoroModalProps {

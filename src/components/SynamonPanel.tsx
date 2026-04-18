@@ -102,7 +102,9 @@ export function SynamonPanel() {
       <div style={{
         position: 'fixed',
         bottom: 0, left: 0, right: 0,
-        height: 360,
+        height: '50vh',
+        maxHeight: 450,
+        minHeight: 320,
         background: 'var(--bg-secondary)',
         borderTop: '1px solid var(--border)',
         borderRadius: '16px 16px 0 0',
@@ -179,7 +181,7 @@ export function SynamonPanel() {
             stage={synamon.stage}
             timeOfDay={getTimeOfDay()}
             width={Math.round(window.innerWidth * 0.55)}
-            height={360}
+            height={450}
             showParticles
             showHero
             creatureFramePaths={creatureFramePaths}

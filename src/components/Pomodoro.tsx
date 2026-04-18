@@ -386,48 +386,47 @@ export function Pomodoro() {
           )}
         </div>
 
-        {/* Ring + Synamon creature stacked — ring overlaps on top */}
-        <div style={{ flexShrink: 0, position: 'relative', width: 44, height: hasCompanion ? 52 : 44 }}>
-          {/* Synamon sprite behind the ring */}
+        {/* Ring + Synamon creature — ring centered on creature, both overlapping */}
+        <div style={{ flexShrink: 0, position: 'relative', width: 56, height: 56 }}>
+          {/* Synamon sprite centered */}
           {hasCompanion && companionIdleFrames.length > 0 && (
             <div style={{
               position: 'absolute',
-              bottom: 0,
-              left: '50%',
-              transform: 'translateX(-50%)',
+              top: '50%', left: '50%',
+              transform: 'translate(-50%, -50%)',
               zIndex: 0,
             }}>
               <SynamonSprite
                 frames={companionIdleFrames}
-                size={40}
+                size={48}
                 fps={8}
               />
             </div>
           )}
-          {/* Mini progress ring on top */}
-          <svg width="44" height="44" viewBox="0 0 44 44" style={{ position: 'relative', zIndex: 1 }}>
-            <circle cx="22" cy="22" r="18" fill="none" stroke="var(--bg-tertiary)" strokeWidth="3" />
+          {/* Progress ring centered on top */}
+          <svg width="56" height="56" viewBox="0 0 56 56" style={{ position: 'relative', zIndex: 1 }}>
+            <circle cx="28" cy="28" r="24" fill="none" stroke="var(--bg-tertiary)" strokeWidth="3" opacity="0.5" />
             <circle
-              cx="22" cy="22" r="18"
+              cx="28" cy="28" r="24"
               fill="none"
               stroke={ringColor}
               strokeWidth="3"
               strokeLinecap="round"
-              strokeDasharray={`${2 * Math.PI * 18}`}
-              strokeDashoffset={`${2 * Math.PI * 18 * (1 - progress)}`}
-              transform="rotate(-90 22 22)"
+              strokeDasharray={`${2 * Math.PI * 24}`}
+              strokeDashoffset={`${2 * Math.PI * 24 * (1 - progress)}`}
+              transform="rotate(-90 28 28)"
               style={{ transition: 'stroke-dashoffset 1s linear' }}
             />
             {isRunning && (
               <circle
-                cx="22" cy="22" r="18"
+                cx="28" cy="28" r="24"
                 fill="none"
                 stroke={ringColor}
                 strokeWidth="1"
                 strokeLinecap="round"
-                strokeDasharray={`${2 * Math.PI * 18}`}
-                strokeDashoffset={`${2 * Math.PI * 18 * (1 - progress)}`}
-                transform="rotate(-90 22 22)"
+                strokeDasharray={`${2 * Math.PI * 24}`}
+                strokeDashoffset={`${2 * Math.PI * 24 * (1 - progress)}`}
+                transform="rotate(-90 28 28)"
                 style={{
                   filter: `drop-shadow(0 0 4px ${ringColor})`,
                   transition: 'stroke-dashoffset 1s linear',
@@ -570,28 +569,9 @@ export function Pomodoro() {
           </div>
         </div>
 
-        {/* Controls — reverse-L layout: 3 vertical, settings offset left */}
+        {/* Controls — reverse-L layout: settings left-bottom, main column right */}
         <div className="pomodoro-controls-grid">
-          {/* Right column: main actions */}
-          <div className="pomodoro-controls-col">
-            {isRunning ? (
-              <button className="pomodoro-btn" onClick={handlePause} title="Pause">&#x23F8;</button>
-            ) : (
-              <button className="pomodoro-btn" onClick={handlePlay} title="Start">&#x25B6;</button>
-            )}
-            <button className="pomodoro-btn" onClick={handleReset} title="Reset">&#x21BA;</button>
-            {/* Bottom row: settings + conditional button */}
-            {activeMode === 'stopwatch' && isRunning ? (
-              <button className="pomodoro-btn" onClick={lapStopwatch} title="Lap" style={{ fontSize: 10 }}>
-                LAP
-              </button>
-            ) : focusMode ? (
-              <button className="pomodoro-btn" onClick={exitFocusMode} title="Exit focus mode" style={{ fontSize: 12 }}>
-                &times;
-              </button>
-            ) : null}
-          </div>
-          {/* Settings button offset to the left of the bottom */}
+          {/* Settings button to the left, aligned to bottom */}
           <button
             className="pomodoro-btn pomodoro-btn-settings"
             onClick={() => setPomodoroSettingsOpen(true)}
@@ -600,6 +580,26 @@ export function Pomodoro() {
           >
             ⚙
           </button>
+          {/* Right column: main actions (always 3 slots, against the right wall) */}
+          <div className="pomodoro-controls-col">
+            {isRunning ? (
+              <button className="pomodoro-btn" onClick={handlePause} title="Pause">&#x23F8;</button>
+            ) : (
+              <button className="pomodoro-btn" onClick={handlePlay} title="Start">&#x25B6;</button>
+            )}
+            <button className="pomodoro-btn" onClick={handleReset} title="Reset">&#x21BA;</button>
+            {activeMode === 'stopwatch' && isRunning ? (
+              <button className="pomodoro-btn" onClick={lapStopwatch} title="Lap" style={{ fontSize: 10 }}>
+                LAP
+              </button>
+            ) : focusMode ? (
+              <button className="pomodoro-btn" onClick={exitFocusMode} title="Exit focus mode" style={{ fontSize: 12 }}>
+                &times;
+              </button>
+            ) : (
+              <div style={{ width: 28, height: 28 }} />
+            )}
+          </div>
         </div>
 
         {/* Resize handle */}
