@@ -295,12 +295,16 @@ export function PomodoroModal({ isOpen, onClose }: PomodoroModalProps) {
 
               {/* Timer display banner */}
               <div style={{
-                padding: '32px',
+                padding: hasCompanion ? '24px 32px' : '32px',
                 background: hasCompanion ? 'transparent' : headerGradient,
-                display: 'flex', alignItems: 'center', justifyContent: 'center',
-                flexDirection: 'column', gap: 12,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: hasCompanion ? 'flex-start' : 'center',
+                flexDirection: hasCompanion ? 'row' : 'column',
+                gap: hasCompanion ? 0 : 12,
                 position: 'relative',
                 overflow: 'hidden',
+                minHeight: hasCompanion ? 160 : undefined,
               }}>
                 {/* Synamon scene background replaces gradient when companion active */}
                 {hasCompanion && (
@@ -313,43 +317,125 @@ export function PomodoroModal({ isOpen, onClose }: PomodoroModalProps) {
                       stage={activeSynamon!.stage}
                       timeOfDay={getTimeOfDay()}
                       width={900}
-                      height={250}
+                      height={160}
                       showParticles={false}
                       showHero={false}
-                      creatureFramePaths={companionIdleFrames}
+                      creatureFramePaths={[]}
                     />
                   </div>
                 )}
+
+                {/* Timer content — left side when companion, centered otherwise */}
                 <div style={{
-                  fontSize: 72, fontWeight: 700, color: 'white',
-                  fontFamily: 'var(--font-mono)', letterSpacing: -2,
-                  textShadow: hasCompanion ? '0 2px 8px rgba(0,0,0,0.7)' : '0 2px 10px rgba(0,0,0,0.2)',
                   position: 'relative', zIndex: 1,
+                  flex: hasCompanion ? '1 1 auto' : undefined,
+                  display: 'flex', flexDirection: 'column',
+                  alignItems: hasCompanion ? 'flex-start' : 'center',
+                  gap: 4,
+                  paddingLeft: hasCompanion ? 16 : 0,
                 }}>
-                  {headerTime}
+                  <div style={{
+                    fontSize: hasCompanion ? 56 : 72, fontWeight: 700, color: 'white',
+                    fontFamily: 'var(--font-mono)', letterSpacing: -2,
+                    textShadow: hasCompanion ? '0 2px 12px rgba(0,0,0,0.8)' : '0 2px 10px rgba(0,0,0,0.2)',
+                    lineHeight: 1,
+                  }}>
+                    {headerTime}
+                  </div>
+                  <div style={{
+                    fontSize: hasCompanion ? 14 : 18, color: 'white', opacity: 0.9,
+                    textTransform: 'uppercase', letterSpacing: 2, fontWeight: 500,
+                    textShadow: hasCompanion ? '0 1px 6px rgba(0,0,0,0.6)' : 'none',
+                  }}>
+                    {headerLabel}
+                  </div>
+                  {headerIsRunning && (
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 4 }}>
+                      <span style={{
+                        width: 8, height: 8, borderRadius: '50%',
+                        background: 'white', animation: 'pulse 2s infinite',
+                      }} />
+                      <span style={{ color: 'white', fontSize: 13, opacity: 0.9,
+                        textShadow: hasCompanion ? '0 1px 4px rgba(0,0,0,0.6)' : 'none',
+                      }}>
+                        {activeMode === 'stopwatch' ? 'Running' : 'Timer Running'}
+                      </span>
+                    </div>
+                  )}
+
+                  {/* Action buttons - pomodoro only */}
+                  {activeMode === 'pomodoro' && (
+                    <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
+                      <button
+                        onClick={() => skipPomodoro()}
+                        style={{
+                          padding: '6px 12px',
+                          background: 'rgba(255, 255, 255, 0.15)',
+                          border: '1px solid rgba(255, 255, 255, 0.3)',
+                          borderRadius: 'var(--radius-md)',
+                          color: 'white', fontSize: 12, cursor: 'pointer',
+                          opacity: 0.8, transition: 'all 0.2s',
+                        }}
+                        onMouseEnter={(e) => {
+                          e.currentTarget.style.opacity = '1';
+                          e.currentTarget.style.background = 'rgba(255, 255, 255, 0.25)';
+                        }}
+                        onMouseLeave={(e) => {
+                          e.currentTarget.style.opacity = '0.8';
+                          e.currentTarget.style.background = 'rgba(255, 255, 255, 0.15)';
+                        }}
+                        title="Skip current session (not counted)"
+                      >
+                        Skip →
+                      </button>
+                      <button
+                        onClick={() => {
+                          if (confirm('Reset Pomodoro to beginning? This will clear the current cycle.')) {
+                            resetAllPomodoro();
+                          }
+                        }}
+                        style={{
+                          padding: '6px 12px',
+                          background: 'rgba(255, 255, 255, 0.1)',
+                          border: '1px solid rgba(255, 255, 255, 0.2)',
+                          borderRadius: 'var(--radius-md)',
+                          color: 'white', fontSize: 12, cursor: 'pointer',
+                          opacity: 0.7, transition: 'all 0.2s',
+                        }}
+                        onMouseEnter={(e) => {
+                          e.currentTarget.style.opacity = '0.9';
+                          e.currentTarget.style.background = 'rgba(255, 255, 255, 0.2)';
+                        }}
+                        onMouseLeave={(e) => {
+                          e.currentTarget.style.opacity = '0.7';
+                          e.currentTarget.style.background = 'rgba(255, 255, 255, 0.1)';
+                        }}
+                        title="Reset entire Pomodoro session to beginning"
+                      >
+                        ↺ Reset
+                      </button>
+                    </div>
+                  )}
                 </div>
-                <div style={{
-                  fontSize: 18, color: 'white', opacity: 0.9,
-                  textTransform: 'uppercase', letterSpacing: 2, fontWeight: 500,
-                  textShadow: hasCompanion ? '0 1px 6px rgba(0,0,0,0.6)' : 'none',
-                  position: 'relative', zIndex: 1,
-                }}>
-                  {headerLabel}
-                </div>
-                {headerIsRunning && (
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 8, position: 'relative', zIndex: 1 }}>
-                    <span style={{
-                      width: 8, height: 8, borderRadius: '50%',
-                      background: 'white', animation: 'pulse 2s infinite',
-                    }} />
-                    <span style={{ color: 'white', fontSize: 14, opacity: 0.9 }}>
-                      {activeMode === 'stopwatch' ? 'Running' : 'Timer Running'}
-                    </span>
+
+                {/* Synamon sprite — right side of banner */}
+                {hasCompanion && companionIdleFrames.length > 0 && (
+                  <div style={{
+                    position: 'relative', zIndex: 1,
+                    flex: '0 0 auto',
+                    marginRight: 32,
+                    filter: 'drop-shadow(0 2px 8px rgba(0,0,0,0.5))',
+                  }}>
+                    <SynamonSprite
+                      frames={companionIdleFrames}
+                      size={80}
+                      fps={8}
+                    />
                   </div>
                 )}
 
-                {/* Stopwatch laps table */}
-                {activeMode === 'stopwatch' && pomodoro.stopwatch.laps.length > 0 && (
+                {/* Stopwatch laps table — no companion layout keeps it centered */}
+                {!hasCompanion && activeMode === 'stopwatch' && pomodoro.stopwatch.laps.length > 0 && (
                   <div style={{
                     marginTop: 16, width: '100%', maxWidth: 400,
                     background: 'rgba(0,0,0,0.2)', borderRadius: 8,
@@ -368,13 +454,11 @@ export function PomodoroModal({ isOpen, onClose }: PomodoroModalProps) {
                       <span style={{ textAlign: 'right' }}>Split</span>
                       <span style={{ textAlign: 'right' }}>Total</span>
                     </div>
-                    {/* Lap rows - show most recent first, scrollable */}
                     <div style={{ maxHeight: 120, overflowY: 'auto' }}>
                       {[...pomodoro.stopwatch.laps].reverse().map((lap, revIdx) => {
                         const i = pomodoro.stopwatch.laps.length - 1 - revIdx;
                         const prevLap = i > 0 ? pomodoro.stopwatch.laps[i - 1] : 0;
                         const split = lap - prevLap;
-                        // Find best/worst splits for highlighting
                         const allSplits = pomodoro.stopwatch.laps.map((l, idx) =>
                           l - (idx > 0 ? pomodoro.stopwatch.laps[idx - 1] : 0)
                         );
@@ -391,76 +475,18 @@ export function PomodoroModal({ isOpen, onClose }: PomodoroModalProps) {
                             color: 'white',
                             background: isBest ? 'rgba(100,255,100,0.08)' : isWorst ? 'rgba(255,100,100,0.08)' : 'transparent',
                           }}>
-                            <span style={{ opacity: 0.5, fontSize: 11 }}>
-                              {i + 1}
-                            </span>
+                            <span style={{ opacity: 0.5, fontSize: 11 }}>{i + 1}</span>
                             <span style={{
                               textAlign: 'right', fontWeight: 600,
                               color: isBest ? 'hsl(142, 80%, 70%)' : isWorst ? 'hsl(0, 80%, 70%)' : 'white',
                             }}>
                               {isBest && allSplits.length > 2 ? '▲ ' : ''}{isWorst && allSplits.length > 2 ? '▼ ' : ''}{formatTime(split)}
                             </span>
-                            <span style={{ textAlign: 'right', opacity: 0.7 }}>
-                              {formatTime(lap)}
-                            </span>
+                            <span style={{ textAlign: 'right', opacity: 0.7 }}>{formatTime(lap)}</span>
                           </div>
                         );
                       })}
                     </div>
-                  </div>
-                )}
-
-                {/* Action buttons - pomodoro only */}
-                {activeMode === 'pomodoro' && (
-                  <div style={{ display: 'flex', gap: 12, marginTop: 16, position: 'relative', zIndex: 1 }}>
-                    <button
-                      onClick={() => skipPomodoro()}
-                      style={{
-                        padding: '8px 16px',
-                        background: 'rgba(255, 255, 255, 0.15)',
-                        border: '1px solid rgba(255, 255, 255, 0.3)',
-                        borderRadius: 'var(--radius-md)',
-                        color: 'white', fontSize: 13, cursor: 'pointer',
-                        opacity: 0.8, transition: 'all 0.2s',
-                      }}
-                      onMouseEnter={(e) => {
-                        e.currentTarget.style.opacity = '1';
-                        e.currentTarget.style.background = 'rgba(255, 255, 255, 0.25)';
-                      }}
-                      onMouseLeave={(e) => {
-                        e.currentTarget.style.opacity = '0.8';
-                        e.currentTarget.style.background = 'rgba(255, 255, 255, 0.15)';
-                      }}
-                      title="Skip current session (not counted)"
-                    >
-                      Skip {currentMode === 'work' ? 'Focus' : currentMode === 'break' ? 'Break' : 'Long Break'} →
-                    </button>
-                    <button
-                      onClick={() => {
-                        if (confirm('Reset Pomodoro to beginning? This will clear the current cycle.')) {
-                          resetAllPomodoro();
-                        }
-                      }}
-                      style={{
-                        padding: '8px 16px',
-                        background: 'rgba(255, 255, 255, 0.1)',
-                        border: '1px solid rgba(255, 255, 255, 0.2)',
-                        borderRadius: 'var(--radius-md)',
-                        color: 'white', fontSize: 13, cursor: 'pointer',
-                        opacity: 0.7, transition: 'all 0.2s',
-                      }}
-                      onMouseEnter={(e) => {
-                        e.currentTarget.style.opacity = '0.9';
-                        e.currentTarget.style.background = 'rgba(255, 255, 255, 0.2)';
-                      }}
-                      onMouseLeave={(e) => {
-                        e.currentTarget.style.opacity = '0.7';
-                        e.currentTarget.style.background = 'rgba(255, 255, 255, 0.1)';
-                      }}
-                      title="Reset entire Pomodoro session to beginning"
-                    >
-                      ↺ Reset All
-                    </button>
                   </div>
                 )}
               </div>

@@ -344,7 +344,7 @@ export function Pomodoro() {
         whileDrag={{ cursor: 'grabbing' }}
         transition={{ type: 'spring', damping: 20, stiffness: 300 }}
       >
-        {/* Burger menu / Synamon icon — opens analytics modal */}
+        {/* Burger menu / Pokeball icon — opens analytics modal */}
         <div
           className="pomodoro-grip"
           title="View analytics"
@@ -365,13 +365,12 @@ export function Pomodoro() {
           onMouseEnter={(e) => (e.currentTarget.style.opacity = '0.8')}
           onMouseLeave={(e) => (e.currentTarget.style.opacity = '0.5')}
         >
-          {hasCompanion && companionIdleFrames.length > 0 ? (
-            <SynamonSprite
-              frames={companionIdleFrames}
-              size={20}
-              fps={8}
-              style={{ opacity: 0.9 }}
-            />
+          {hasCompanion ? (
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
+              <circle cx="12" cy="12" r="11" stroke="currentColor" strokeWidth="2" />
+              <line x1="1" y1="12" x2="23" y2="12" stroke="currentColor" strokeWidth="2" />
+              <circle cx="12" cy="12" r="3.5" fill="currentColor" stroke="var(--bg-primary)" strokeWidth="1.5" />
+            </svg>
           ) : (
             [0, 1, 2].map((i) => (
               <div
@@ -387,49 +386,57 @@ export function Pomodoro() {
           )}
         </div>
 
-        {/* Mini progress ring */}
-        <svg width="44" height="44" viewBox="0 0 44 44" style={{ flexShrink: 0 }}>
-          <circle cx="22" cy="22" r="18" fill="none" stroke="var(--bg-tertiary)" strokeWidth="3" />
-          <circle
-            cx="22" cy="22" r="18"
-            fill="none"
-            stroke={ringColor}
-            strokeWidth="3"
-            strokeLinecap="round"
-            strokeDasharray={`${2 * Math.PI * 18}`}
-            strokeDashoffset={`${2 * Math.PI * 18 * (1 - progress)}`}
-            transform="rotate(-90 22 22)"
-            style={{ transition: 'stroke-dashoffset 1s linear' }}
-          />
-          {isRunning && (
+        {/* Ring + Synamon creature stacked — ring overlaps on top */}
+        <div style={{ flexShrink: 0, position: 'relative', width: 44, height: hasCompanion ? 52 : 44 }}>
+          {/* Synamon sprite behind the ring */}
+          {hasCompanion && companionIdleFrames.length > 0 && (
+            <div style={{
+              position: 'absolute',
+              bottom: 0,
+              left: '50%',
+              transform: 'translateX(-50%)',
+              zIndex: 0,
+            }}>
+              <SynamonSprite
+                frames={companionIdleFrames}
+                size={40}
+                fps={8}
+              />
+            </div>
+          )}
+          {/* Mini progress ring on top */}
+          <svg width="44" height="44" viewBox="0 0 44 44" style={{ position: 'relative', zIndex: 1 }}>
+            <circle cx="22" cy="22" r="18" fill="none" stroke="var(--bg-tertiary)" strokeWidth="3" />
             <circle
               cx="22" cy="22" r="18"
               fill="none"
               stroke={ringColor}
-              strokeWidth="1"
+              strokeWidth="3"
               strokeLinecap="round"
               strokeDasharray={`${2 * Math.PI * 18}`}
               strokeDashoffset={`${2 * Math.PI * 18 * (1 - progress)}`}
               transform="rotate(-90 22 22)"
-              style={{
-                filter: `drop-shadow(0 0 4px ${ringColor})`,
-                transition: 'stroke-dashoffset 1s linear',
-                opacity: 0.6,
-              }}
+              style={{ transition: 'stroke-dashoffset 1s linear' }}
             />
-          )}
-        </svg>
-
-        {/* Synamon companion sprite below ring */}
-        {hasCompanion && companionIdleFrames.length > 0 && (
-          <div style={{ flexShrink: 0, marginTop: -4, marginBottom: -4 }}>
-            <SynamonSprite
-              frames={companionIdleFrames}
-              size={32}
-              fps={8}
-            />
-          </div>
-        )}
+            {isRunning && (
+              <circle
+                cx="22" cy="22" r="18"
+                fill="none"
+                stroke={ringColor}
+                strokeWidth="1"
+                strokeLinecap="round"
+                strokeDasharray={`${2 * Math.PI * 18}`}
+                strokeDashoffset={`${2 * Math.PI * 18 * (1 - progress)}`}
+                transform="rotate(-90 22 22)"
+                style={{
+                  filter: `drop-shadow(0 0 4px ${ringColor})`,
+                  transition: 'stroke-dashoffset 1s linear',
+                  opacity: 0.6,
+                }}
+              />
+            )}
+          </svg>
+        </div>
 
         <div style={{ flex: 1, minWidth: 0 }}>
           {/* Mode label as dropdown trigger */}

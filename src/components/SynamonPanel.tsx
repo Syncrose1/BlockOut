@@ -102,7 +102,7 @@ export function SynamonPanel() {
       <div style={{
         position: 'fixed',
         bottom: 0, left: 0, right: 0,
-        height: 420,
+        height: 360,
         background: 'var(--bg-secondary)',
         borderTop: '1px solid var(--border)',
         borderRadius: '16px 16px 0 0',
@@ -110,7 +110,7 @@ export function SynamonPanel() {
         zIndex: 9991,
         transform: panelOpen ? 'translateY(0)' : 'translateY(100%)',
         transition: 'transform 0.35s cubic-bezier(0.4, 0, 0.2, 1)',
-        display: 'flex', flexDirection: 'column',
+        display: 'flex', flexDirection: 'row',
         overflow: 'hidden',
       }}>
         {/* Close button */}
@@ -129,13 +129,14 @@ export function SynamonPanel() {
           &times;
         </button>
 
-        {/* Pending event banner */}
+        {/* Pending event banner — spans full width at top */}
         {pendingEvents.length > 0 && (
           <a
             href={SYNAMON_APP_URL}
             target="_blank"
             rel="noopener noreferrer"
             style={{
+              position: 'absolute', top: 0, left: 0, right: 0,
               display: 'block',
               background: 'linear-gradient(135deg, hsl(35, 92%, 45%), hsl(25, 85%, 40%))',
               color: 'white',
@@ -170,52 +171,58 @@ export function SynamonPanel() {
           </div>
         )}
 
-        {/* Scene section */}
-        <div style={{ flex: '0 0 180px', position: 'relative' }}>
+        {/* Left: Scene — takes ~55% width, full height */}
+        <div style={{ flex: '0 0 55%', position: 'relative', overflow: 'hidden' }}>
           <SynamonScene
             zoneKey={zoneKey}
             speciesId={synamon.speciesId}
             stage={synamon.stage}
             timeOfDay={getTimeOfDay()}
-            width={window.innerWidth}
-            height={180}
+            width={Math.round(window.innerWidth * 0.55)}
+            height={360}
             showParticles
             showHero
             creatureFramePaths={creatureFramePaths}
           />
         </div>
 
-        {/* Stats section */}
-        <div style={{ flex: 1, padding: '12px 20px', overflow: 'auto' }}>
+        {/* Right: Stats + Actions — takes ~45% */}
+        <div style={{
+          flex: '1 1 45%', padding: '16px 24px',
+          overflow: 'auto',
+          display: 'flex', flexDirection: 'column', justifyContent: 'center',
+          gap: 10,
+        }}>
           {/* Name + Level row */}
           <div style={{
-            display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-            marginBottom: 10,
+            display: 'flex', alignItems: 'baseline', justifyContent: 'space-between',
           }}>
             <div>
-              <span style={{ fontSize: 18, fontWeight: 700, color: 'var(--text-primary)' }}>
+              <span style={{ fontSize: 20, fontWeight: 700, color: 'var(--text-primary)' }}>
                 {name}
               </span>
               <span style={{
                 fontSize: 12, color: 'var(--text-tertiary)', marginLeft: 8,
               }}>
-                Stage {synamon.stage}{stageData?.evolveAt ? ` / ${species.stages.length}` : ''}
+                Stage {synamon.stage} / {species.stages.length}
               </span>
             </div>
             <div style={{ textAlign: 'right' }}>
-              <span style={{ fontSize: 14, fontWeight: 600, color: 'var(--text-primary)' }}>
+              <span style={{ fontSize: 15, fontWeight: 600, color: 'var(--text-primary)' }}>
                 Lv. {synamon.level}
-              </span>
-              <span style={{
-                fontSize: 11, color: 'var(--text-tertiary)', marginLeft: 6,
-              }}>
-                {todayTotal}/150 XP today
               </span>
             </div>
           </div>
 
           {/* XP bar */}
-          <div style={{ marginBottom: 12 }}>
+          <div>
+            <div style={{
+              display: 'flex', justifyContent: 'space-between',
+              fontSize: 10, color: 'var(--text-tertiary)', marginBottom: 3,
+            }}>
+              <span>XP</span>
+              <span>{todayTotal}/150 today</span>
+            </div>
             <div style={{
               height: 6, background: 'var(--bg-tertiary)',
               borderRadius: 3, overflow: 'hidden',
@@ -230,8 +237,8 @@ export function SynamonPanel() {
             </div>
           </div>
 
-          {/* Stat bars */}
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 10, marginBottom: 12 }}>
+          {/* Stat bars — vertical stack */}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
             <StatBar label="Hunger" value={synamon.hunger} color="hsl(35, 92%, 52%)" />
             <StatBar label="Happiness" value={synamon.happiness} color="hsl(340, 72%, 60%)" />
             <StatBar label="Energy" value={synamon.energy} color="hsl(142, 72%, 52%)" />
@@ -239,7 +246,7 @@ export function SynamonPanel() {
 
           {/* Mood */}
           <div style={{
-            textAlign: 'center', marginBottom: 12,
+            textAlign: 'center',
             fontSize: 13, color: 'var(--text-secondary)',
           }}>
             Mood: <span style={{ fontWeight: 600, color: moodColor(mood) }}>{moodLabel}</span>
