@@ -139,6 +139,13 @@ export function SynamonScene({
     return () => { cancelled = true; };
   }, [loaded, zoneKey, showHero, creatureFramePaths]);
 
+  // Compute integer scale factor: highest integer multiple that fits inside display size
+  // This gives us crisp nearest-neighbor pixels on the canvas itself,
+  // with CSS only handling the small remaining fractional scaling.
+  const intScale = Math.max(1, Math.floor(Math.max(width / SCENE_W, height / SCENE_H)));
+  const canvasPixelW = SCENE_W * intScale;
+  const canvasPixelH = SCENE_H * intScale;
+
   // Render loop
   const tick = useCallback((now: number) => {
     const s = stateRef.current;
@@ -154,15 +161,12 @@ export function SynamonScene({
     if (dt > 0.25) dt = 0.25;
 
     ctx.imageSmoothingEnabled = false;
+    ctx.setTransform(intScale, 0, 0, intScale, 0, 0);
     ctx.clearRect(0, 0, SCENE_W, SCENE_H);
 
     // 1) Plate background
     if (s.plateImg && s.plateImg.naturalWidth) {
-      ctx.save();
-      // Day/night filter via globalAlpha + compositing
-      // We apply filters in CSS on the canvas itself instead
       ctx.drawImage(s.plateImg, 0, 0, SCENE_W, SCENE_H);
-      ctx.restore();
     }
 
     // 2) Hero animation
@@ -244,7 +248,7 @@ export function SynamonScene({
     }
 
     animRef.current = requestAnimationFrame(tick);
-  }, [zoneKey, stage, showParticles]);
+  }, [zoneKey, stage, showParticles, intScale]);
 
   useEffect(() => {
     stateRef.current.lastT = 0;
@@ -252,12 +256,10 @@ export function SynamonScene({
     return () => cancelAnimationFrame(animRef.current);
   }, [tick]);
 
-  // Compute scale — use max to cover the container (no empty space)
-  const scaleX = width / SCENE_W;
-  const scaleY = height / SCENE_H;
-  const scale = Math.max(scaleX, scaleY);
-  const canvasW = SCENE_W * scale;
-  const canvasH = SCENE_H * scale;
+  // CSS display size — scale to cover the container (no empty space)
+  const cssScale = Math.max(width / SCENE_W, height / SCENE_H);
+  const canvasW = SCENE_W * cssScale;
+  const canvasH = SCENE_H * cssScale;
 
   // Position canvas so the creature ground area (~85% down the canvas) is
   // centered vertically in the container rather than the canvas midpoint.
@@ -286,8 +288,8 @@ export function SynamonScene({
     >
       <canvas
         ref={canvasRef}
-        width={SCENE_W}
-        height={SCENE_H}
+        width={canvasPixelW}
+        height={canvasPixelH}
         style={{
           width: canvasW,
           height: canvasH,
