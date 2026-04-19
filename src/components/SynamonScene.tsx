@@ -270,10 +270,12 @@ export function SynamonScene({
   const clampedTop = Math.min(0, Math.max(canvasTop, height - canvasH));
 
   // Day/night CSS filter on the canvas
+  // Sub-pixel blur softens jagged black outlines without losing pixel art feel
+  const soften = 'blur(0.4px)';
   const filterMap = {
-    day: 'brightness(1) saturate(1)',
-    dusk: 'brightness(0.85) saturate(0.95) hue-rotate(-8deg) sepia(0.15)',
-    night: 'brightness(0.55) saturate(0.7) hue-rotate(15deg)',
+    day: soften,
+    dusk: `${soften} brightness(0.85) saturate(0.95) hue-rotate(-8deg) sepia(0.15)`,
+    night: `${soften} brightness(0.55) saturate(0.7) hue-rotate(15deg)`,
   };
 
   return (
