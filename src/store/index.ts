@@ -536,6 +536,65 @@ export const useStore = create<BlockOutState>((set, get) => ({
       if (committed.completed) {
         get().grantProductivityXp(xpForTaskCompletion(committed.weight), 'blockout');
       }
+
+      // Auto-populate / remove from "Completed Today" chain group
+      const today = todayStr();
+      const state = get();
+      if (committed.completed) {
+        // Ensure today's chain exists and uses groups
+        let chain = state.taskChains[today];
+        if (!chain) {
+          chain = { id: uuid(), date: today, links: [], createdAt: Date.now() };
+          set({ taskChains: { ...state.taskChains, [today]: chain } });
+        }
+        if (!get().taskChains[today].groups) {
+          get().migrateChainToGroups(today);
+        }
+        const freshChain = get().taskChains[today];
+        const groups = freshChain.groups!;
+        let readonlyGroup = groups.find(g => g.readonly === true);
+        if (!readonlyGroup) {
+          // Create the readonly group
+          const groupId = uuid();
+          readonlyGroup = { id: groupId, name: 'Completed Today', readonly: true, collapsed: true, color: '#22c55e', links: [] };
+          set({ taskChains: { ...get().taskChains, [today]: { ...get().taskChains[today], groups: [...get().taskChains[today].groups!, readonlyGroup] } } });
+        }
+        // Check for duplicate
+        const currentGroups = get().taskChains[today].groups!;
+        const roGroup = currentGroups.find(g => g.readonly === true)!;
+        const alreadyLinked = roGroup.links.some(l => l.type === 'realtask' && l.taskId === id);
+        if (!alreadyLinked) {
+          const newLink: ChainLink = { id: uuid(), type: 'realtask', taskId: id };
+          set({
+            taskChains: {
+              ...get().taskChains,
+              [today]: {
+                ...get().taskChains[today],
+                groups: currentGroups.map(g => g.readonly ? { ...g, links: [...g.links, newLink] } : g),
+              },
+            },
+          });
+        }
+      } else {
+        // Un-completed: remove from readonly group
+        const chain = get().taskChains[today];
+        if (chain?.groups) {
+          const roGroup = chain.groups.find(g => g.readonly === true);
+          if (roGroup) {
+            set({
+              taskChains: {
+                ...get().taskChains,
+                [today]: {
+                  ...chain,
+                  groups: chain.groups.map(g =>
+                    g.readonly ? { ...g, links: g.links.filter(l => !(l.type === 'realtask' && l.taskId === id)) } : g
+                  ),
+                },
+              },
+            });
+          }
+        }
+      }
     }
   },
 
@@ -1793,6 +1852,7 @@ export const useStore = create<BlockOutState>((set, get) => ({
     const chain = state.taskChains[chainDate];
     if (!chain?.groups) return state;
     const group = chain.groups.find(g => g.id === groupId);
+    if (group?.readonly) return state;
     const ctIdsToDelete = group?.links
       .filter(l => l.type === 'ct')
       .map(l => l.taskId) || [];
@@ -1810,6 +1870,7 @@ export const useStore = create<BlockOutState>((set, get) => ({
   renameTaskGroup: (chainDate, groupId, name) => set((state) => {
     const chain = state.taskChains[chainDate];
     if (!chain?.groups) return state;
+    if (chain.groups.find(g => g.id === groupId)?.readonly) return state;
     return {
       taskChains: {
         ...state.taskChains,
@@ -1824,6 +1885,7 @@ export const useStore = create<BlockOutState>((set, get) => ({
   setTaskGroupColor: (chainDate, groupId, color) => set((state) => {
     const chain = state.taskChains[chainDate];
     if (!chain?.groups) return state;
+    if (chain.groups.find(g => g.id === groupId)?.readonly) return state;
     return {
       taskChains: {
         ...state.taskChains,

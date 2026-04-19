@@ -145,6 +145,7 @@ export interface TaskGroup {
   name: string;
   color?: string;      // accent color for the group header
   collapsed?: boolean;
+  readonly?: boolean;  // system-managed group (e.g. "Completed Today")
   links: ChainLink[];
 }
 

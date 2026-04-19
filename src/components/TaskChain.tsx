@@ -1255,7 +1255,7 @@ export function TaskChain() {
                 onClick={() => toggleTaskGroupCollapsed(selectedChainDate, group.id)}
               >
                 <div style={{ width: 12, height: 12, borderRadius: '50%', background: group.color || 'var(--border)', flexShrink: 0 }} />
-                {editingGroupId === group.id ? (
+                {editingGroupId === group.id && !group.readonly ? (
                   <input
                     autoFocus
                     value={editingGroupName}
@@ -1266,8 +1266,12 @@ export function TaskChain() {
                     onClick={e => e.stopPropagation()}
                   />
                 ) : (
-                  <span style={{ flex: 1, fontWeight: 600, fontSize: 14 }}>{group.name || 'Unnamed Group'}</span>
+                  <span style={{ flex: 1, fontWeight: 600, fontSize: 14 }}>
+                    {group.name || 'Unnamed Group'}
+                    {group.readonly && <span style={{ fontWeight: 400, fontSize: 11, color: 'var(--text-tertiary)', marginLeft: 6 }}>(auto)</span>}
+                  </span>
                 )}
+                {!group.readonly && <>
                 {/* Color palette */}
                 <div style={{ display: 'flex', gap: 4 }} onClick={e => e.stopPropagation()}>
                   {GROUP_COLORS.map(c => (
@@ -1304,6 +1308,7 @@ export function TaskChain() {
                     <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
                   </svg>
                 </button>
+                </>}
                 {/* Collapse indicator */}
                 <span style={{ color: 'var(--text-secondary)', fontSize: 12, marginLeft: 4 }}>
                   {group.collapsed ? '▶' : '▼'}

@@ -79,19 +79,7 @@ create table if not exists cofocus_sessions (
 
 alter table cofocus_sessions enable row level security;
 
--- Participants can see sessions they're part of (via join table)
-create policy "cofocus_sessions_select" on cofocus_sessions
-  for select to authenticated using (
-    auth.uid() = host_id
-    or exists (
-      select 1 from cofocus_session_participants
-      where session_id = id and user_id = auth.uid() and left_at is null
-    )
-  );
-
--- Anyone authenticated can select by invite code (for joining)
-create policy "cofocus_sessions_select_by_invite" on cofocus_sessions
-  for select to authenticated using (status = 'active');
+-- Defer SELECT policies until after cofocus_session_participants exists (forward reference)
 
 create policy "cofocus_sessions_insert" on cofocus_sessions
   for insert to authenticated with check (auth.uid() = host_id);
@@ -128,6 +116,19 @@ create policy "cofocus_participants_update" on cofocus_session_participants
   for update to authenticated using (auth.uid() = user_id);
 
 create index cofocus_participants_user_idx on cofocus_session_participants (user_id) where left_at is null;
+
+-- ─── Deferred Session SELECT policies (now that participants table exists) ──
+create policy "cofocus_sessions_select" on cofocus_sessions
+  for select to authenticated using (
+    auth.uid() = host_id
+    or exists (
+      select 1 from cofocus_session_participants
+      where session_id = id and user_id = auth.uid() and left_at is null
+    )
+  );
+
+create policy "cofocus_sessions_select_by_invite" on cofocus_sessions
+  for select to authenticated using (status = 'active');
 
 -- ─── Messages ───────────────────────────────────────────────────────────────
 create table if not exists cofocus_messages (
