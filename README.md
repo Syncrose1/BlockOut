@@ -24,6 +24,7 @@ A visual task management app built for people juggling tasks across different ti
 - **Cloud sync** — multiple sync options: BlockOut Cloud (Supabase + R2), Dropbox, or self-hosted
 - **User accounts** — Supabase authentication with email/password sign-in
 - **Synamon companion** — tamagotchi-style creature embedded in the timer widget, modal, and dedicated panel; earns XP from completed tasks and Pomodoro sessions
+- **Co-Focus sessions** — invite friends to live focus sessions with shared timers, task chain visibility, Synamon companions around an animated campfire scene, and text chat
 - **PWA support** — installable on mobile with offline caching
 - **Desktop apps** — native Windows and Linux builds via Electron
 - **Self-hosted** — runs on your own machine, accessible across a Tailnet
@@ -94,29 +95,37 @@ BlockOut/
 │   ├── manifest.json        # PWA manifest
 │   ├── sw.js                # Service worker
 │   ├── *.svg                # App icons
-│   └── synamon/             # Synamon creature assets
-│       ├── species.json     # Species definitions + animation frame paths
-│       ├── world.json       # Zone plates, hero anims, ground positions
-│       ├── particles.json   # Particle effect definitions
-│       ├── index.html       # Standalone Synadex viewer
-│       ├── tamagotchi.html  # Standalone cinematic scene POC
-│       └── _sprites/        # Creature sprite sheets (per species/stage)
+│   ├── synamon/             # Synamon creature assets
+│   │   ├── species.json     # Species definitions + animation frame paths
+│   │   ├── world.json       # Zone plates, hero anims, ground positions
+│   │   ├── particles.json   # Particle effect definitions
+│   │   ├── index.html       # Standalone Synadex viewer
+│   │   ├── tamagotchi.html  # Standalone cinematic scene POC
+│   │   └── _sprites/        # Creature sprite sheets (per species/stage)
+│   └── cofocus/             # Co-Focus session assets
+│       ├── scenes.json      # Scene registry (campfire + future scenes)
+│       ├── scenes/          # Background plates + hero animation frames
+│       └── particles/       # Particle sprites (ember, etc.)
 ├── supabase/
 │   └── migrations/
-│       └── 0001_synamon_creatures.sql  # Synamon DB schema (creatures, events, dex, companion)
+│       ├── 0001_synamon_creatures.sql  # Synamon DB schema (creatures, events, dex, companion)
+│       └── 0002_cofocus.sql            # Co-Focus DB schema (profiles, friends, sessions, chat)
 ├── scripts/
 │   └── generate-icons.js    # SVG icon generator
 └── src/
     ├── main.tsx             # React entry point
     ├── App.tsx              # Root layout + auth state
     ├── hooks/
-    │   └── useIsMobile.ts   # Responsive breakpoint hook
+    │   ├── useIsMobile.ts   # Responsive breakpoint hook
+    │   └── useCoFocusPresence.ts # Presence sync hook (timer + Synamon → channel)
     ├── types/
     │   ├── index.ts         # BlockOut TypeScript interfaces
-    │   └── synamon.ts       # Synamon types (creatures, species, state)
+    │   ├── synamon.ts       # Synamon types (creatures, species, state)
+    │   └── coFocus.ts       # Co-Focus types (presence, session, friends)
     ├── store/
     │   ├── index.ts         # Zustand state management (main store)
-    │   └── synamonSlice.ts  # Synamon state slice (companion, XP, care)
+    │   ├── synamonSlice.ts  # Synamon state slice (companion, XP, care)
+    │   └── coFocusSlice.ts  # Co-Focus state slice (friends, sessions, chat)
     ├── utils/
     │   ├── treemap.ts       # Squarified treemap algorithm
     │   ├── colors.ts        # Colour palette
@@ -128,7 +137,9 @@ BlockOut/
     │   ├── synamonAssets.ts  # Loader for world/species/particles JSON
     │   ├── synamonMath.ts   # XP formulas, stat decay, mood calc
     │   ├── synamonSync.ts   # Supabase CRUD for creature tables
-    │   └── synamonLifecycle.ts # Store ↔ Supabase bridge (load + sync listener)
+    │   ├── synamonLifecycle.ts # Store ↔ Supabase bridge (load + sync listener)
+    │   ├── coFocusSync.ts   # Supabase CRUD for Co-Focus tables
+    │   └── coFocusRealtime.ts # Realtime channel management (presence + broadcast)
     ├── styles/global.css    # Dark-theme styles + mobile responsive
     └── components/
         ├── Treemap.tsx      # Canvas treemap renderer (desktop)
@@ -144,6 +155,12 @@ BlockOut/
         ├── SynamonPanel.tsx # Bottom slide-up companion panel (care actions)
         ├── SynamonSprite.tsx # Animated sprite renderer (frame loop)
         ├── SynamonWidget.tsx # Companion starter/widget wrapper
+        ├── CoFocusPanel.tsx # Co-Focus session panel (scene + cards + chat)
+        ├── CoFocusScene.tsx # Multi-creature campfire canvas renderer
+        ├── CoFocusParticipantCard.tsx # Per-participant timer/status card
+        ├── CoFocusChat.tsx  # Session text chat
+        ├── FriendModal.tsx  # Friend management (add/accept/remove)
+        ├── SessionModal.tsx # Create/join Co-Focus session
         ├── AuthModal.tsx    # Sign in / sign up modal
         └── Modals.tsx       # All other dialogs
 ```
@@ -178,6 +195,42 @@ The companion system stores creature data in Supabase (same project as BlockOut 
 No additional environment variables are needed beyond the existing `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY`.
 
 Creature data syncs automatically alongside BlockOut's existing cloud sync — stats are debounced (2-second batching) to avoid write spam.
+
+## Co-Focus Sessions
+
+Co-Focus lets you invite friends to live focus sessions. Everyone sees each other's Pomodoro timers, task chain progress, and Synamon companions — all gathered around an animated campfire scene.
+
+### Features
+
+- **Friend system** — add friends by email or invite code, accept/reject requests
+- **Session modes** — *Locked* (host controls everyone's timer) or *Independent* (each person runs their own)
+- **Campfire scene** — pixel art background with animated fire, ember particles, and up to 5 Synamon creatures at assigned positions
+- **Live presence** — see each participant's timer state, mode, sessions completed, and Synamon mood in real-time
+- **Text chat** — quick messages within the session, with unread badges
+- **Task chain sharing** — optionally show your daily task chain progress to session members
+
+### Co-Focus Supabase Setup
+
+Co-Focus uses the same Supabase project as BlockOut Cloud auth. Run the migration to create the required tables:
+
+1. Go to your Supabase project → **SQL Editor**
+2. Paste and run the contents of `supabase/migrations/0002_cofocus.sql`
+3. This creates 5 tables with row-level security:
+   - `cofocus_user_profiles` — display names and invite codes
+   - `cofocus_friends` — bidirectional friend relationships
+   - `cofocus_sessions` — active/ended sessions with timer mode and scene config
+   - `cofocus_session_participants` — who joined which session
+   - `cofocus_messages` — persistent chat messages
+
+Co-Focus uses **Supabase Realtime** (presence + broadcast) for live sync — no additional configuration needed beyond the existing Supabase keys.
+
+### How to use
+
+1. Open the **Synamon Companion Panel** from the sidebar
+2. Click the **Co-Focus** button to open the session panel
+3. Create a session or join one with an invite code
+4. Share the invite code with friends — they paste it in the "Join Session" tab
+5. Everyone's Synamon companions appear around the campfire
 
 ## Cloud Sync Options
 

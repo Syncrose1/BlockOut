@@ -8,6 +8,8 @@ import { logActivity } from '../utils/analytics';
 import type { SynamonState } from '../types/synamon';
 import { initialSynamonState, makeSynamonActions } from './synamonSlice';
 import { xpForTaskCompletion, xpForPomodoroSession, xpForChainStep } from '../utils/synamonMath';
+import type { CoFocusState } from '../types/coFocus';
+import { initialCoFocusState, makeCoFocusActions } from './coFocusSlice';
 
 function todayStr(): string {
   return new Date().toISOString().slice(0, 10);
@@ -240,6 +242,26 @@ interface BlockOutState {
   overviewBlocks: ScheduleBlock[];
   setOverviewBlocks: (blocks: ScheduleBlock[]) => void;
 
+  // Co-Focus system
+  coFocus: CoFocusState;
+  initCoFocusProfile: () => Promise<void>;
+  updateCoFocusDisplayName: (name: string) => Promise<void>;
+  loadFriends: () => Promise<void>;
+  sendFriendRequest: (emailOrCode: string) => Promise<{ error: string | null }>;
+  acceptFriendRequest: (requestId: string, friendUserId: string) => Promise<void>;
+  rejectFriendRequest: (requestId: string) => Promise<void>;
+  removeFriend: (friendUserId: string) => Promise<void>;
+  createSession: (timerMode: 'locked' | 'independent') => Promise<any>;
+  joinSession: (inviteCode: string) => Promise<{ error: string | null }>;
+  leaveSession: () => Promise<void>;
+  broadcastTimerAction: (action: 'start' | 'pause' | 'reset' | 'skip') => void;
+  sendChatMessage: (content: string) => Promise<void>;
+  setChatOpen: (open: boolean) => void;
+  setCoFocusPanelOpen: (open: boolean) => void;
+  setShowFriendModal: (show: boolean) => void;
+  setShowSessionModal: (show: boolean) => void;
+  setTaskChainSharing: (sharing: boolean) => void;
+
   // Synamon system
   synamon: SynamonState;
   catchSynamon: (speciesId: string, nickname?: string) => void;
@@ -291,6 +313,10 @@ export const useStore = create<BlockOutState>((set, get) => ({
   timeBlocks: {},
   activeBlockId: null,
   streak: { completionDates: [], currentStreak: 0, longestStreak: 0 },
+
+  // Co-Focus system
+  coFocus: initialCoFocusState,
+  ...makeCoFocusActions(set, get),
 
   // Synamon system
   synamon: initialSynamonState,

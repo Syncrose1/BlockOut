@@ -25,6 +25,10 @@ import {
   SyncSettingsModal,
   ConflictResolutionModal,
 } from './components/Modals';
+import { FriendModal } from './components/FriendModal';
+import { SessionModal } from './components/SessionModal';
+import { CoFocusPanel } from './components/CoFocusPanel';
+import { useCoFocusPresence } from './hooks/useCoFocusPresence';
 
 export function App() {
   const viewMode = useStore((s) => s.viewMode);
@@ -82,6 +86,9 @@ export function App() {
         console.warn('[BlockOut] Synamon Supabase load skipped:', e)
       );
 
+      // Initialize Co-Focus profile (fire-and-forget)
+      useStore.getState().initCoFocusProfile();
+
       // After data loads, check if no view is selected
       // If nothing cached, default to "All Tasks" view
       const state = useStore.getState();
@@ -117,6 +124,9 @@ export function App() {
   useEffect(() => {
     return startSynamonSyncListener();
   }, []);
+
+  // Co-Focus presence sync
+  useCoFocusPresence();
 
   // Close sidebar when navigating on mobile
   useEffect(() => {
@@ -333,6 +343,9 @@ export function App() {
         <ConflictResolutionModal />
         <OnboardingTour />
         <WelcomeModal />
+        <FriendModal />
+        <SessionModal />
+        <CoFocusPanel />
       </div>
     </div>
   );

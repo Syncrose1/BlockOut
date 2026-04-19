@@ -1,0 +1,39 @@
+{
+  "scenes": [
+    {
+      "key": "campfire",
+      "name": "Forest Campfire",
+      "plate": "/cofocus/scenes/campfire-plate.png",
+      "hero": {
+        "frames": [
+          "/cofocus/scenes/campfire-fire-01.png",
+          "/cofocus/scenes/campfire-fire-02.png",
+          "/cofocus/scenes/campfire-fire-03.png",
+          "/cofocus/scenes/campfire-fire-04.png",
+          "/cofocus/scenes/campfire-fire-05.png",
+          "/cofocus/scenes/campfire-fire-06.png",
+          "/cofocus/scenes/campfire-fire-07.png",
+          "/cofocus/scenes/campfire-fire-08.png"
+        ],
+        "anchor": { "x": 104, "y": 60 },
+        "size": 48
+      },
+      "particles": {
+        "sprite": "/cofocus/particles/ember.png",
+        "spawnRate": 3,
+        "lifetime": [1.5, 3],
+        "drift": { "vx": [-5, 5], "vy": [-20, -8] },
+        "spawnArea": { "x": [115, 140], "y": [55, 70] },
+        "alpha": 0.7
+      },
+      "slots": [
+        { "x": 40, "y": 95 },
+        { "x": 85, "y": 100 },
+        { "x": 128, "y": 88 },
+        { "x": 170, "y": 100 },
+        { "x": 215, "y": 95 }
+      ],
+      "filter": "brightness(0.55) saturate(0.7) hue-rotate(15deg) blur(0.4px)"
+    }
+  ]
+}

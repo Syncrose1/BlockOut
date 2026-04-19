@@ -93,6 +93,13 @@ export function Pomodoro() {
 
   const activeMode = pomodoro.activeTimerMode;
 
+  // Co-Focus: locked mode disables non-host controls
+  const coFocusActiveSession = useStore((s) => s.coFocus.activeSessionId);
+  const coFocusIsHost = useStore((s) => s.coFocus.isHost);
+  const coFocusTimerMode = useStore((s) => s.coFocus.sessionTimerMode);
+  const broadcastTimerAction = useStore((s) => s.broadcastTimerAction);
+  const isLockedNonHost = !!coFocusActiveSession && coFocusTimerMode === 'locked' && !coFocusIsHost;
+
   // Synamon companion
   const activeUid = useStore((s) => s.synamon.activeUid);
   const starterChosen = useStore((s) => s.synamon.starterChosen);
@@ -295,22 +302,29 @@ export function Pomodoro() {
     : pomodoro.stopwatch.sessions.filter((s) => new Date(s.endTime).toISOString().slice(0, 10) === todayStr).length;
 
   // Play/pause/reset handlers per mode
+  // In locked Co-Focus mode, non-hosts are blocked; hosts broadcast actions
   const handlePlay = () => {
+    if (isLockedNonHost) return;
     if (activeMode === 'pomodoro') startPomodoro();
     else if (activeMode === 'timer') startTimer();
     else startStopwatch();
+    if (coFocusIsHost && coFocusTimerMode === 'locked') broadcastTimerAction('start');
   };
 
   const handlePause = () => {
+    if (isLockedNonHost) return;
     if (activeMode === 'pomodoro') pausePomodoro();
     else if (activeMode === 'timer') pauseTimer();
     else pauseStopwatch();
+    if (coFocusIsHost && coFocusTimerMode === 'locked') broadcastTimerAction('pause');
   };
 
   const handleReset = () => {
+    if (isLockedNonHost) return;
     if (activeMode === 'pomodoro') resetPomodoro();
     else if (activeMode === 'timer') resetTimer();
     else resetStopwatch();
+    if (coFocusIsHost && coFocusTimerMode === 'locked') broadcastTimerAction('reset');
   };
 
   // Check if any mode has something running (for indicator)
@@ -586,7 +600,7 @@ export function Pomodoro() {
             </div>
           ) : null}
           {/* Right column: play/pause, reset, settings — always against the right wall */}
-          <div className="pomodoro-controls-col">
+          <div className="pomodoro-controls-col" style={isLockedNonHost ? { opacity: 0.4, pointerEvents: 'none' } : undefined}>
             {isRunning ? (
               <button className="pomodoro-btn" onClick={handlePause} title="Pause">&#x23F8;</button>
             ) : (
@@ -603,6 +617,15 @@ export function Pomodoro() {
             </button>
           </div>
         </div>
+
+        {/* Locked mode indicator */}
+        {isLockedNonHost && (
+          <div style={{
+            position: 'absolute', bottom: 2, left: 0, right: 0,
+            textAlign: 'center', fontSize: 9, color: 'var(--text-tertiary)',
+            pointerEvents: 'none',
+          }}>Host controls timer</div>
+        )}
 
         {/* Resize handle */}
         <div
