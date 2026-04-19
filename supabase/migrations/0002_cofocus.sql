@@ -101,12 +101,24 @@ create table if not exists cofocus_session_participants (
 
 alter table cofocus_session_participants enable row level security;
 
+-- Let participants see all rows in sessions they belong to.
+-- A direct self-referencing EXISTS causes infinite recursion, so we use
+-- a security-definer helper that bypasses RLS to check membership.
+create or replace function cofocus_is_session_member(p_session_id uuid, p_user_id uuid)
+returns boolean
+language sql
+security definer
+stable
+as $$
+  select exists (
+    select 1 from cofocus_session_participants
+    where session_id = p_session_id and user_id = p_user_id and left_at is null
+  );
+$$;
+
 create policy "cofocus_participants_select" on cofocus_session_participants
   for select to authenticated using (
-    exists (
-      select 1 from cofocus_session_participants p2
-      where p2.session_id = session_id and p2.user_id = auth.uid()
-    )
+    cofocus_is_session_member(session_id, auth.uid())
   );
 
 create policy "cofocus_participants_insert" on cofocus_session_participants
@@ -121,10 +133,7 @@ create index cofocus_participants_user_idx on cofocus_session_participants (user
 create policy "cofocus_sessions_select" on cofocus_sessions
   for select to authenticated using (
     auth.uid() = host_id
-    or exists (
-      select 1 from cofocus_session_participants
-      where session_id = id and user_id = auth.uid() and left_at is null
-    )
+    or cofocus_is_session_member(id, auth.uid())
   );
 
 create policy "cofocus_sessions_select_by_invite" on cofocus_sessions
@@ -143,10 +152,7 @@ alter table cofocus_messages enable row level security;
 
 create policy "cofocus_messages_select" on cofocus_messages
   for select to authenticated using (
-    exists (
-      select 1 from cofocus_session_participants
-      where session_id = cofocus_messages.session_id and user_id = auth.uid() and left_at is null
-    )
+    cofocus_is_session_member(session_id, auth.uid())
   );
 
 create policy "cofocus_messages_insert" on cofocus_messages
