@@ -7,7 +7,7 @@ import { getCategoryColor } from '../utils/colors';
 import { logActivity } from '../utils/analytics';
 import type { SynamonState } from '../types/synamon';
 import { initialSynamonState, makeSynamonActions } from './synamonSlice';
-import { xpForTaskCompletion, xpForPomodoroSession } from '../utils/synamonMath';
+import { xpForTaskCompletion, xpForPomodoroSession, xpForChainStep } from '../utils/synamonMath';
 
 function todayStr(): string {
   return new Date().toISOString().slice(0, 10);
@@ -1309,17 +1309,20 @@ export const useStore = create<BlockOutState>((set, get) => ({
     };
   }),
 
-  completeChainTask: (ctId) => set((state) => {
-    const ct = state.chainTasks[ctId];
-    if (!ct) return state;
-    
-    return {
-      chainTasks: {
-        ...state.chainTasks,
-        [ctId]: { ...ct, completed: true, completedAt: Date.now() },
-      },
-    };
-  }),
+  completeChainTask: (ctId) => {
+    set((state) => {
+      const ct = state.chainTasks[ctId];
+      if (!ct) return state;
+
+      return {
+        chainTasks: {
+          ...state.chainTasks,
+          [ctId]: { ...ct, completed: true, completedAt: Date.now() },
+        },
+      };
+    });
+    get().grantProductivityXp(xpForChainStep(), 'blockout');
+  },
 
   uncompleteChainTask: (ctId) => set((state) => {
     const ct = state.chainTasks[ctId];

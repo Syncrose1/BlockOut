@@ -23,6 +23,10 @@ export function xpForPomodoroSession(): number {
   return 20;
 }
 
+export function xpForChainStep(): number {
+  return 5;
+}
+
 export function xpForBattleWin(opponentLevel: number, playerLevel: number): number {
   const levelDiff = Math.max(1, opponentLevel - playerLevel + 10);
   return Math.floor(15 * levelDiff / 10);
