@@ -195,7 +195,7 @@ export function SynamonScene({
       const img = s.creatureFrames[s.cretIdx];
       if (img?.naturalWidth) {
         const groundY = s.zone?.groundY ?? 108;
-        const stageScale = 0.7 + (stage - 1) * 0.15;
+        const stageScale = 1.0 + (stage - 1) * 0.2;
         const drawW = Math.round(img.naturalWidth * stageScale);
         const drawH = Math.round(img.naturalHeight * stageScale);
         const x = Math.round((SCENE_W - drawW) / 2);

@@ -569,18 +569,23 @@ export function Pomodoro() {
           </div>
         </div>
 
-        {/* Controls — reverse-L layout: settings left-bottom, main column right */}
+        {/* Controls — right column fills first, extra buttons overflow left */}
         <div className="pomodoro-controls-grid">
-          {/* Settings button to the left, aligned to bottom */}
-          <button
-            className="pomodoro-btn pomodoro-btn-settings"
-            onClick={() => setPomodoroSettingsOpen(true)}
-            title="Settings"
-            style={{ fontSize: 13 }}
-          >
-            ⚙
-          </button>
-          {/* Right column: main actions (always 3 slots, against the right wall) */}
+          {/* Extra button (LAP/exit focus) goes to the left column only when present */}
+          {activeMode === 'stopwatch' && isRunning ? (
+            <div className="pomodoro-controls-col" style={{ justifyContent: 'flex-end' }}>
+              <button className="pomodoro-btn" onClick={lapStopwatch} title="Lap" style={{ fontSize: 10 }}>
+                LAP
+              </button>
+            </div>
+          ) : focusMode ? (
+            <div className="pomodoro-controls-col" style={{ justifyContent: 'flex-end' }}>
+              <button className="pomodoro-btn" onClick={exitFocusMode} title="Exit focus mode" style={{ fontSize: 12 }}>
+                &times;
+              </button>
+            </div>
+          ) : null}
+          {/* Right column: play/pause, reset, settings — always against the right wall */}
           <div className="pomodoro-controls-col">
             {isRunning ? (
               <button className="pomodoro-btn" onClick={handlePause} title="Pause">&#x23F8;</button>
@@ -588,17 +593,14 @@ export function Pomodoro() {
               <button className="pomodoro-btn" onClick={handlePlay} title="Start">&#x25B6;</button>
             )}
             <button className="pomodoro-btn" onClick={handleReset} title="Reset">&#x21BA;</button>
-            {activeMode === 'stopwatch' && isRunning ? (
-              <button className="pomodoro-btn" onClick={lapStopwatch} title="Lap" style={{ fontSize: 10 }}>
-                LAP
-              </button>
-            ) : focusMode ? (
-              <button className="pomodoro-btn" onClick={exitFocusMode} title="Exit focus mode" style={{ fontSize: 12 }}>
-                &times;
-              </button>
-            ) : (
-              <div style={{ width: 28, height: 28 }} />
-            )}
+            <button
+              className="pomodoro-btn"
+              onClick={() => setPomodoroSettingsOpen(true)}
+              title="Settings"
+              style={{ fontSize: 13 }}
+            >
+              ⚙
+            </button>
           </div>
         </div>
 
