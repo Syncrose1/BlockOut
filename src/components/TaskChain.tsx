@@ -494,7 +494,7 @@ export function TaskChain() {
         ))}
         {calendarDays.map((day, i) => (
           <button
-            key={i}
+            key={day.date || `pad-${i}`}
             onClick={() => {
               if (day.date) {
                 setSelectedChainDate(day.date);

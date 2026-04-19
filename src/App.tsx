@@ -9,7 +9,7 @@ import { Sidebar } from './components/Sidebar';
 import { Topbar } from './components/Topbar';
 import { Treemap } from './components/Treemap';
 import { MobileTaskList } from './components/MobileTaskList';
-import { Timeline } from './components/Timeline';
+import { CoFocusView } from './components/CoFocusView';
 import { TaskChain } from './components/TaskChain';
 import { Overview } from './components/Overview';
 import { Pomodoro } from './components/Pomodoro';
@@ -27,7 +27,6 @@ import {
 } from './components/Modals';
 import { FriendModal } from './components/FriendModal';
 import { SessionModal } from './components/SessionModal';
-import { CoFocusPanel } from './components/CoFocusPanel';
 import { useCoFocusPresence } from './hooks/useCoFocusPresence';
 
 export function App() {
@@ -328,7 +327,7 @@ export function App() {
           {viewMode === 'treemap' && (
             isMobile ? <MobileTaskList /> : <Treemap />
           )}
-          {viewMode === 'timeline' && <Timeline />}
+          {viewMode === 'cofocus' && <CoFocusView />}
           {viewMode === 'taskchain' && <TaskChain />}
           {viewMode === 'overview' && <Overview />}
         </div>
@@ -345,7 +344,6 @@ export function App() {
         <WelcomeModal />
         <FriendModal />
         <SessionModal />
-        <CoFocusPanel />
       </div>
     </div>
   );

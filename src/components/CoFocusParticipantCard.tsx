@@ -1,3 +1,5 @@
+import { useState } from 'react';
+import { useStore } from '../store';
 import type { CoFocusParticipant } from '../types/coFocus';
 
 function formatTime(seconds: number): string {
@@ -15,11 +17,29 @@ const modeColors: Record<string, string> = {
 export function CoFocusParticipantCard({
   participant,
   isHost,
+  isMe,
 }: {
   participant: CoFocusParticipant;
   isHost?: boolean;
+  isMe?: boolean;
 }) {
+  const friends = useStore((s) => s.coFocus.friends);
+  const sendFriendRequest = useStore((s) => s.sendFriendRequest);
+  const [addingFriend, setAddingFriend] = useState(false);
+  const [friendAdded, setFriendAdded] = useState(false);
+
   const color = modeColors[participant.timerMode] || 'var(--text-tertiary)';
+
+  const isFriend = friends.some(f => f.userId === participant.userId && f.status === 'accepted');
+  const isPending = friends.some(f => f.userId === participant.userId && f.status === 'pending');
+  const showAddFriend = !isMe && !isFriend && !isPending && !friendAdded;
+
+  const handleAddFriend = async () => {
+    setAddingFriend(true);
+    const result = await sendFriendRequest(participant.userId);
+    setAddingFriend(false);
+    if (!result.error) setFriendAdded(true);
+  };
 
   return (
     <div style={{
@@ -121,6 +141,30 @@ export function CoFocusParticipantCard({
             </div>
           )}
         </div>
+      )}
+
+      {/* Add friend button */}
+      {showAddFriend && (
+        <button
+          onClick={handleAddFriend}
+          disabled={addingFriend}
+          style={{
+            marginTop: 2,
+            padding: '3px 0',
+            background: 'none',
+            border: 'none',
+            color: 'var(--accent)',
+            fontSize: 10,
+            fontWeight: 600,
+            cursor: addingFriend ? 'default' : 'pointer',
+            opacity: addingFriend ? 0.6 : 1,
+          }}
+        >
+          {addingFriend ? 'Adding...' : '+ Add Friend'}
+        </button>
+      )}
+      {friendAdded && (
+        <span style={{ fontSize: 10, color: 'hsl(142, 60%, 50%)' }}>Request sent</span>
       )}
     </div>
   );

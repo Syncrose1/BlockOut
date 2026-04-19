@@ -1,8 +1,8 @@
 import { useEffect, useRef, useState, useCallback } from 'react';
 
 // ─── Constants ──────────────────────────────────────────────────────────────
-const SCENE_W = 256;
-const SCENE_H = 128;
+const SCENE_W = 400;
+const SCENE_H = 180;
 const HERO_FPS = 6;
 const CREATURE_FPS = 8;
 const PARTICLE_DT_CAP = 0.05;

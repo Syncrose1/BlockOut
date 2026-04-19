@@ -322,7 +322,11 @@ export const useStore = create<BlockOutState>((set, get) => ({
   synamon: initialSynamonState,
   ...makeSynamonActions(set, get),
 
-  viewMode: (localStorage.getItem('blockout-view-mode') as ViewMode) || 'treemap',
+  viewMode: (() => {
+    const stored = localStorage.getItem('blockout-view-mode');
+    if (stored === 'timeline') return 'treemap' as ViewMode;
+    return (stored as ViewMode) || 'treemap';
+  })(),
   selectedCategoryId: null,
   showTimelessPool: false,
   poolViewMode: 'all',

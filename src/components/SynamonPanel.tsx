@@ -261,23 +261,6 @@ export function SynamonPanel() {
             <CareButton label="Play" icon="⚽" onClick={playWithActiveSynamon} />
           </div>
 
-          {/* Co-Focus buttons */}
-          <div style={{
-            display: 'flex', gap: 8, justifyContent: 'center',
-            borderTop: '1px solid var(--border)',
-            paddingTop: 10,
-          }}>
-            <CoFocusButton
-              label="Co-Focus"
-              onClick={() => useStore.getState().setCoFocusPanelOpen(true)}
-              active={!!useStore.getState().coFocus.activeSessionId}
-            />
-            <CoFocusButton
-              label="Friends"
-              onClick={() => useStore.getState().setShowFriendModal(true)}
-              badge={useStore.getState().coFocus.friends.filter(f => f.status === 'pending' && f.direction === 'incoming').length || undefined}
-            />
-          </div>
         </div>
       </div>
 
@@ -348,48 +331,6 @@ function CareButton({ label, icon, onClick }: { label: string; icon: string; onC
     >
       <span style={{ fontSize: 20 }}>{icon}</span>
       {label}
-    </button>
-  );
-}
-
-function CoFocusButton({ label, onClick, active, badge }: {
-  label: string; onClick: () => void; active?: boolean; badge?: number;
-}) {
-  return (
-    <button
-      onClick={onClick}
-      style={{
-        position: 'relative',
-        padding: '6px 14px',
-        background: active ? 'hsl(142, 50%, 25%)' : 'var(--bg-tertiary)',
-        border: `1px solid ${active ? 'hsl(142, 60%, 40%)' : 'var(--border)'}`,
-        borderRadius: 'var(--radius-md)',
-        color: active ? 'hsl(142, 72%, 70%)' : 'var(--text-secondary)',
-        cursor: 'pointer',
-        fontSize: 12,
-        fontWeight: 600,
-        transition: 'all 0.2s',
-      }}
-      onMouseEnter={(e) => {
-        e.currentTarget.style.borderColor = 'var(--accent)';
-      }}
-      onMouseLeave={(e) => {
-        e.currentTarget.style.borderColor = active ? 'hsl(142, 60%, 40%)' : 'var(--border)';
-      }}
-    >
-      {label}
-      {badge && badge > 0 && (
-        <span style={{
-          position: 'absolute', top: -4, right: -4,
-          background: 'hsl(0, 72%, 55%)',
-          color: 'white',
-          fontSize: 9, fontWeight: 700,
-          minWidth: 16, height: 16,
-          borderRadius: 8,
-          display: 'flex', alignItems: 'center', justifyContent: 'center',
-          padding: '0 4px',
-        }}>{badge}</span>
-      )}
     </button>
   );
 }

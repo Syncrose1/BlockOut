@@ -67,7 +67,7 @@ export function Topbar({ isMobile, onMenuToggle }: TopbarProps) {
 
   const views: { id: ViewMode; label: string }[] = [
     { id: 'treemap', label: 'Treemap' },
-    { id: 'timeline', label: 'Timeline' },
+    { id: 'cofocus', label: 'Co-Focus' },
     { id: 'taskchain', label: 'Task Chain' },
   ];
 
