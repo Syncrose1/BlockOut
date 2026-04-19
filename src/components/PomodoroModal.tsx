@@ -296,16 +296,16 @@ export function PomodoroModal({ isOpen, onClose }: PomodoroModalProps) {
 
               {/* Timer display banner */}
               <div style={{
-                padding: '32px',
+                padding: hasCompanion ? '24px 32px' : '32px',
                 background: hasCompanion ? 'transparent' : headerGradient,
                 display: 'flex',
                 alignItems: 'center',
-                justifyContent: 'center',
-                flexDirection: 'column',
-                gap: 8,
+                justifyContent: hasCompanion ? 'space-between' : 'center',
+                flexDirection: hasCompanion ? 'row' : 'column',
+                gap: hasCompanion ? 0 : 12,
                 position: 'relative',
                 overflow: 'hidden',
-                minHeight: hasCompanion ? 200 : undefined,
+                height: hasCompanion ? 220 : undefined,
               }}>
                 {/* Synamon scene background replaces gradient when companion active */}
                 {hasCompanion && (
@@ -318,23 +318,25 @@ export function PomodoroModal({ isOpen, onClose }: PomodoroModalProps) {
                       stage={activeSynamon!.stage}
                       timeOfDay={getTimeOfDay()}
                       width={900}
-                      height={200}
+                      height={220}
                       showParticles={false}
                       showHero={false}
-                      creatureFramePaths={companionIdleFrames}
+                      creatureFramePaths={[]}
                     />
                   </div>
                 )}
 
-                {/* Timer content — always centered */}
+                {/* Timer content — left-aligned when companion, centered otherwise */}
                 <div style={{
                   position: 'relative', zIndex: 1,
+                  flex: hasCompanion ? '1 1 auto' : undefined,
                   display: 'flex', flexDirection: 'column',
-                  alignItems: 'center',
+                  alignItems: hasCompanion ? 'flex-start' : 'center',
                   gap: 4,
+                  paddingLeft: hasCompanion ? 16 : 0,
                 }}>
                   <div style={{
-                    fontSize: 72, fontWeight: 700, color: 'white',
+                    fontSize: hasCompanion ? 56 : 72, fontWeight: 700, color: 'white',
                     fontFamily: 'var(--font-mono)', letterSpacing: -2,
                     textShadow: hasCompanion ? '0 2px 12px rgba(0,0,0,0.8)' : '0 2px 10px rgba(0,0,0,0.2)',
                     lineHeight: 1,
@@ -342,7 +344,7 @@ export function PomodoroModal({ isOpen, onClose }: PomodoroModalProps) {
                     {headerTime}
                   </div>
                   <div style={{
-                    fontSize: 18, color: 'white', opacity: 0.9,
+                    fontSize: hasCompanion ? 14 : 18, color: 'white', opacity: 0.9,
                     textTransform: 'uppercase', letterSpacing: 2, fontWeight: 500,
                     textShadow: hasCompanion ? '0 1px 6px rgba(0,0,0,0.6)' : 'none',
                   }}>
@@ -416,6 +418,22 @@ export function PomodoroModal({ isOpen, onClose }: PomodoroModalProps) {
                     </div>
                   )}
                 </div>
+
+                {/* Synamon sprite — right of centre */}
+                {hasCompanion && companionIdleFrames.length > 0 && (
+                  <div style={{
+                    position: 'relative', zIndex: 1,
+                    flex: '0 0 auto',
+                    marginRight: 48,
+                    filter: 'drop-shadow(0 2px 8px rgba(0,0,0,0.5))',
+                  }}>
+                    <SynamonSprite
+                      frames={companionIdleFrames}
+                      size={96}
+                      fps={8}
+                    />
+                  </div>
+                )}
 
                 {/* Stopwatch laps table — no companion layout keeps it centered */}
                 {!hasCompanion && activeMode === 'stopwatch' && pomodoro.stopwatch.laps.length > 0 && (

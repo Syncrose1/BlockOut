@@ -195,7 +195,7 @@ export function SynamonScene({
       const img = s.creatureFrames[s.cretIdx];
       if (img?.naturalWidth) {
         const groundY = s.zone?.groundY ?? 108;
-        const stageScale = 1.0 + (stage - 1) * 0.2;
+        const stageScale = 0.85 + (stage - 1) * 0.15;
         const drawW = Math.round(img.naturalWidth * stageScale);
         const drawH = Math.round(img.naturalHeight * stageScale);
         const x = Math.round((SCENE_W - drawW) / 2);
@@ -252,9 +252,20 @@ export function SynamonScene({
     return () => cancelAnimationFrame(animRef.current);
   }, [tick]);
 
-  // Compute scale from desired size to native scene size
+  // Compute scale — use max to cover the container (no empty space)
   const scaleX = width / SCENE_W;
   const scaleY = height / SCENE_H;
+  const scale = Math.max(scaleX, scaleY);
+  const canvasW = SCENE_W * scale;
+  const canvasH = SCENE_H * scale;
+
+  // Position canvas so the creature ground area (~85% down the canvas) is
+  // centered vertically in the container rather than the canvas midpoint.
+  // groundY is typically ~108/128 = 84%. We want that line near container center.
+  const groundFraction = 0.82; // where the creature stands in the canvas
+  const canvasTop = (height * 0.5) - (canvasH * groundFraction);
+  // Clamp so we don't show below the canvas
+  const clampedTop = Math.min(0, Math.max(canvasTop, height - canvasH));
 
   // Day/night CSS filter on the canvas
   const filterMap = {
@@ -278,13 +289,13 @@ export function SynamonScene({
         width={SCENE_W}
         height={SCENE_H}
         style={{
-          width: SCENE_W * Math.max(scaleX, scaleY),
-          height: SCENE_H * Math.max(scaleX, scaleY),
+          width: canvasW,
+          height: canvasH,
           imageRendering: 'pixelated',
           position: 'absolute',
-          top: '50%',
+          top: clampedTop,
           left: '50%',
-          transform: 'translate(-50%, -50%)',
+          transform: 'translateX(-50%)',
           filter: filterMap[timeOfDay],
         }}
       />
