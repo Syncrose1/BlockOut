@@ -39,6 +39,7 @@ export function SynamonSprite({
     height: size,
     objectFit: 'contain',
     imageRendering: pixelated ? 'pixelated' : 'auto',
+    filter: pixelated ? 'blur(0.4px)' : undefined,
     ...style,
   };
 
