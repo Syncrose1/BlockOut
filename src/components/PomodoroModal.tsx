@@ -307,7 +307,7 @@ export function PomodoroModal({ isOpen, onClose }: PomodoroModalProps) {
                 overflow: 'hidden',
                 height: hasCompanion ? 220 : undefined,
               }}>
-                {/* Synamon scene background replaces gradient when companion active */}
+                {/* Synamon scene background with creature rendered inside (preserves Synadex ratios) */}
                 {hasCompanion && (
                   <div style={{
                     position: 'absolute', inset: 0, zIndex: 0,
@@ -321,7 +321,7 @@ export function PomodoroModal({ isOpen, onClose }: PomodoroModalProps) {
                       height={220}
                       showParticles={false}
                       showHero={false}
-                      creatureFramePaths={[]}
+                      creatureFramePaths={companionIdleFrames}
                     />
                   </div>
                 )}
@@ -419,21 +419,6 @@ export function PomodoroModal({ isOpen, onClose }: PomodoroModalProps) {
                   )}
                 </div>
 
-                {/* Synamon sprite — right of centre */}
-                {hasCompanion && companionIdleFrames.length > 0 && (
-                  <div style={{
-                    position: 'relative', zIndex: 1,
-                    flex: '0 0 auto',
-                    marginRight: 48,
-                    filter: 'drop-shadow(0 2px 8px rgba(0,0,0,0.5))',
-                  }}>
-                    <SynamonSprite
-                      frames={companionIdleFrames}
-                      size={96}
-                      fps={8}
-                    />
-                  </div>
-                )}
 
                 {/* Stopwatch laps table — no companion layout keeps it centered */}
                 {!hasCompanion && activeMode === 'stopwatch' && pomodoro.stopwatch.laps.length > 0 && (
