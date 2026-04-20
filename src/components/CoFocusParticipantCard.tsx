@@ -18,10 +18,12 @@ export function CoFocusParticipantCard({
   participant,
   isHost,
   isMe,
+  compact,
 }: {
   participant: CoFocusParticipant;
   isHost?: boolean;
   isMe?: boolean;
+  compact?: boolean;
 }) {
   const friends = useStore((s) => s.coFocus.friends);
   const sendFriendRequest = useStore((s) => s.sendFriendRequest);
@@ -44,18 +46,18 @@ export function CoFocusParticipantCard({
   return (
     <div style={{
       flex: '0 0 auto',
-      width: 130,
-      padding: '10px 12px',
+      width: compact ? 100 : 130,
+      padding: compact ? '6px 8px' : '10px 12px',
       background: 'var(--bg-tertiary)',
       border: '1px solid var(--border)',
       borderRadius: 'var(--radius-md)',
       display: 'flex', flexDirection: 'column',
-      gap: 6,
+      gap: compact ? 3 : 6,
     }}>
       {/* Name + host badge */}
       <div style={{
         display: 'flex', alignItems: 'center', gap: 4,
-        fontSize: 12, fontWeight: 600,
+        fontSize: compact ? 10 : 12, fontWeight: 600,
         color: 'var(--text-primary)',
         overflow: 'hidden',
         whiteSpace: 'nowrap',
@@ -64,7 +66,7 @@ export function CoFocusParticipantCard({
         {participant.displayName || 'Anonymous'}
         {isHost && (
           <span style={{
-            fontSize: 9, padding: '1px 5px',
+            fontSize: compact ? 7 : 9, padding: '1px 5px',
             background: 'var(--accent)',
             color: 'white',
             borderRadius: 4, fontWeight: 700,
@@ -75,7 +77,7 @@ export function CoFocusParticipantCard({
 
       {/* Timer ring + time */}
       <div style={{
-        display: 'flex', alignItems: 'center', gap: 8,
+        display: 'flex', alignItems: 'center', gap: compact ? 4 : 8,
       }}>
         {/* Mini timer indicator */}
         <div style={{
@@ -86,32 +88,34 @@ export function CoFocusParticipantCard({
           transition: 'all 0.3s',
         }} />
         <span style={{
-          fontSize: 16, fontWeight: 700,
+          fontSize: compact ? 13 : 16, fontWeight: 700,
           color: participant.isRunning ? color : 'var(--text-secondary)',
           fontVariantNumeric: 'tabular-nums',
         }}>
-          {formatTime(participant.timeRemaining)}
+          {formatTime(participant.anchorValue)}
         </span>
       </div>
 
       {/* Mode label */}
-      <div style={{
-        fontSize: 10, color: 'var(--text-tertiary)',
-        textTransform: 'capitalize',
-      }}>
-        {participant.timerMode === 'longBreak' ? 'Long Break' : participant.timerMode}
-        {participant.isRunning ? '' : ' (paused)'}
-      </div>
+      {!compact && (
+        <div style={{
+          fontSize: 10, color: 'var(--text-tertiary)',
+          textTransform: 'capitalize',
+        }}>
+          {participant.timerMode === 'longBreak' ? 'Long Break' : participant.timerMode}
+          {participant.isRunning ? '' : ' (paused)'}
+        </div>
+      )}
 
       {/* Sessions today */}
-      {participant.sessionsCompletedToday > 0 && (
+      {!compact && participant.sessionsCompletedToday > 0 && (
         <div style={{ fontSize: 10, color: 'var(--text-tertiary)' }}>
           {participant.sessionsCompletedToday} sessions today
         </div>
       )}
 
       {/* Synamon mood */}
-      {participant.synamonMood && (
+      {!compact && participant.synamonMood && (
         <div style={{
           fontSize: 10, color: 'var(--text-tertiary)',
           fontStyle: 'italic',
@@ -121,7 +125,7 @@ export function CoFocusParticipantCard({
       )}
 
       {/* Task chain progress */}
-      {participant.taskChainVisible && participant.taskChainSteps && (
+      {!compact && participant.taskChainVisible && participant.taskChainSteps && (
         <div style={{ marginTop: 2 }}>
           {participant.taskChainSteps.slice(0, 4).map((step, i) => (
             <div key={i} style={{

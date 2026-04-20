@@ -5,7 +5,9 @@ const SCENE_W = 400;
 const SCENE_H = 180;
 const HERO_FPS = 6;
 const CREATURE_FPS = 8;
+const PLATE_FPS = 4;
 const PARTICLE_DT_CAP = 0.05;
+const SCENE_CENTER_X = 200;
 
 // ─── Types ──────────────────────────────────────────────────────────────────
 interface SceneSlot {
@@ -17,6 +19,7 @@ interface SceneData {
   key: string;
   name: string;
   plate: string;
+  plateFrames?: string[];
   hero?: {
     frames: string[];
     anchor: { x: number; y: number };
@@ -34,10 +37,13 @@ interface SceneData {
   filter?: string;
 }
 
-interface CreatureAtSlot {
+export interface CreatureAtSlot {
   slotIndex: number;
   framePaths: string[];
   stage: number;
+  displayName?: string;
+  isRunning?: boolean;
+  lastTaskCompletedAt?: number;
 }
 
 interface CoFocusSceneProps {
@@ -91,8 +97,19 @@ export function CoFocusScene({
   const stateRef = useRef({
     scene: null as SceneData | null,
     plateImg: null as HTMLImageElement | null,
+    plateFrameImgs: [] as HTMLImageElement[],
+    plateFrameIdx: 0, plateFrameAcc: 0,
     heroFrames: [] as HTMLImageElement[],
-    creatureSlots: [] as { frames: HTMLImageElement[]; stage: number; slot: SceneSlot; idx: number; acc: number }[],
+    creatureSlots: [] as {
+      frames: HTMLImageElement[];
+      stage: number;
+      slot: SceneSlot;
+      idx: number;
+      acc: number;
+      displayName?: string;
+      isRunning?: boolean;
+      lastTaskCompletedAt?: number;
+    }[],
     particleSprite: null as HTMLImageElement | null,
     livingParticles: [] as LiveParticle[],
     spawnAcc: 0,
@@ -114,8 +131,14 @@ export function CoFocusScene({
       const s = stateRef.current;
       s.scene = scene;
 
-      // Load plate
+      // Load plate (single or animated)
       s.plateImg = await loadImage(scene.plate);
+      s.plateFrameImgs = [];
+      s.plateFrameIdx = 0;
+      s.plateFrameAcc = 0;
+      if (scene.plateFrames?.length) {
+        s.plateFrameImgs = await Promise.all(scene.plateFrames.map(loadImage));
+      }
 
       // Load hero frames
       s.heroFrames = [];
@@ -157,6 +180,9 @@ export function CoFocusScene({
           slot: scene.slots[c.slotIndex],
           idx: 0,
           acc: 0,
+          displayName: c.displayName,
+          isRunning: c.isRunning,
+          lastTaskCompletedAt: c.lastTaskCompletedAt,
         });
       }
       if (!cancelled) s.creatureSlots = slots;
@@ -187,12 +213,23 @@ export function CoFocusScene({
     ctx.setTransform(intScale, 0, 0, intScale, 0, 0);
     ctx.clearRect(0, 0, SCENE_W, SCENE_H);
 
-    // 1) Plate background
-    if (s.plateImg?.naturalWidth) {
+    // 1) Plate background (animated or static)
+    if (s.plateFrameImgs.length > 0) {
+      s.plateFrameAcc += dt;
+      const interval = 1 / PLATE_FPS;
+      while (s.plateFrameAcc >= interval) {
+        s.plateFrameAcc -= interval;
+        s.plateFrameIdx = (s.plateFrameIdx + 1) % s.plateFrameImgs.length;
+      }
+      const frameImg = s.plateFrameImgs[s.plateFrameIdx];
+      if (frameImg?.naturalWidth) {
+        ctx.drawImage(frameImg, 0, 0, SCENE_W, SCENE_H);
+      }
+    } else if (s.plateImg?.naturalWidth) {
       ctx.drawImage(s.plateImg, 0, 0, SCENE_W, SCENE_H);
     }
 
-    // 2) Hero animation (campfire)
+    // 2) Hero animation (campfire overlay)
     if (s.heroFrames.length > 0 && s.scene?.hero) {
       s.heroAcc += dt;
       const interval = 1 / HERO_FPS;
@@ -211,7 +248,8 @@ export function CoFocusScene({
       }
     }
 
-    // 3) Creatures at slot positions
+    // 3) Creatures at slot positions — with flip-to-center + reduced size + labels
+    const nowMs = Date.now();
     for (const cs of s.creatureSlots) {
       if (cs.frames.length === 0) continue;
       cs.acc += dt;
@@ -222,12 +260,65 @@ export function CoFocusScene({
       }
       const img = cs.frames[cs.idx];
       if (img?.naturalWidth) {
-        const stageScale = 0.85 + (cs.stage - 1) * 0.15;
+        // Reduced scale: 0.55 → 0.65 → 0.75
+        const stageScale = 0.55 + (cs.stage - 1) * 0.1;
         const drawW = Math.round(img.naturalWidth * stageScale);
         const drawH = Math.round(img.naturalHeight * stageScale);
+
+        // Flip logic: creatures left of center face right (toward center)
+        const shouldFlip = cs.slot.x < SCENE_CENTER_X - 10;
+
+        ctx.save();
+        if (shouldFlip) {
+          // Flip horizontally around slot center
+          ctx.translate(cs.slot.x, 0);
+          ctx.scale(-1, 1);
+          ctx.translate(-cs.slot.x, 0);
+        }
         const x = Math.round(cs.slot.x - drawW / 2);
         const y = Math.round(cs.slot.y - drawH);
         ctx.drawImage(img, x, y, drawW, drawH);
+        ctx.restore();
+
+        // ─── Labels ───────────────────────────────────────────────────
+        // Username above creature
+        if (cs.displayName) {
+          ctx.save();
+          ctx.font = '7px sans-serif';
+          ctx.textAlign = 'center';
+          ctx.textBaseline = 'bottom';
+          // Dark shadow for readability
+          ctx.fillStyle = 'rgba(0,0,0,0.7)';
+          ctx.fillText(cs.displayName, cs.slot.x + 1, y - 3);
+          ctx.fillStyle = 'white';
+          ctx.fillText(cs.displayName, cs.slot.x, y - 4);
+          ctx.restore();
+        }
+
+        // Status text below creature
+        ctx.save();
+        ctx.font = '6px sans-serif';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'top';
+        const statusY = cs.slot.y + 2;
+
+        if (cs.lastTaskCompletedAt && (nowMs - cs.lastTaskCompletedAt) < 120_000) {
+          ctx.fillStyle = 'rgba(0,0,0,0.7)';
+          ctx.fillText('Completed a Task!', cs.slot.x + 1, statusY + 1);
+          ctx.fillStyle = 'hsl(142, 72%, 50%)';
+          ctx.fillText('Completed a Task!', cs.slot.x, statusY);
+        } else if (cs.isRunning) {
+          ctx.fillStyle = 'rgba(0,0,0,0.7)';
+          ctx.fillText('Focusing...', cs.slot.x + 1, statusY + 1);
+          ctx.fillStyle = 'white';
+          ctx.fillText('Focusing...', cs.slot.x, statusY);
+        } else {
+          ctx.fillStyle = 'rgba(0,0,0,0.5)';
+          ctx.fillText('Resting...', cs.slot.x + 1, statusY + 1);
+          ctx.fillStyle = 'rgba(255,255,255,0.5)';
+          ctx.fillText('Resting...', cs.slot.x, statusY);
+        }
+        ctx.restore();
       }
     }
 

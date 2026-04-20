@@ -367,5 +367,23 @@ export function makeCoFocusActions(set: (fn: (s: any) => any) => void, get: () =
         coFocus: { ...s.coFocus, taskChainSharing: sharing },
       }));
     },
+
+    // ─── Audio ─────────────────────────────────────────────────────────
+    setAudioNoiseType: (type: 'off' | 'white' | 'brown') => {
+      localStorage.setItem('cofocus-noise-type', type);
+      set((s: any) => ({ coFocus: { ...s.coFocus, audioNoiseType: type } }));
+    },
+    setAudioNoiseVolume: (vol: number) => {
+      localStorage.setItem('cofocus-noise-vol', String(vol));
+      set((s: any) => ({ coFocus: { ...s.coFocus, audioNoiseVolume: vol } }));
+    },
+    setAudioAmbientOn: (on: boolean) => {
+      localStorage.setItem('cofocus-ambient-on', String(on));
+      set((s: any) => ({ coFocus: { ...s.coFocus, audioAmbientOn: on } }));
+    },
+    setAudioAmbientVolume: (vol: number) => {
+      localStorage.setItem('cofocus-ambient-vol', String(vol));
+      set((s: any) => ({ coFocus: { ...s.coFocus, audioAmbientVolume: vol } }));
+    },
   };
 }

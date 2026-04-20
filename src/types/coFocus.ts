@@ -43,9 +43,11 @@ export interface CoFocusPresence {
   userId: string;
   displayName: string;
   timerMode: 'work' | 'break' | 'longBreak';
-  timeRemaining: number;
+  anchorValue: number;        // timeRemaining (pomodoro/timer) or elapsed (stopwatch) at moment of event
+  anchorTimestamp: number;    // Date.now() when anchor was set
   isRunning: boolean;
   activeTimerMode: 'pomodoro' | 'timer' | 'stopwatch';
+  lastTaskCompletedAt?: number; // timestamp of most recent task completion
   taskChainVisible: boolean;
   taskChainSteps?: { title: string; completed: boolean }[];
   synamonSpeciesId?: string;
@@ -82,6 +84,12 @@ export interface CoFocusState {
   chatOpen: boolean;
   unreadCount: number;
 
+  // Audio
+  audioNoiseType: 'off' | 'white' | 'brown';
+  audioNoiseVolume: number;
+  audioAmbientOn: boolean;
+  audioAmbientVolume: number;
+
   // UI
   coFocusPanelOpen: boolean;
   showFriendModal: boolean;
@@ -106,6 +114,11 @@ export const initialCoFocusState: CoFocusState = {
   chatMessages: [],
   chatOpen: false,
   unreadCount: 0,
+
+  audioNoiseType: (localStorage.getItem('cofocus-noise-type') as 'off' | 'white' | 'brown') || 'off',
+  audioNoiseVolume: parseFloat(localStorage.getItem('cofocus-noise-vol') || '0.3'),
+  audioAmbientOn: localStorage.getItem('cofocus-ambient-on') !== 'false',
+  audioAmbientVolume: parseFloat(localStorage.getItem('cofocus-ambient-vol') || '0.5'),
 
   coFocusPanelOpen: false,
   showFriendModal: false,

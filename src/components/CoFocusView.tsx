@@ -1,14 +1,19 @@
 import { useState, useMemo, useEffect, useRef, useCallback } from 'react';
 import { useStore } from '../store';
 import { getSpecies } from '../store/synamonSlice';
-import { CoFocusParticipantCard } from './CoFocusParticipantCard';
+import { CoFocusParticipantHUD } from './CoFocusParticipantHUD';
 import { CoFocusChat } from './CoFocusChat';
 import { CoFocusScene } from './CoFocusScene';
+import { useIsMobile } from '../hooks/useIsMobile';
+import * as audio from '../utils/coFocusAudio';
+import type { AmbientLayerConfig } from '../utils/coFocusAudio';
 
-// ─── Scene data type (mirrors CoFocusScene's internal type) ─────────────────
+// ─── Scene data type ────────────────────────────────────────────────────────
 interface SceneOption {
   key: string;
   name: string;
+  plate: string;
+  audio?: AmbientLayerConfig[];
 }
 
 let scenesListCache: SceneOption[] | null = null;
@@ -16,7 +21,9 @@ async function loadScenesList(): Promise<SceneOption[]> {
   if (scenesListCache) return scenesListCache;
   const res = await fetch('/cofocus/scenes.json');
   const json = await res.json();
-  scenesListCache = (json.scenes as any[]).map(s => ({ key: s.key, name: s.name }));
+  scenesListCache = (json.scenes as any[]).map(s => ({
+    key: s.key, name: s.name, plate: s.plate, audio: s.audio,
+  }));
   return scenesListCache!;
 }
 
@@ -34,12 +41,23 @@ export function CoFocusView() {
   const myInviteCode = useStore((s) => s.coFocus.myInviteCode);
   const friends = useStore((s) => s.coFocus.friends);
 
+  // Audio state
+  const audioNoiseType = useStore((s) => s.coFocus.audioNoiseType);
+  const audioNoiseVolume = useStore((s) => s.coFocus.audioNoiseVolume);
+  const audioAmbientOn = useStore((s) => s.coFocus.audioAmbientOn);
+  const audioAmbientVolume = useStore((s) => s.coFocus.audioAmbientVolume);
+  const setAudioNoiseType = useStore((s) => s.setAudioNoiseType);
+  const setAudioNoiseVolume = useStore((s) => s.setAudioNoiseVolume);
+  const setAudioAmbientOn = useStore((s) => s.setAudioAmbientOn);
+  const setAudioAmbientVolume = useStore((s) => s.setAudioAmbientVolume);
+
   const setShowSessionModal = useStore((s) => s.setShowSessionModal);
   const setShowFriendModal = useStore((s) => s.setShowFriendModal);
   const leaveSession = useStore((s) => s.leaveSession);
   const setChatOpen = useStore((s) => s.setChatOpen);
   const updateCoFocusDisplayName = useStore((s) => s.updateCoFocusDisplayName);
 
+  const isMobile = useIsMobile();
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [codeCopied, setCodeCopied] = useState(false);
   const [editingName, setEditingName] = useState(false);
@@ -48,6 +66,8 @@ export function CoFocusView() {
   const [fadingOut, setFadingOut] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
   const [containerSize, setContainerSize] = useState({ w: 800, h: 500 });
+
+  const btnSize = isMobile ? 44 : 36;
 
   // Load scene list
   useEffect(() => {
@@ -72,7 +92,51 @@ export function CoFocusView() {
   // Sync name input when store changes
   useEffect(() => { setNameInput(myDisplayName); }, [myDisplayName]);
 
-  // Build creature data for the scene
+  // ─── Audio engine wiring ──────────────────────────────────────────────────
+  useEffect(() => {
+    audio.setNoiseType(audioNoiseType);
+  }, [audioNoiseType]);
+
+  useEffect(() => {
+    audio.setNoiseVolume(audioNoiseVolume);
+  }, [audioNoiseVolume]);
+
+  useEffect(() => {
+    audio.setAmbientOn(audioAmbientOn);
+  }, [audioAmbientOn]);
+
+  useEffect(() => {
+    audio.setAmbientVolume(audioAmbientVolume);
+  }, [audioAmbientVolume]);
+
+  // Load ambient audio for current scene
+  useEffect(() => {
+    const scene = scenes.find(s => s.key === sessionSceneKey);
+    if (scene?.audio && audioAmbientOn) {
+      audio.loadAmbientForScene(scene.audio);
+      audio.setAmbientVolume(audioAmbientVolume);
+    } else {
+      audio.loadAmbientForScene([]);
+    }
+  }, [sessionSceneKey, scenes, audioAmbientOn]);
+
+  // Cleanup audio on unmount
+  useEffect(() => {
+    return () => { audio.cleanup(); };
+  }, []);
+
+  // ─── Mobile: mutual exclusion of sidebar/chat ────────────────────────────
+  const toggleSidebar = useCallback(() => {
+    if (!sidebarOpen && isMobile && chatOpen) setChatOpen(false);
+    setSidebarOpen(o => !o);
+  }, [sidebarOpen, isMobile, chatOpen, setChatOpen]);
+
+  const toggleChat = useCallback(() => {
+    if (!chatOpen && isMobile && sidebarOpen) setSidebarOpen(false);
+    setChatOpen(!chatOpen);
+  }, [chatOpen, isMobile, sidebarOpen, setChatOpen]);
+
+  // Build creature data for the scene (with extended display info)
   const sceneCreatures = useMemo(() => {
     return Object.values(participants)
       .filter(p => p.synamonSpeciesId)
@@ -86,6 +150,9 @@ export function CoFocusView() {
           slotIndex: p.slotIndex,
           framePaths: frames.length > 0 ? frames : (staticSprite ? [staticSprite] : []),
           stage,
+          displayName: p.displayName,
+          isRunning: p.isRunning,
+          lastTaskCompletedAt: p.lastTaskCompletedAt,
         };
       })
       .filter(c => c.framePaths.length > 0);
@@ -115,14 +182,318 @@ export function CoFocusView() {
 
   const pendingRequests = friends.filter(f => f.status === 'pending' && f.direction === 'incoming').length;
 
-  // Determine current user id
   const myUserId = useStore((s) => {
-    // Find ourselves in participants by matching myInviteCode or checking all entries
     for (const [, p] of Object.entries(s.coFocus.participants)) {
       if (p.displayName === s.coFocus.myDisplayName) return p.userId;
     }
     return null;
   });
+
+  // ─── Section label helper ─────────────────────────────────────────────────
+  const sectionLabel = (text: string) => (
+    <label style={{
+      display: 'block', fontSize: 11, fontWeight: 600,
+      color: 'var(--text-tertiary)', marginBottom: 6,
+      textTransform: 'uppercase', letterSpacing: '0.05em',
+    }}>{text}</label>
+  );
+
+  // ─── Sidebar content (shared between desktop and mobile) ──────────────────
+  const sidebarContent = (
+    <div style={{
+      flex: 1, overflow: 'auto',
+      padding: 16,
+      display: 'flex', flexDirection: 'column', gap: 16,
+    }}>
+      {/* Display name */}
+      <div>
+        {sectionLabel('Display Name')}
+        {editingName ? (
+          <div style={{ display: 'flex', gap: 6 }}>
+            <input
+              value={nameInput}
+              onChange={(e) => setNameInput(e.target.value)}
+              onKeyDown={(e) => { if (e.key === 'Enter') handleSaveName(); if (e.key === 'Escape') setEditingName(false); }}
+              autoFocus
+              maxLength={20}
+              style={{
+                flex: 1, padding: '6px 10px',
+                background: 'var(--bg-primary)',
+                border: '1px solid var(--accent)',
+                borderRadius: 'var(--radius-sm)',
+                color: 'var(--text-primary)',
+                fontSize: 13, outline: 'none',
+              }}
+            />
+            <button
+              onClick={handleSaveName}
+              style={{
+                padding: '6px 10px',
+                background: 'var(--accent)',
+                border: 'none',
+                borderRadius: 'var(--radius-sm)',
+                color: 'white', fontSize: 11, fontWeight: 600,
+                cursor: 'pointer',
+              }}
+            >Save</button>
+          </div>
+        ) : (
+          <button
+            onClick={() => { setNameInput(myDisplayName); setEditingName(true); }}
+            style={{
+              width: '100%', textAlign: 'left',
+              padding: '6px 10px',
+              background: 'var(--bg-tertiary)',
+              border: '1px solid var(--border)',
+              borderRadius: 'var(--radius-sm)',
+              color: 'var(--text-primary)',
+              fontSize: 13, cursor: 'pointer',
+            }}
+          >
+            {myDisplayName || 'Set display name...'}
+          </button>
+        )}
+      </div>
+
+      {/* Session actions */}
+      <div>
+        {sectionLabel('Session')}
+        {!activeSessionId ? (
+          <button
+            onClick={() => setShowSessionModal(true)}
+            style={{
+              width: '100%',
+              padding: '10px 16px',
+              background: 'var(--accent)',
+              border: 'none',
+              borderRadius: 'var(--radius-md)',
+              color: 'white',
+              fontSize: 13, fontWeight: 600,
+              cursor: 'pointer',
+            }}
+          >Create or Join Session</button>
+        ) : (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+            {sessionInviteCode && (
+              <div style={{
+                display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                padding: '8px 12px',
+                background: 'var(--bg-tertiary)',
+                border: '1px solid var(--border)',
+                borderRadius: 'var(--radius-sm)',
+              }}>
+                <div>
+                  <div style={{ fontSize: 10, color: 'var(--text-tertiary)' }}>Invite Code</div>
+                  <div style={{ fontSize: 15, fontWeight: 700, color: 'var(--text-primary)', letterSpacing: '0.1em' }}>
+                    {sessionInviteCode}
+                  </div>
+                </div>
+                <button
+                  onClick={handleCopyCode}
+                  style={{
+                    padding: '4px 10px',
+                    background: codeCopied ? 'hsl(142, 72%, 45%)' : 'var(--bg-primary)',
+                    border: '1px solid var(--border)',
+                    borderRadius: 'var(--radius-sm)',
+                    color: codeCopied ? 'white' : 'var(--text-secondary)',
+                    fontSize: 11, fontWeight: 600,
+                    cursor: 'pointer',
+                  }}
+                >{codeCopied ? 'Copied!' : 'Copy'}</button>
+              </div>
+            )}
+            <div style={{
+              fontSize: 12, color: 'var(--text-tertiary)',
+              display: 'flex', flexDirection: 'column', gap: 4,
+            }}>
+              <div>Mode: {sessionTimerMode === 'locked' ? 'Locked Timer' : 'Independent'}</div>
+              <div>Participants: {participantList.length}/5</div>
+            </div>
+            <button
+              onClick={leaveSession}
+              style={{
+                padding: '8px 16px',
+                background: 'hsl(0, 40%, 20%)',
+                border: '1px solid hsl(0, 40%, 35%)',
+                borderRadius: 'var(--radius-md)',
+                color: 'hsl(0, 72%, 70%)',
+                fontSize: 12, fontWeight: 600,
+                cursor: 'pointer',
+              }}
+            >{isHost ? 'End Session' : 'Leave Session'}</button>
+          </div>
+        )}
+      </div>
+
+      {/* Friends */}
+      <div>
+        {sectionLabel('Social')}
+        <button
+          onClick={() => setShowFriendModal(true)}
+          style={{
+            position: 'relative',
+            width: '100%',
+            padding: '10px 16px',
+            background: 'var(--bg-tertiary)',
+            border: '1px solid var(--border)',
+            borderRadius: 'var(--radius-md)',
+            color: 'var(--text-primary)',
+            fontSize: 13, fontWeight: 600,
+            cursor: 'pointer',
+            textAlign: 'left',
+          }}
+        >
+          Friends
+          {pendingRequests > 0 && (
+            <span style={{
+              position: 'absolute', top: 8, right: 12,
+              background: 'hsl(0, 72%, 55%)',
+              color: 'white',
+              fontSize: 9, fontWeight: 700,
+              minWidth: 16, height: 16,
+              borderRadius: 8,
+              display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+              padding: '0 4px',
+            }}>{pendingRequests}</span>
+          )}
+        </button>
+      </div>
+
+      {/* Scene switcher */}
+      <div>
+        {sectionLabel('Environment')}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+          {scenes.map(scene => (
+            <button
+              key={scene.key}
+              onClick={() => {
+                if (scene.key !== sessionSceneKey) {
+                  setFadingOut(true);
+                  setTimeout(() => {
+                    useStore.setState(s => ({
+                      coFocus: { ...s.coFocus, sessionSceneKey: scene.key },
+                    }));
+                    setFadingOut(false);
+                  }, 600);
+                }
+              }}
+              style={{
+                display: 'flex', alignItems: 'center', gap: 10,
+                padding: '8px 14px',
+                background: scene.key === sessionSceneKey ? 'var(--accent)' : 'var(--bg-tertiary)',
+                border: `1px solid ${scene.key === sessionSceneKey ? 'var(--accent)' : 'var(--border)'}`,
+                borderRadius: 'var(--radius-md)',
+                color: scene.key === sessionSceneKey ? 'white' : 'var(--text-primary)',
+                fontSize: 13, fontWeight: 600,
+                cursor: 'pointer',
+                textAlign: 'left',
+              }}
+            >
+              <img
+                src={scene.plate}
+                alt=""
+                style={{
+                  width: 48, height: 22,
+                  objectFit: 'cover',
+                  borderRadius: 3,
+                  imageRendering: 'pixelated',
+                  flexShrink: 0,
+                }}
+              />
+              {scene.name}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* Audio controls */}
+      <div>
+        {sectionLabel('Audio')}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+          {/* Noise type toggle */}
+          <div>
+            <div style={{ fontSize: 11, color: 'var(--text-secondary)', marginBottom: 4 }}>Background Noise</div>
+            <div style={{ display: 'flex', gap: 4 }}>
+              {(['off', 'white', 'brown'] as const).map(t => (
+                <button
+                  key={t}
+                  onClick={() => setAudioNoiseType(t)}
+                  style={{
+                    flex: 1,
+                    padding: '5px 0',
+                    background: audioNoiseType === t ? 'var(--accent)' : 'var(--bg-tertiary)',
+                    border: `1px solid ${audioNoiseType === t ? 'var(--accent)' : 'var(--border)'}`,
+                    borderRadius: 'var(--radius-sm)',
+                    color: audioNoiseType === t ? 'white' : 'var(--text-secondary)',
+                    fontSize: 11, fontWeight: 600,
+                    cursor: 'pointer',
+                    textTransform: 'capitalize',
+                  }}
+                >{t}</button>
+              ))}
+            </div>
+          </div>
+          {/* Noise volume */}
+          {audioNoiseType !== 'off' && (
+            <div>
+              <div style={{ fontSize: 10, color: 'var(--text-tertiary)', marginBottom: 2 }}>Noise Volume</div>
+              <input
+                type="range" min="0" max="1" step="0.05"
+                value={audioNoiseVolume}
+                onChange={(e) => setAudioNoiseVolume(parseFloat(e.target.value))}
+                style={{ width: '100%', accentColor: 'var(--accent)' }}
+              />
+            </div>
+          )}
+          {/* Scene sounds toggle + volume */}
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+            <span style={{ fontSize: 11, color: 'var(--text-secondary)' }}>Scene Sounds</span>
+            <button
+              onClick={() => setAudioAmbientOn(!audioAmbientOn)}
+              style={{
+                padding: '3px 10px',
+                background: audioAmbientOn ? 'var(--accent)' : 'var(--bg-tertiary)',
+                border: `1px solid ${audioAmbientOn ? 'var(--accent)' : 'var(--border)'}`,
+                borderRadius: 'var(--radius-sm)',
+                color: audioAmbientOn ? 'white' : 'var(--text-tertiary)',
+                fontSize: 10, fontWeight: 600,
+                cursor: 'pointer',
+              }}
+            >{audioAmbientOn ? 'On' : 'Off'}</button>
+          </div>
+          {audioAmbientOn && (
+            <div>
+              <div style={{ fontSize: 10, color: 'var(--text-tertiary)', marginBottom: 2 }}>Scene Volume</div>
+              <input
+                type="range" min="0" max="1" step="0.05"
+                value={audioAmbientVolume}
+                onChange={(e) => setAudioAmbientVolume(parseFloat(e.target.value))}
+                style={{ width: '100%', accentColor: 'var(--accent)' }}
+              />
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* My invite code */}
+      {myInviteCode && (
+        <div style={{
+          padding: '10px 12px',
+          background: 'var(--bg-tertiary)',
+          border: '1px solid var(--border)',
+          borderRadius: 'var(--radius-sm)',
+          fontSize: 11, color: 'var(--text-tertiary)',
+        }}>
+          <div style={{ marginBottom: 4, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+            Your Friend Code
+          </div>
+          <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--text-primary)', letterSpacing: '0.1em' }}>
+            {myInviteCode}
+          </div>
+        </div>
+      )}
+    </div>
+  );
 
   return (
     <div
@@ -172,27 +543,32 @@ export function CoFocusView() {
           <span style={{ fontSize: 12, color: 'white', fontWeight: 600 }}>
             {sessionTimerMode === 'locked' ? 'Locked' : 'Independent'}
           </span>
-          <span style={{ color: 'rgba(255,255,255,0.3)' }}>|</span>
-          <span style={{ fontSize: 12, color: 'rgba(255,255,255,0.8)' }}>
-            {scenes.find(s => s.key === sessionSceneKey)?.name || sessionSceneKey}
-          </span>
-          {sessionInviteCode && (
+          {/* Hide scene name + invite code on mobile (available in sidebar) */}
+          {!isMobile && (
             <>
               <span style={{ color: 'rgba(255,255,255,0.3)' }}>|</span>
-              <button
-                onClick={handleCopyCode}
-                style={{
-                  background: codeCopied ? 'hsl(142, 72%, 45%)' : 'rgba(255,255,255,0.1)',
-                  border: '1px solid rgba(255,255,255,0.15)',
-                  borderRadius: 'var(--radius-sm)',
-                  color: 'white',
-                  fontSize: 11, fontWeight: 600,
-                  padding: '2px 8px',
-                  cursor: 'pointer',
-                }}
-              >
-                {codeCopied ? 'Copied!' : sessionInviteCode}
-              </button>
+              <span style={{ fontSize: 12, color: 'rgba(255,255,255,0.8)' }}>
+                {scenes.find(s => s.key === sessionSceneKey)?.name || sessionSceneKey}
+              </span>
+              {sessionInviteCode && (
+                <>
+                  <span style={{ color: 'rgba(255,255,255,0.3)' }}>|</span>
+                  <button
+                    onClick={handleCopyCode}
+                    style={{
+                      background: codeCopied ? 'hsl(142, 72%, 45%)' : 'rgba(255,255,255,0.1)',
+                      border: '1px solid rgba(255,255,255,0.15)',
+                      borderRadius: 'var(--radius-sm)',
+                      color: 'white',
+                      fontSize: 11, fontWeight: 600,
+                      padding: '2px 8px',
+                      cursor: 'pointer',
+                    }}
+                  >
+                    {codeCopied ? 'Copied!' : sessionInviteCode}
+                  </button>
+                </>
+              )}
             </>
           )}
         </div>
@@ -208,10 +584,10 @@ export function CoFocusView() {
         {/* Chat toggle */}
         {activeSessionId && (
           <button
-            onClick={() => setChatOpen(!chatOpen)}
+            onClick={toggleChat}
             style={{
               position: 'relative',
-              width: 36, height: 36,
+              width: btnSize, height: btnSize,
               background: chatOpen ? 'var(--accent)' : 'rgba(0,0,0,0.6)',
               backdropFilter: 'blur(8px)',
               border: '1px solid rgba(255,255,255,0.1)',
@@ -242,9 +618,9 @@ export function CoFocusView() {
 
         {/* Sidebar toggle */}
         <button
-          onClick={() => setSidebarOpen(!sidebarOpen)}
+          onClick={toggleSidebar}
           style={{
-            width: 36, height: 36,
+            width: btnSize, height: btnSize,
             background: sidebarOpen ? 'var(--accent)' : 'rgba(0,0,0,0.6)',
             backdropFilter: 'blur(8px)',
             border: '1px solid rgba(255,255,255,0.1)',
@@ -262,26 +638,14 @@ export function CoFocusView() {
         </button>
       </div>
 
-      {/* Bottom: Participant cards */}
+      {/* Participant HUD (top-left widget with expand/pin) */}
       {activeSessionId && participantList.length > 0 && (
-        <div style={{
-          position: 'absolute',
-          bottom: 16, left: 16,
-          right: sidebarOpen ? 316 : 16,
-          display: 'flex', gap: 8,
-          overflowX: 'auto',
-          zIndex: 10,
-          transition: 'right 0.3s ease',
-        }}>
-          {participantList.map(p => (
-            <CoFocusParticipantCard
-              key={p.userId}
-              participant={p}
-              isHost={p.userId === sessionHostId}
-              isMe={p.userId === myUserId}
-            />
-          ))}
-        </div>
+        <CoFocusParticipantHUD
+          participants={participantList}
+          myUserId={myUserId}
+          sessionHostId={sessionHostId}
+          isMobile={isMobile}
+        />
       )}
 
       {/* ─── No Session: Center overlay ─────────────────────────────────────── */}
@@ -299,12 +663,12 @@ export function CoFocusView() {
           <div style={{
             background: 'rgba(0,0,0,0.7)',
             backdropFilter: 'blur(12px)',
-            padding: '32px 48px',
+            padding: isMobile ? '24px 20px' : '32px 48px',
             borderRadius: 'var(--radius-lg, 16px)',
             border: '1px solid rgba(255,255,255,0.08)',
             display: 'flex', flexDirection: 'column',
             alignItems: 'center', gap: 16,
-            maxWidth: 360,
+            maxWidth: isMobile ? 'calc(100vw - 32px)' : 360,
           }}>
             <h2 style={{
               margin: 0, fontSize: 22, fontWeight: 700,
@@ -334,11 +698,24 @@ export function CoFocusView() {
         </div>
       )}
 
-      {/* ─── Chat panel (bottom-right overlay) ──────────────────────────────── */}
+      {/* ─── Chat panel ──────────────────────────────────────────────────────── */}
       {activeSessionId && chatOpen && (
-        <div style={{
+        <div style={isMobile ? {
+          // Mobile: full-width bottom sheet
           position: 'absolute',
-          bottom: participantList.length > 0 ? 100 : 16,
+          left: 0, right: 0, bottom: 0,
+          height: '60vh',
+          background: 'rgba(0,0,0,0.9)',
+          backdropFilter: 'blur(12px)',
+          border: 'none',
+          borderRadius: '16px 16px 0 0',
+          overflow: 'hidden',
+          zIndex: 25,
+          display: 'flex', flexDirection: 'column',
+        } : {
+          // Desktop: floating panel
+          position: 'absolute',
+          bottom: 16,
           right: sidebarOpen ? 316 : 16,
           width: 320,
           height: 280,
@@ -355,8 +732,22 @@ export function CoFocusView() {
         </div>
       )}
 
-      {/* ─── Right Sidebar ──────────────────────────────────────────────────── */}
-      <div style={{
+      {/* ─── Sidebar ─────────────────────────────────────────────────────────── */}
+      <div style={isMobile ? {
+        // Mobile: bottom sheet
+        position: 'absolute',
+        left: 0, right: 0, bottom: 0,
+        height: '70vh',
+        background: 'var(--bg-secondary)',
+        borderRadius: '16px 16px 0 0',
+        boxShadow: '0 -4px 20px rgba(0,0,0,0.4)',
+        transform: sidebarOpen ? 'translateY(0)' : 'translateY(100%)',
+        transition: 'transform 0.3s ease',
+        zIndex: 20,
+        display: 'flex', flexDirection: 'column',
+        overflow: 'hidden',
+      } : {
+        // Desktop: right panel
         position: 'absolute',
         top: 0, right: 0, bottom: 0,
         width: 300,
@@ -389,241 +780,7 @@ export function CoFocusView() {
           >&times;</button>
         </div>
 
-        {/* Sidebar content */}
-        <div style={{
-          flex: 1, overflow: 'auto',
-          padding: 16,
-          display: 'flex', flexDirection: 'column', gap: 16,
-        }}>
-          {/* Display name */}
-          <div>
-            <label style={{
-              display: 'block', fontSize: 11, fontWeight: 600,
-              color: 'var(--text-tertiary)', marginBottom: 6,
-              textTransform: 'uppercase', letterSpacing: '0.05em',
-            }}>Display Name</label>
-            {editingName ? (
-              <div style={{ display: 'flex', gap: 6 }}>
-                <input
-                  value={nameInput}
-                  onChange={(e) => setNameInput(e.target.value)}
-                  onKeyDown={(e) => { if (e.key === 'Enter') handleSaveName(); if (e.key === 'Escape') setEditingName(false); }}
-                  autoFocus
-                  maxLength={20}
-                  style={{
-                    flex: 1, padding: '6px 10px',
-                    background: 'var(--bg-primary)',
-                    border: '1px solid var(--accent)',
-                    borderRadius: 'var(--radius-sm)',
-                    color: 'var(--text-primary)',
-                    fontSize: 13, outline: 'none',
-                  }}
-                />
-                <button
-                  onClick={handleSaveName}
-                  style={{
-                    padding: '6px 10px',
-                    background: 'var(--accent)',
-                    border: 'none',
-                    borderRadius: 'var(--radius-sm)',
-                    color: 'white', fontSize: 11, fontWeight: 600,
-                    cursor: 'pointer',
-                  }}
-                >Save</button>
-              </div>
-            ) : (
-              <button
-                onClick={() => { setNameInput(myDisplayName); setEditingName(true); }}
-                style={{
-                  width: '100%', textAlign: 'left',
-                  padding: '6px 10px',
-                  background: 'var(--bg-tertiary)',
-                  border: '1px solid var(--border)',
-                  borderRadius: 'var(--radius-sm)',
-                  color: 'var(--text-primary)',
-                  fontSize: 13, cursor: 'pointer',
-                }}
-              >
-                {myDisplayName || 'Set display name...'}
-              </button>
-            )}
-          </div>
-
-          {/* Session actions */}
-          <div>
-            <label style={{
-              display: 'block', fontSize: 11, fontWeight: 600,
-              color: 'var(--text-tertiary)', marginBottom: 6,
-              textTransform: 'uppercase', letterSpacing: '0.05em',
-            }}>Session</label>
-            {!activeSessionId ? (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                <button
-                  onClick={() => setShowSessionModal(true)}
-                  style={{
-                    padding: '10px 16px',
-                    background: 'var(--accent)',
-                    border: 'none',
-                    borderRadius: 'var(--radius-md)',
-                    color: 'white',
-                    fontSize: 13, fontWeight: 600,
-                    cursor: 'pointer',
-                  }}
-                >Create or Join Session</button>
-              </div>
-            ) : (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                {/* Invite code */}
-                {sessionInviteCode && (
-                  <div style={{
-                    display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-                    padding: '8px 12px',
-                    background: 'var(--bg-tertiary)',
-                    border: '1px solid var(--border)',
-                    borderRadius: 'var(--radius-sm)',
-                  }}>
-                    <div>
-                      <div style={{ fontSize: 10, color: 'var(--text-tertiary)' }}>Invite Code</div>
-                      <div style={{ fontSize: 15, fontWeight: 700, color: 'var(--text-primary)', letterSpacing: '0.1em' }}>
-                        {sessionInviteCode}
-                      </div>
-                    </div>
-                    <button
-                      onClick={handleCopyCode}
-                      style={{
-                        padding: '4px 10px',
-                        background: codeCopied ? 'hsl(142, 72%, 45%)' : 'var(--bg-primary)',
-                        border: '1px solid var(--border)',
-                        borderRadius: 'var(--radius-sm)',
-                        color: codeCopied ? 'white' : 'var(--text-secondary)',
-                        fontSize: 11, fontWeight: 600,
-                        cursor: 'pointer',
-                      }}
-                    >{codeCopied ? 'Copied!' : 'Copy'}</button>
-                  </div>
-                )}
-
-                {/* Session info */}
-                <div style={{
-                  fontSize: 12, color: 'var(--text-tertiary)',
-                  display: 'flex', flexDirection: 'column', gap: 4,
-                }}>
-                  <div>Mode: {sessionTimerMode === 'locked' ? 'Locked Timer' : 'Independent'}</div>
-                  <div>Participants: {participantList.length}/5</div>
-                </div>
-
-                {/* Leave */}
-                <button
-                  onClick={leaveSession}
-                  style={{
-                    padding: '8px 16px',
-                    background: 'hsl(0, 40%, 20%)',
-                    border: '1px solid hsl(0, 40%, 35%)',
-                    borderRadius: 'var(--radius-md)',
-                    color: 'hsl(0, 72%, 70%)',
-                    fontSize: 12, fontWeight: 600,
-                    cursor: 'pointer',
-                  }}
-                >{isHost ? 'End Session' : 'Leave Session'}</button>
-              </div>
-            )}
-          </div>
-
-          {/* Friends */}
-          <div>
-            <label style={{
-              display: 'block', fontSize: 11, fontWeight: 600,
-              color: 'var(--text-tertiary)', marginBottom: 6,
-              textTransform: 'uppercase', letterSpacing: '0.05em',
-            }}>Social</label>
-            <button
-              onClick={() => setShowFriendModal(true)}
-              style={{
-                position: 'relative',
-                width: '100%',
-                padding: '10px 16px',
-                background: 'var(--bg-tertiary)',
-                border: '1px solid var(--border)',
-                borderRadius: 'var(--radius-md)',
-                color: 'var(--text-primary)',
-                fontSize: 13, fontWeight: 600,
-                cursor: 'pointer',
-                textAlign: 'left',
-              }}
-            >
-              Friends
-              {pendingRequests > 0 && (
-                <span style={{
-                  position: 'absolute', top: 8, right: 12,
-                  background: 'hsl(0, 72%, 55%)',
-                  color: 'white',
-                  fontSize: 9, fontWeight: 700,
-                  minWidth: 16, height: 16,
-                  borderRadius: 8,
-                  display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
-                  padding: '0 4px',
-                }}>{pendingRequests}</span>
-              )}
-            </button>
-          </div>
-
-          {/* Scene switcher */}
-          <div>
-            <label style={{
-              display: 'block', fontSize: 11, fontWeight: 600,
-              color: 'var(--text-tertiary)', marginBottom: 6,
-              textTransform: 'uppercase', letterSpacing: '0.05em',
-            }}>Environment</label>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-              {scenes.map(scene => (
-                <button
-                  key={scene.key}
-                  onClick={() => {
-                    if (scene.key !== sessionSceneKey) {
-                      setFadingOut(true);
-                      setTimeout(() => {
-                        useStore.setState(s => ({
-                          coFocus: { ...s.coFocus, sessionSceneKey: scene.key },
-                        }));
-                        setFadingOut(false);
-                      }, 600);
-                    }
-                  }}
-                  style={{
-                    padding: '10px 14px',
-                    background: scene.key === sessionSceneKey ? 'var(--accent)' : 'var(--bg-tertiary)',
-                    border: `1px solid ${scene.key === sessionSceneKey ? 'var(--accent)' : 'var(--border)'}`,
-                    borderRadius: 'var(--radius-md)',
-                    color: scene.key === sessionSceneKey ? 'white' : 'var(--text-primary)',
-                    fontSize: 13, fontWeight: 600,
-                    cursor: 'pointer',
-                    textAlign: 'left',
-                  }}
-                >
-                  {scene.name}
-                </button>
-              ))}
-            </div>
-          </div>
-
-          {/* My invite code */}
-          {myInviteCode && (
-            <div style={{
-              padding: '10px 12px',
-              background: 'var(--bg-tertiary)',
-              border: '1px solid var(--border)',
-              borderRadius: 'var(--radius-sm)',
-              fontSize: 11, color: 'var(--text-tertiary)',
-            }}>
-              <div style={{ marginBottom: 4, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-                Your Friend Code
-              </div>
-              <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--text-primary)', letterSpacing: '0.1em' }}>
-                {myInviteCode}
-              </div>
-            </div>
-          )}
-        </div>
+        {sidebarContent}
       </div>
     </div>
   );

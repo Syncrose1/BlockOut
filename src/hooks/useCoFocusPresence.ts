@@ -1,7 +1,7 @@
 /**
  * Co-Focus Presence Sync Hook.
- * Watches Zustand timer + Synamon state and calls channel.track() on changes.
- * Debounced to ~1s to avoid flooding the realtime channel.
+ * Broadcasts anchor-based timer data on events only (play/pause/reset/skip/mode change).
+ * Consumers compute live values locally — no per-second presence updates.
  */
 
 import { useEffect, useRef } from 'react';
@@ -16,9 +16,8 @@ export function useCoFocusPresence() {
   const myDisplayName = useStore((s) => s.coFocus.myDisplayName);
   const taskChainSharing = useStore((s) => s.coFocus.taskChainSharing);
 
-  // Timer state
+  // Timer state — only event-driven values (NOT timeRemaining which ticks every second)
   const pomodoroMode = useStore((s) => s.pomodoro.mode);
-  const pomodoroTimeRemaining = useStore((s) => s.pomodoro.timeRemaining);
   const pomodoroIsRunning = useStore((s) => s.pomodoro.isRunning);
   const activeTimerMode = useStore((s) => s.pomodoro.activeTimerMode);
   const sessionsCompleted = useStore((s) => s.pomodoro.sessionsCompleted);
@@ -41,11 +40,11 @@ export function useCoFocusPresence() {
 
     // Build presence payload
     const synamon = activeUid ? collection[activeUid] : undefined;
-    const species = synamon ? getSpecies(synamon.speciesId) : undefined;
     const mood = synamon ? getSynamonMood(synamon) : undefined;
 
     // Task chain steps
     let taskChainSteps: { title: string; completed: boolean }[] | undefined;
+    let lastTaskCompletedAt: number | undefined;
     if (taskChainSharing) {
       const chain = taskChains[selectedChainDate];
       if (chain) {
@@ -64,12 +63,33 @@ export function useCoFocusPresence() {
               return { title: task?.title || '...', completed: task?.completed || false };
             }
           });
+        // Find most recent completed task timestamp
+        const completedTasks = links
+          .map(l => {
+            const t = l.type === 'ct' ? chainTasks[l.taskId] : tasks[l.taskId];
+            return t?.completed && t?.completedAt ? new Date(t.completedAt).getTime() : 0;
+          })
+          .filter(t => t > 0);
+        if (completedTasks.length > 0) {
+          lastTaskCompletedAt = Math.max(...completedTasks);
+        }
       }
+    }
+
+    // Compute anchor value based on active timer mode
+    const state = useStore.getState();
+    let anchorValue: number;
+    if (activeTimerMode === 'stopwatch') {
+      anchorValue = state.pomodoro.stopwatch?.elapsed ?? 0;
+    } else if (activeTimerMode === 'timer') {
+      anchorValue = state.pomodoro.timer?.timeRemaining ?? 0;
+    } else {
+      anchorValue = state.pomodoro.timeRemaining;
     }
 
     // Compute total focus time today from sessions
     const todayStr = new Date().toISOString().slice(0, 10);
-    const todaySessions = useStore.getState().pomodoro.sessions.filter(s => {
+    const todaySessions = state.pomodoro.sessions.filter(s => {
       return new Date(s.startTime).toISOString().slice(0, 10) === todayStr && s.mode === 'work';
     });
     const totalFocusTimeToday = todaySessions.reduce((acc, s) => acc + (s.endTime - s.startTime) / 1000, 0);
@@ -78,9 +98,11 @@ export function useCoFocusPresence() {
       userId: '', // set by trackPresence
       displayName: myDisplayName,
       timerMode: pomodoroMode,
-      timeRemaining: pomodoroTimeRemaining,
+      anchorValue,
+      anchorTimestamp: Date.now(),
       isRunning: pomodoroIsRunning,
       activeTimerMode,
+      lastTaskCompletedAt,
       taskChainVisible: taskChainSharing,
       taskChainSteps,
       synamonSpeciesId: synamon?.speciesId,
@@ -97,8 +119,6 @@ export function useCoFocusPresence() {
     if (debounceRef.current) clearTimeout(debounceRef.current);
     debounceRef.current = setTimeout(() => {
       lastPresenceRef.current = key;
-      const sb = (window as any).__supabase_user_id;
-      // Get user ID from Supabase auth
       import('../utils/coFocusSync').then(({ getSupabaseClient }) => {
         const client = getSupabaseClient();
         if (!client) return;
@@ -113,7 +133,7 @@ export function useCoFocusPresence() {
     };
   }, [
     activeSessionId, myDisplayName,
-    pomodoroMode, pomodoroTimeRemaining, pomodoroIsRunning,
+    pomodoroMode, pomodoroIsRunning,
     activeTimerMode, sessionsCompleted,
     activeUid, collection,
     taskChainSharing, selectedChainDate, taskChains, chainTasks, tasks,

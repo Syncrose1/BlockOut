@@ -7,20 +7,378 @@
       "particles": {
         "sprite": "/cofocus/particles/ember.png",
         "spawnRate": 4,
-        "lifetime": [1.5, 3.5],
-        "drift": { "vx": [-6, 6], "vy": [-22, -8] },
-        "spawnArea": { "x": [180, 220], "y": [110, 135] },
+        "lifetime": [
+          1.5,
+          3.5
+        ],
+        "drift": {
+          "vx": [
+            -6,
+            6
+          ],
+          "vy": [
+            -22,
+            -8
+          ]
+        },
+        "spawnArea": {
+          "x": [
+            180,
+            220
+          ],
+          "y": [
+            110,
+            135
+          ]
+        },
         "alpha": 0.7
       },
       "slots": [
-        { "x": 100, "y": 155 },
-        { "x": 155, "y": 160 },
-        { "x": 200, "y": 148 },
-        { "x": 245, "y": 160 },
-        { "x": 300, "y": 155 }
+        {
+          "x": 70,
+          "y": 158
+        },
+        {
+          "x": 135,
+          "y": 163
+        },
+        {
+          "x": 200,
+          "y": 150
+        },
+        {
+          "x": 265,
+          "y": 163
+        },
+        {
+          "x": 330,
+          "y": 158
+        }
       ],
-      "safeZone": { "x": 40, "y": 0, "w": 320, "h": 180 },
-      "filter": "brightness(0.55) saturate(0.7) hue-rotate(15deg) blur(0.4px)"
+      "safeZone": {
+        "x": 20,
+        "y": 0,
+        "w": 360,
+        "h": 180
+      },
+      "filter": "brightness(0.55) saturate(0.7) hue-rotate(15deg) blur(0.4px)",
+      "audio": [
+        {
+          "type": "crackle",
+          "intensity": 0.7
+        },
+        {
+          "type": "chirp",
+          "frequency": [
+            3500,
+            5000
+          ],
+          "interval": [
+            1,
+            4
+          ],
+          "intensity": 0.3
+        }
+      ],
+      "plateFrames": [
+        "/cofocus/scenes/campfire-frame-00.png",
+        "/cofocus/scenes/campfire-frame-01.png",
+        "/cofocus/scenes/campfire-frame-02.png",
+        "/cofocus/scenes/campfire-frame-03.png",
+        "/cofocus/scenes/campfire-frame-04.png",
+        "/cofocus/scenes/campfire-frame-05.png",
+        "/cofocus/scenes/campfire-frame-06.png",
+        "/cofocus/scenes/campfire-frame-07.png",
+        "/cofocus/scenes/campfire-frame-08.png",
+        "/cofocus/scenes/campfire-frame-09.png",
+        "/cofocus/scenes/campfire-frame-10.png",
+        "/cofocus/scenes/campfire-frame-11.png",
+        "/cofocus/scenes/campfire-frame-12.png",
+        "/cofocus/scenes/campfire-frame-13.png",
+        "/cofocus/scenes/campfire-frame-14.png",
+        "/cofocus/scenes/campfire-frame-15.png",
+        "/cofocus/scenes/campfire-frame-16.png"
+      ]
+    },
+    {
+      "key": "library",
+      "name": "Rainy Library",
+      "plate": "/cofocus/scenes/library-plate.png",
+      "particles": {
+        "sprite": "/cofocus/particles/raindrop.png",
+        "spawnRate": 12,
+        "lifetime": [
+          0.6,
+          1.2
+        ],
+        "drift": {
+          "vx": [
+            -2,
+            2
+          ],
+          "vy": [
+            80,
+            120
+          ]
+        },
+        "spawnArea": {
+          "x": [
+            120,
+            280
+          ],
+          "y": [
+            0,
+            10
+          ]
+        },
+        "alpha": 0.5
+      },
+      "slots": [
+        {
+          "x": 80,
+          "y": 162
+        },
+        {
+          "x": 140,
+          "y": 158
+        },
+        {
+          "x": 200,
+          "y": 155
+        },
+        {
+          "x": 260,
+          "y": 158
+        },
+        {
+          "x": 320,
+          "y": 162
+        }
+      ],
+      "safeZone": {
+        "x": 40,
+        "y": 0,
+        "w": 320,
+        "h": 180
+      },
+      "filter": "brightness(0.5) saturate(0.6) sepia(0.3) blur(0.4px)",
+      "audio": [
+        {
+          "type": "rain",
+          "intensity": 0.6
+        },
+        {
+          "type": "crackle",
+          "intensity": 0.2
+        }
+      ],
+      "plateFrames": [
+        "/cofocus/scenes/library-frame-00.png",
+        "/cofocus/scenes/library-frame-01.png",
+        "/cofocus/scenes/library-frame-02.png",
+        "/cofocus/scenes/library-frame-03.png",
+        "/cofocus/scenes/library-frame-04.png",
+        "/cofocus/scenes/library-frame-05.png",
+        "/cofocus/scenes/library-frame-06.png",
+        "/cofocus/scenes/library-frame-07.png",
+        "/cofocus/scenes/library-frame-08.png",
+        "/cofocus/scenes/library-frame-09.png",
+        "/cofocus/scenes/library-frame-10.png",
+        "/cofocus/scenes/library-frame-11.png",
+        "/cofocus/scenes/library-frame-12.png",
+        "/cofocus/scenes/library-frame-13.png",
+        "/cofocus/scenes/library-frame-14.png",
+        "/cofocus/scenes/library-frame-15.png",
+        "/cofocus/scenes/library-frame-16.png"
+      ]
+    },
+    {
+      "key": "ocean",
+      "name": "Ocean Sunset",
+      "plate": "/cofocus/scenes/ocean-plate.png",
+      "particles": {
+        "sprite": "/cofocus/particles/ember.png",
+        "spawnRate": 1.5,
+        "lifetime": [
+          2,
+          5
+        ],
+        "drift": {
+          "vx": [
+            2,
+            8
+          ],
+          "vy": [
+            -4,
+            -1
+          ]
+        },
+        "spawnArea": {
+          "x": [
+            0,
+            400
+          ],
+          "y": [
+            60,
+            100
+          ]
+        },
+        "alpha": 0.3
+      },
+      "slots": [
+        {
+          "x": 60,
+          "y": 160
+        },
+        {
+          "x": 130,
+          "y": 155
+        },
+        {
+          "x": 200,
+          "y": 150
+        },
+        {
+          "x": 270,
+          "y": 155
+        },
+        {
+          "x": 340,
+          "y": 160
+        }
+      ],
+      "safeZone": {
+        "x": 20,
+        "y": 0,
+        "w": 360,
+        "h": 180
+      },
+      "filter": "brightness(0.6) saturate(1.2) hue-rotate(-5deg) blur(0.4px)",
+      "audio": [
+        {
+          "type": "waves",
+          "intensity": 0.7
+        },
+        {
+          "type": "chirp",
+          "frequency": [
+            800,
+            1500
+          ],
+          "interval": [
+            3,
+            8
+          ],
+          "intensity": 0.15
+        }
+      ],
+      "plateFrames": [
+        "/cofocus/scenes/ocean-frame-00.png",
+        "/cofocus/scenes/ocean-frame-01.png",
+        "/cofocus/scenes/ocean-frame-02.png",
+        "/cofocus/scenes/ocean-frame-03.png",
+        "/cofocus/scenes/ocean-frame-04.png",
+        "/cofocus/scenes/ocean-frame-05.png",
+        "/cofocus/scenes/ocean-frame-06.png",
+        "/cofocus/scenes/ocean-frame-07.png",
+        "/cofocus/scenes/ocean-frame-08.png",
+        "/cofocus/scenes/ocean-frame-09.png",
+        "/cofocus/scenes/ocean-frame-10.png",
+        "/cofocus/scenes/ocean-frame-11.png",
+        "/cofocus/scenes/ocean-frame-12.png",
+        "/cofocus/scenes/ocean-frame-13.png",
+        "/cofocus/scenes/ocean-frame-14.png",
+        "/cofocus/scenes/ocean-frame-15.png",
+        "/cofocus/scenes/ocean-frame-16.png"
+      ]
+    },
+    {
+      "key": "mountain",
+      "name": "Mountain Summit",
+      "plate": "/cofocus/scenes/mountain-plate.png",
+      "particles": {
+        "sprite": "/cofocus/particles/snowflake.png",
+        "spawnRate": 6,
+        "lifetime": [
+          3,
+          6
+        ],
+        "drift": {
+          "vx": [
+            4,
+            12
+          ],
+          "vy": [
+            8,
+            18
+          ]
+        },
+        "spawnArea": {
+          "x": [
+            0,
+            400
+          ],
+          "y": [
+            0,
+            20
+          ]
+        },
+        "alpha": 0.6
+      },
+      "slots": [
+        {
+          "x": 80,
+          "y": 160
+        },
+        {
+          "x": 150,
+          "y": 155
+        },
+        {
+          "x": 210,
+          "y": 150
+        },
+        {
+          "x": 270,
+          "y": 155
+        },
+        {
+          "x": 340,
+          "y": 160
+        }
+      ],
+      "safeZone": {
+        "x": 30,
+        "y": 0,
+        "w": 340,
+        "h": 180
+      },
+      "filter": "brightness(0.45) saturate(0.5) hue-rotate(200deg) blur(0.4px)",
+      "audio": [
+        {
+          "type": "wind",
+          "intensity": 0.6
+        }
+      ],
+      "plateFrames": [
+        "/cofocus/scenes/mountain-frame-00.png",
+        "/cofocus/scenes/mountain-frame-01.png",
+        "/cofocus/scenes/mountain-frame-02.png",
+        "/cofocus/scenes/mountain-frame-03.png",
+        "/cofocus/scenes/mountain-frame-04.png",
+        "/cofocus/scenes/mountain-frame-05.png",
+        "/cofocus/scenes/mountain-frame-06.png",
+        "/cofocus/scenes/mountain-frame-07.png",
+        "/cofocus/scenes/mountain-frame-08.png",
+        "/cofocus/scenes/mountain-frame-09.png",
+        "/cofocus/scenes/mountain-frame-10.png",
+        "/cofocus/scenes/mountain-frame-11.png",
+        "/cofocus/scenes/mountain-frame-12.png",
+        "/cofocus/scenes/mountain-frame-13.png",
+        "/cofocus/scenes/mountain-frame-14.png",
+        "/cofocus/scenes/mountain-frame-15.png",
+        "/cofocus/scenes/mountain-frame-16.png"
+      ]
     }
   ]
 }

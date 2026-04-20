@@ -261,6 +261,10 @@ interface BlockOutState {
   setShowFriendModal: (show: boolean) => void;
   setShowSessionModal: (show: boolean) => void;
   setTaskChainSharing: (sharing: boolean) => void;
+  setAudioNoiseType: (type: 'off' | 'white' | 'brown') => void;
+  setAudioNoiseVolume: (vol: number) => void;
+  setAudioAmbientOn: (on: boolean) => void;
+  setAudioAmbientVolume: (vol: number) => void;
 
   // Synamon system
   synamon: SynamonState;
