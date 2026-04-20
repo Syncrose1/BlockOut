@@ -120,13 +120,11 @@ export function SynamonWidget() {
         color: 'var(--text-primary)',
       }}
     >
-      {/* Pokéball-style icon */}
-      <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
-        <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="1.5"/>
-        <path d="M2 12h20" stroke="currentColor" strokeWidth="1.5"/>
-        <circle cx="12" cy="12" r="3" fill="currentColor"/>
-        <circle cx="12" cy="12" r="1.5" fill="var(--bg-secondary)"/>
-      </svg>
+      <img
+        src="/synamon/Synamon-Logo-cropped.svg"
+        alt="Synamon"
+        style={{ width: 24, height: 24 }}
+      />
     </motion.button>
   );
 

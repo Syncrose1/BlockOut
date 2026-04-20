@@ -1,6 +1,7 @@
 /**
  * Co-Focus Realtime channel management.
  * Handles Supabase Realtime: presence tracking, broadcast events, and subscriptions.
+ * Includes presence polling for auto-kick on tab close.
  */
 
 import { getSupabaseClient } from './coFocusSync';
@@ -9,6 +10,7 @@ import type { CoFocusPresence, ChatMessage } from '../types/coFocus';
 let channel: any = null;
 let currentSessionId: string | null = null;
 let reconnectTimer: ReturnType<typeof setTimeout> | null = null;
+let presencePollTimer: ReturnType<typeof setInterval> | null = null;
 
 export type PresenceCallback = (presences: Record<string, CoFocusPresence>) => void;
 export type BroadcastCallback = (event: string, payload: any) => void;
@@ -29,6 +31,7 @@ export function subscribeToSession(
     sb.removeChannel(channel);
     channel = null;
   }
+  if (presencePollTimer) { clearInterval(presencePollTimer); presencePollTimer = null; }
 
   currentSessionId = sessionId;
   onPresenceSync = presenceCb;
@@ -61,12 +64,27 @@ export function subscribeToSession(
     .on('broadcast', { event: 'session:end' }, ({ payload }: any) => {
       onBroadcast?.('session:end', payload);
     })
+    .on('broadcast', { event: 'scene:change' }, ({ payload }: any) => {
+      onBroadcast?.('scene:change', payload);
+    })
     .subscribe((status: string) => {
       if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
         console.warn('[CoFocus] Channel error/timeout, reconnecting in 3s...');
         scheduleReconnect(sessionId, presenceCb, broadcastCb);
       }
     });
+
+  // Start presence polling every 10 seconds to detect departed participants
+  presencePollTimer = setInterval(() => {
+    if (!channel) return;
+    const state = channel.presenceState();
+    const participantCount = Object.values(state).flat().length;
+    // If no participants remain (room empty), broadcast should handle cleanup
+    // The presence sync event will fire naturally and the callback handles it
+    if (participantCount === 0 && onBroadcast) {
+      onBroadcast('room:empty', {});
+    }
+  }, 10000);
 }
 
 function scheduleReconnect(
@@ -109,8 +127,14 @@ export function broadcastSessionEnd(reason: string) {
   channel.send({ type: 'broadcast', event: 'session:end', payload: { reason } });
 }
 
+export function broadcastSceneChange(sceneKey: string) {
+  if (!channel) return;
+  channel.send({ type: 'broadcast', event: 'scene:change', payload: { sceneKey } });
+}
+
 export function unsubscribeFromSession() {
   if (reconnectTimer) { clearTimeout(reconnectTimer); reconnectTimer = null; }
+  if (presencePollTimer) { clearInterval(presencePollTimer); presencePollTimer = null; }
   const sb = getSupabaseClient();
   if (channel && sb) {
     channel.untrack();

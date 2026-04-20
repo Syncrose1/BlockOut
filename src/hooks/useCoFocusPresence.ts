@@ -16,11 +16,15 @@ export function useCoFocusPresence() {
   const myDisplayName = useStore((s) => s.coFocus.myDisplayName);
   const taskChainSharing = useStore((s) => s.coFocus.taskChainSharing);
 
-  // Timer state — only event-driven values (NOT timeRemaining which ticks every second)
+  // Timer state — subscribe to all mode-specific running states
   const pomodoroMode = useStore((s) => s.pomodoro.mode);
   const pomodoroIsRunning = useStore((s) => s.pomodoro.isRunning);
   const activeTimerMode = useStore((s) => s.pomodoro.activeTimerMode);
   const sessionsCompleted = useStore((s) => s.pomodoro.sessionsCompleted);
+  const timerIsRunning = useStore((s) => s.pomodoro.timer?.isRunning ?? false);
+  const stopwatchIsRunning = useStore((s) => s.pomodoro.stopwatch?.isRunning ?? false);
+  const timerTimeRemaining = useStore((s) => s.pomodoro.timer?.timeRemaining ?? 0);
+  const stopwatchElapsed = useStore((s) => s.pomodoro.stopwatch?.elapsed ?? 0);
 
   // Synamon state
   const activeUid = useStore((s) => s.synamon.activeUid);
@@ -76,6 +80,11 @@ export function useCoFocusPresence() {
       }
     }
 
+    // Compute effective running state based on active timer mode
+    const effectiveIsRunning = activeTimerMode === 'timer' ? timerIsRunning
+      : activeTimerMode === 'stopwatch' ? stopwatchIsRunning
+      : pomodoroIsRunning;
+
     // Compute anchor value based on active timer mode
     const state = useStore.getState();
     let anchorValue: number;
@@ -100,7 +109,7 @@ export function useCoFocusPresence() {
       timerMode: pomodoroMode,
       anchorValue,
       anchorTimestamp: Date.now(),
-      isRunning: pomodoroIsRunning,
+      isRunning: effectiveIsRunning,
       activeTimerMode,
       lastTaskCompletedAt,
       taskChainVisible: taskChainSharing,
@@ -135,6 +144,8 @@ export function useCoFocusPresence() {
     activeSessionId, myDisplayName,
     pomodoroMode, pomodoroIsRunning,
     activeTimerMode, sessionsCompleted,
+    timerIsRunning, stopwatchIsRunning,
+    timerTimeRemaining, stopwatchElapsed,
     activeUid, collection,
     taskChainSharing, selectedChainDate, taskChains, chainTasks, tasks,
   ]);

@@ -218,9 +218,13 @@ export async function joinSessionByCode(userId: string, inviteCode: string) {
     return { session: null, error: 'Session is full' };
   }
 
+  // Upsert: if user already has a row (e.g. tab closed without leaving), re-activate it
   const { error: joinErr } = await (sb as any)
     .from('cofocus_session_participants')
-    .insert({ session_id: session.id, user_id: userId });
+    .upsert(
+      { session_id: session.id, user_id: userId, left_at: null },
+      { onConflict: 'session_id,user_id' }
+    );
 
   if (joinErr) return { session: null, error: joinErr.message };
   return { session, error: null };

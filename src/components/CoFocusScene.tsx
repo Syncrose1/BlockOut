@@ -51,6 +51,8 @@ interface CoFocusSceneProps {
   creatures: CreatureAtSlot[];
   width: number;
   height: number;
+  sceneBlur?: number;
+  creatureBlurEnabled?: boolean;
   style?: React.CSSProperties;
 }
 
@@ -84,14 +86,23 @@ async function loadScenes(): Promise<SceneData[]> {
   return scenesCache!;
 }
 
+/** Extract color-only portion from filter string (remove any blur) */
+function extractColorFilter(filter?: string): string {
+  if (!filter) return '';
+  return filter.replace(/blur\([^)]*\)/g, '').trim();
+}
+
 export function CoFocusScene({
   sceneKey,
   creatures,
   width,
   height,
+  sceneBlur = 0.4,
+  creatureBlurEnabled = false,
   style,
 }: CoFocusSceneProps) {
-  const canvasRef = useRef<HTMLCanvasElement>(null);
+  const bgCanvasRef = useRef<HTMLCanvasElement>(null);
+  const creatureCanvasRef = useRef<HTMLCanvasElement>(null);
   const animRef = useRef<number>(0);
 
   const stateRef = useRef({
@@ -195,23 +206,26 @@ export function CoFocusScene({
   const canvasPixelW = SCENE_W * intScale;
   const canvasPixelH = SCENE_H * intScale;
 
-  // Render loop
+  // Render loop — draws background on bgCanvas, creatures on creatureCanvas
   const tick = useCallback((now: number) => {
     const s = stateRef.current;
     if (!s.loaded) { animRef.current = requestAnimationFrame(tick); return; }
 
-    const canvas = canvasRef.current;
-    if (!canvas) { animRef.current = requestAnimationFrame(tick); return; }
-    const ctx = canvas.getContext('2d');
-    if (!ctx) { animRef.current = requestAnimationFrame(tick); return; }
+    const bgCanvas = bgCanvasRef.current;
+    const crCanvas = creatureCanvasRef.current;
+    if (!bgCanvas || !crCanvas) { animRef.current = requestAnimationFrame(tick); return; }
+    const bgCtx = bgCanvas.getContext('2d');
+    const crCtx = crCanvas.getContext('2d');
+    if (!bgCtx || !crCtx) { animRef.current = requestAnimationFrame(tick); return; }
 
     let dt = s.lastT ? (now - s.lastT) / 1000 : 0;
     s.lastT = now;
     if (dt > 0.25) dt = 0.25;
 
-    ctx.imageSmoothingEnabled = false;
-    ctx.setTransform(intScale, 0, 0, intScale, 0, 0);
-    ctx.clearRect(0, 0, SCENE_W, SCENE_H);
+    // ─── Background canvas ─────────────────────────────────────────────
+    bgCtx.imageSmoothingEnabled = false;
+    bgCtx.setTransform(intScale, 0, 0, intScale, 0, 0);
+    bgCtx.clearRect(0, 0, SCENE_W, SCENE_H);
 
     // 1) Plate background (animated or static)
     if (s.plateFrameImgs.length > 0) {
@@ -223,10 +237,10 @@ export function CoFocusScene({
       }
       const frameImg = s.plateFrameImgs[s.plateFrameIdx];
       if (frameImg?.naturalWidth) {
-        ctx.drawImage(frameImg, 0, 0, SCENE_W, SCENE_H);
+        bgCtx.drawImage(frameImg, 0, 0, SCENE_W, SCENE_H);
       }
     } else if (s.plateImg?.naturalWidth) {
-      ctx.drawImage(s.plateImg, 0, 0, SCENE_W, SCENE_H);
+      bgCtx.drawImage(s.plateImg, 0, 0, SCENE_W, SCENE_H);
     }
 
     // 2) Hero animation (campfire overlay)
@@ -240,7 +254,7 @@ export function CoFocusScene({
       const img = s.heroFrames[s.heroIdx];
       if (img?.naturalWidth) {
         const heroSize = s.scene.hero.size;
-        ctx.drawImage(
+        bgCtx.drawImage(
           img,
           s.scene.hero.anchor.x, s.scene.hero.anchor.y,
           heroSize, heroSize,
@@ -248,81 +262,7 @@ export function CoFocusScene({
       }
     }
 
-    // 3) Creatures at slot positions — with flip-to-center + reduced size + labels
-    const nowMs = Date.now();
-    for (const cs of s.creatureSlots) {
-      if (cs.frames.length === 0) continue;
-      cs.acc += dt;
-      const interval = 1 / CREATURE_FPS;
-      while (cs.acc >= interval) {
-        cs.acc -= interval;
-        cs.idx = (cs.idx + 1) % cs.frames.length;
-      }
-      const img = cs.frames[cs.idx];
-      if (img?.naturalWidth) {
-        // Reduced scale: 0.55 → 0.65 → 0.75
-        const stageScale = 0.55 + (cs.stage - 1) * 0.1;
-        const drawW = Math.round(img.naturalWidth * stageScale);
-        const drawH = Math.round(img.naturalHeight * stageScale);
-
-        // Flip logic: creatures left of center face right (toward center)
-        const shouldFlip = cs.slot.x < SCENE_CENTER_X - 10;
-
-        ctx.save();
-        if (shouldFlip) {
-          // Flip horizontally around slot center
-          ctx.translate(cs.slot.x, 0);
-          ctx.scale(-1, 1);
-          ctx.translate(-cs.slot.x, 0);
-        }
-        const x = Math.round(cs.slot.x - drawW / 2);
-        const y = Math.round(cs.slot.y - drawH);
-        ctx.drawImage(img, x, y, drawW, drawH);
-        ctx.restore();
-
-        // ─── Labels ───────────────────────────────────────────────────
-        // Username above creature
-        if (cs.displayName) {
-          ctx.save();
-          ctx.font = '7px sans-serif';
-          ctx.textAlign = 'center';
-          ctx.textBaseline = 'bottom';
-          // Dark shadow for readability
-          ctx.fillStyle = 'rgba(0,0,0,0.7)';
-          ctx.fillText(cs.displayName, cs.slot.x + 1, y - 3);
-          ctx.fillStyle = 'white';
-          ctx.fillText(cs.displayName, cs.slot.x, y - 4);
-          ctx.restore();
-        }
-
-        // Status text below creature
-        ctx.save();
-        ctx.font = '6px sans-serif';
-        ctx.textAlign = 'center';
-        ctx.textBaseline = 'top';
-        const statusY = cs.slot.y + 2;
-
-        if (cs.lastTaskCompletedAt && (nowMs - cs.lastTaskCompletedAt) < 120_000) {
-          ctx.fillStyle = 'rgba(0,0,0,0.7)';
-          ctx.fillText('Completed a Task!', cs.slot.x + 1, statusY + 1);
-          ctx.fillStyle = 'hsl(142, 72%, 50%)';
-          ctx.fillText('Completed a Task!', cs.slot.x, statusY);
-        } else if (cs.isRunning) {
-          ctx.fillStyle = 'rgba(0,0,0,0.7)';
-          ctx.fillText('Focusing...', cs.slot.x + 1, statusY + 1);
-          ctx.fillStyle = 'white';
-          ctx.fillText('Focusing...', cs.slot.x, statusY);
-        } else {
-          ctx.fillStyle = 'rgba(0,0,0,0.5)';
-          ctx.fillText('Resting...', cs.slot.x + 1, statusY + 1);
-          ctx.fillStyle = 'rgba(255,255,255,0.5)';
-          ctx.fillText('Resting...', cs.slot.x, statusY);
-        }
-        ctx.restore();
-      }
-    }
-
-    // 4) Particles
+    // 3) Particles (drawn on background canvas)
     if (s.particleSprite?.naturalWidth && s.scene?.particles) {
       const p = s.scene.particles;
       const cappedDt = Math.min(dt, PARTICLE_DT_CAP);
@@ -348,12 +288,87 @@ export function CoFocusScene({
         inst.y += inst.vy * cappedDt;
         const t = inst.age / inst.life;
         const fade = t < 0.15 ? t / 0.15 : t > 0.85 ? (1 - t) / 0.15 : 1;
-        ctx.globalAlpha = inst.alpha * fade;
-        ctx.drawImage(s.particleSprite!, Math.round(inst.x), Math.round(inst.y));
+        bgCtx.globalAlpha = inst.alpha * fade;
+        bgCtx.drawImage(s.particleSprite!, Math.round(inst.x), Math.round(inst.y));
         alive.push(inst);
       }
-      ctx.globalAlpha = 1;
+      bgCtx.globalAlpha = 1;
       s.livingParticles = alive;
+    }
+
+    // ─── Creature canvas ───────────────────────────────────────────────
+    crCtx.imageSmoothingEnabled = false;
+    crCtx.setTransform(intScale, 0, 0, intScale, 0, 0);
+    crCtx.clearRect(0, 0, SCENE_W, SCENE_H);
+
+    const nowMs = Date.now();
+    for (const cs of s.creatureSlots) {
+      if (cs.frames.length === 0) continue;
+      cs.acc += dt;
+      const interval = 1 / CREATURE_FPS;
+      while (cs.acc >= interval) {
+        cs.acc -= interval;
+        cs.idx = (cs.idx + 1) % cs.frames.length;
+      }
+      const img = cs.frames[cs.idx];
+      if (img?.naturalWidth) {
+        // Smaller scale: 0.35 / 0.43 / 0.51
+        const stageScale = 0.35 + (cs.stage - 1) * 0.08;
+        const drawW = Math.round(img.naturalWidth * stageScale);
+        const drawH = Math.round(img.naturalHeight * stageScale);
+
+        // Flip logic: creatures left of center face right (toward center)
+        const shouldFlip = cs.slot.x < SCENE_CENTER_X - 10;
+
+        crCtx.save();
+        if (shouldFlip) {
+          crCtx.translate(cs.slot.x, 0);
+          crCtx.scale(-1, 1);
+          crCtx.translate(-cs.slot.x, 0);
+        }
+        const x = Math.round(cs.slot.x - drawW / 2);
+        const y = Math.round(cs.slot.y - drawH);
+        crCtx.drawImage(img, x, y, drawW, drawH);
+        crCtx.restore();
+
+        // ─── Labels ───────────────────────────────────────────────────
+        if (cs.displayName) {
+          crCtx.save();
+          crCtx.font = '7px sans-serif';
+          crCtx.textAlign = 'center';
+          crCtx.textBaseline = 'bottom';
+          crCtx.fillStyle = 'rgba(0,0,0,0.7)';
+          crCtx.fillText(cs.displayName, cs.slot.x + 1, y - 3);
+          crCtx.fillStyle = 'white';
+          crCtx.fillText(cs.displayName, cs.slot.x, y - 4);
+          crCtx.restore();
+        }
+
+        // Status text below creature
+        crCtx.save();
+        crCtx.font = '6px sans-serif';
+        crCtx.textAlign = 'center';
+        crCtx.textBaseline = 'top';
+        const statusY = cs.slot.y + 2;
+
+        if (cs.lastTaskCompletedAt && (nowMs - cs.lastTaskCompletedAt) < 120_000) {
+          crCtx.fillStyle = 'rgba(0,0,0,0.7)';
+          crCtx.fillText('Completed a Task!', cs.slot.x + 1, statusY + 1);
+          crCtx.fillStyle = 'hsl(142, 72%, 50%)';
+          crCtx.fillText('Completed a Task!', cs.slot.x, statusY);
+        } else if (cs.isRunning) {
+          crCtx.fillStyle = 'rgba(0,0,0,0.7)';
+          crCtx.fillText('Focusing...', cs.slot.x + 1, statusY + 1);
+          crCtx.fillStyle = 'white';
+          crCtx.fillText('Focusing...', cs.slot.x, statusY);
+        } else {
+          crCtx.fillStyle = 'rgba(0,0,0,0.5)';
+          crCtx.fillText('Resting...', cs.slot.x + 1, statusY + 1);
+          crCtx.fillStyle = 'rgba(255,255,255,0.5)';
+          crCtx.fillText('Resting...', cs.slot.x, statusY);
+        }
+        crCtx.restore();
+      }
     }
 
     animRef.current = requestAnimationFrame(tick);
@@ -371,7 +386,19 @@ export function CoFocusScene({
   const canvasH = SCENE_H * cssScale;
 
   const scene = stateRef.current.scene;
-  const filter = scene?.filter || 'blur(0.4px)';
+  const colorFilter = extractColorFilter(scene?.filter);
+  const bgFilter = `${colorFilter} blur(${sceneBlur}px)`.trim();
+  const crFilter = creatureBlurEnabled ? `${colorFilter} blur(${sceneBlur}px)`.trim() : colorFilter;
+
+  const canvasBase: React.CSSProperties = {
+    width: canvasW,
+    height: canvasH,
+    imageRendering: 'pixelated',
+    position: 'absolute',
+    top: '50%',
+    left: '50%',
+    transform: 'translate(-50%, -50%)',
+  };
 
   return (
     <div
@@ -383,19 +410,24 @@ export function CoFocusScene({
         ...style,
       }}
     >
+      {/* Background canvas: plate + hero + particles */}
       <canvas
-        ref={canvasRef}
+        ref={bgCanvasRef}
         width={canvasPixelW}
         height={canvasPixelH}
         style={{
-          width: canvasW,
-          height: canvasH,
-          imageRendering: 'pixelated',
-          position: 'absolute',
-          top: '50%',
-          left: '50%',
-          transform: 'translate(-50%, -50%)',
-          filter,
+          ...canvasBase,
+          filter: bgFilter || undefined,
+        }}
+      />
+      {/* Creature canvas: creatures + labels */}
+      <canvas
+        ref={creatureCanvasRef}
+        width={canvasPixelW}
+        height={canvasPixelH}
+        style={{
+          ...canvasBase,
+          filter: crFilter || undefined,
         }}
       />
     </div>

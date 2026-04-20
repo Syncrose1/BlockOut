@@ -85,10 +85,18 @@ export interface CoFocusState {
   unreadCount: number;
 
   // Audio
-  audioNoiseType: 'off' | 'white' | 'brown';
+  audioNoiseType: 'off' | 'white' | 'brown' | 'pink';
   audioNoiseVolume: number;
   audioAmbientOn: boolean;
   audioAmbientVolume: number;
+
+  // Visual
+  sceneBlur: number;            // 0–5 px, default 0.4
+  creatureBlurEnabled: boolean; // default false
+
+  // Noise params
+  noiseLowCut: number;   // highpass Hz (20–2000)
+  noiseHighCut: number;  // lowpass Hz (200–20000)
 
   // UI
   coFocusPanelOpen: boolean;
@@ -115,13 +123,19 @@ export const initialCoFocusState: CoFocusState = {
   chatOpen: false,
   unreadCount: 0,
 
-  audioNoiseType: (localStorage.getItem('cofocus-noise-type') as 'off' | 'white' | 'brown') || 'off',
+  audioNoiseType: (localStorage.getItem('cofocus-noise-type') as 'off' | 'white' | 'brown' | 'pink') || 'off',
   audioNoiseVolume: parseFloat(localStorage.getItem('cofocus-noise-vol') || '0.3'),
   audioAmbientOn: localStorage.getItem('cofocus-ambient-on') !== 'false',
   audioAmbientVolume: parseFloat(localStorage.getItem('cofocus-ambient-vol') || '0.5'),
 
+  sceneBlur: parseFloat(localStorage.getItem('cofocus-scene-blur') || '0.4'),
+  creatureBlurEnabled: localStorage.getItem('cofocus-creature-blur') === 'true',
+
+  noiseLowCut: parseFloat(localStorage.getItem('cofocus-noise-lowcut') || '20'),
+  noiseHighCut: parseFloat(localStorage.getItem('cofocus-noise-highcut') || '20000'),
+
   coFocusPanelOpen: false,
   showFriendModal: false,
   showSessionModal: false,
-  taskChainSharing: false,
+  taskChainSharing: localStorage.getItem('cofocus-taskchain-sharing') !== 'false',
 };

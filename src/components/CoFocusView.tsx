@@ -6,7 +6,8 @@ import { CoFocusChat } from './CoFocusChat';
 import { CoFocusScene } from './CoFocusScene';
 import { useIsMobile } from '../hooks/useIsMobile';
 import * as audio from '../utils/coFocusAudio';
-import type { AmbientLayerConfig } from '../utils/coFocusAudio';
+import { broadcastSceneChange } from '../utils/coFocusRealtime';
+import type { AmbientLayerConfig, AmbientVariant } from '../utils/coFocusAudio';
 
 // ─── Scene data type ────────────────────────────────────────────────────────
 interface SceneOption {
@@ -46,10 +47,24 @@ export function CoFocusView() {
   const audioNoiseVolume = useStore((s) => s.coFocus.audioNoiseVolume);
   const audioAmbientOn = useStore((s) => s.coFocus.audioAmbientOn);
   const audioAmbientVolume = useStore((s) => s.coFocus.audioAmbientVolume);
+  const noiseLowCut = useStore((s) => s.coFocus.noiseLowCut);
+  const noiseHighCut = useStore((s) => s.coFocus.noiseHighCut);
   const setAudioNoiseType = useStore((s) => s.setAudioNoiseType);
   const setAudioNoiseVolume = useStore((s) => s.setAudioNoiseVolume);
   const setAudioAmbientOn = useStore((s) => s.setAudioAmbientOn);
   const setAudioAmbientVolume = useStore((s) => s.setAudioAmbientVolume);
+  const setNoiseLowCut = useStore((s) => s.setNoiseLowCut);
+  const setNoiseHighCut = useStore((s) => s.setNoiseHighCut);
+
+  // Visual state
+  const sceneBlur = useStore((s) => s.coFocus.sceneBlur);
+  const creatureBlurEnabled = useStore((s) => s.coFocus.creatureBlurEnabled);
+  const setSceneBlur = useStore((s) => s.setSceneBlur);
+  const setCreatureBlurEnabled = useStore((s) => s.setCreatureBlurEnabled);
+
+  // Task chain sharing
+  const taskChainSharing = useStore((s) => s.coFocus.taskChainSharing);
+  const setTaskChainSharing = useStore((s) => s.setTaskChainSharing);
 
   const setShowSessionModal = useStore((s) => s.setShowSessionModal);
   const setShowFriendModal = useStore((s) => s.setShowFriendModal);
@@ -66,6 +81,12 @@ export function CoFocusView() {
   const [fadingOut, setFadingOut] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
   const [containerSize, setContainerSize] = useState({ w: 800, h: 500 });
+  // Track selected audio variant per scene (persisted in localStorage)
+  const [selectedVariants, setSelectedVariants] = useState<Record<string, string>>(() => {
+    try {
+      return JSON.parse(localStorage.getItem('cofocus-audio-variants') || '{}');
+    } catch { return {}; }
+  });
 
   const btnSize = isMobile ? 44 : 36;
 
@@ -102,6 +123,10 @@ export function CoFocusView() {
   }, [audioNoiseVolume]);
 
   useEffect(() => {
+    audio.setNoiseParams({ lowCut: noiseLowCut, highCut: noiseHighCut });
+  }, [noiseLowCut, noiseHighCut]);
+
+  useEffect(() => {
     audio.setAmbientOn(audioAmbientOn);
   }, [audioAmbientOn]);
 
@@ -109,21 +134,41 @@ export function CoFocusView() {
     audio.setAmbientVolume(audioAmbientVolume);
   }, [audioAmbientVolume]);
 
-  // Load ambient audio for current scene
+  // Load ambient audio for current scene (with variant overrides)
   useEffect(() => {
     const scene = scenes.find(s => s.key === sessionSceneKey);
     if (scene?.audio && audioAmbientOn) {
-      audio.loadAmbientForScene(scene.audio);
+      // Apply selected variant overrides to sample layers
+      const configs = scene.audio.map(cfg => {
+        if (cfg.type === 'sample' && cfg.variants && cfg.variants.length > 0) {
+          const selectedSrc = selectedVariants[sessionSceneKey];
+          if (selectedSrc) {
+            return { ...cfg, src: selectedSrc };
+          }
+        }
+        return cfg;
+      });
+      audio.loadAmbientForScene(configs);
       audio.setAmbientVolume(audioAmbientVolume);
     } else {
       audio.loadAmbientForScene([]);
     }
-  }, [sessionSceneKey, scenes, audioAmbientOn]);
+  }, [sessionSceneKey, scenes, audioAmbientOn, selectedVariants]);
 
   // Cleanup audio on unmount
   useEffect(() => {
     return () => { audio.cleanup(); };
   }, []);
+
+  // ─── Tab close: untrack presence ──────────────────────────────────────────
+  useEffect(() => {
+    if (!activeSessionId) return;
+    const handleBeforeUnload = () => {
+      import('../utils/coFocusRealtime').then(rt => rt.unsubscribeFromSession());
+    };
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    return () => window.removeEventListener('beforeunload', handleBeforeUnload);
+  }, [activeSessionId]);
 
   // ─── Mobile: mutual exclusion of sidebar/chat ────────────────────────────
   const toggleSidebar = useCallback(() => {
@@ -179,6 +224,19 @@ export function CoFocusView() {
     }
     setEditingName(false);
   }, [nameInput, myDisplayName, updateCoFocusDisplayName]);
+
+  const handleSceneChange = useCallback((newKey: string) => {
+    if (newKey === sessionSceneKey) return;
+    setFadingOut(true);
+    setTimeout(() => {
+      useStore.setState(s => ({
+        coFocus: { ...s.coFocus, sessionSceneKey: newKey },
+      }));
+      // Broadcast scene change to all participants
+      broadcastSceneChange(newKey);
+      setFadingOut(false);
+    }, 600);
+  }, [sessionSceneKey]);
 
   const pendingRequests = friends.filter(f => f.status === 'pending' && f.direction === 'incoming').length;
 
@@ -357,6 +415,29 @@ export function CoFocusView() {
             }}>{pendingRequests}</span>
           )}
         </button>
+        {/* Task chain sharing toggle */}
+        <div style={{
+          marginTop: 8,
+          display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+        }}>
+          <span style={{ fontSize: 11, color: 'var(--text-secondary)' }}>Share Task Chain</span>
+          <button
+            onClick={() => {
+              const next = !taskChainSharing;
+              setTaskChainSharing(next);
+              localStorage.setItem('cofocus-taskchain-sharing', String(next));
+            }}
+            style={{
+              padding: '3px 10px',
+              background: taskChainSharing ? 'var(--accent)' : 'var(--bg-tertiary)',
+              border: `1px solid ${taskChainSharing ? 'var(--accent)' : 'var(--border)'}`,
+              borderRadius: 'var(--radius-sm)',
+              color: taskChainSharing ? 'white' : 'var(--text-tertiary)',
+              fontSize: 10, fontWeight: 600,
+              cursor: 'pointer',
+            }}
+          >{taskChainSharing ? 'On' : 'Off'}</button>
+        </div>
       </div>
 
       {/* Scene switcher */}
@@ -366,17 +447,7 @@ export function CoFocusView() {
           {scenes.map(scene => (
             <button
               key={scene.key}
-              onClick={() => {
-                if (scene.key !== sessionSceneKey) {
-                  setFadingOut(true);
-                  setTimeout(() => {
-                    useStore.setState(s => ({
-                      coFocus: { ...s.coFocus, sessionSceneKey: scene.key },
-                    }));
-                    setFadingOut(false);
-                  }, 600);
-                }
-              }}
+              onClick={() => handleSceneChange(scene.key)}
               style={{
                 display: 'flex', alignItems: 'center', gap: 10,
                 padding: '8px 14px',
@@ -406,6 +477,39 @@ export function CoFocusView() {
         </div>
       </div>
 
+      {/* Visual controls */}
+      <div>
+        {sectionLabel('Visual')}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+          <div>
+            <div style={{ fontSize: 10, color: 'var(--text-tertiary)', marginBottom: 2 }}>
+              Scene Blur ({sceneBlur.toFixed(1)}px)
+            </div>
+            <input
+              type="range" min="0" max="5" step="0.1"
+              value={sceneBlur}
+              onChange={(e) => setSceneBlur(parseFloat(e.target.value))}
+              style={{ width: '100%', accentColor: 'var(--accent)' }}
+            />
+          </div>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+            <span style={{ fontSize: 11, color: 'var(--text-secondary)' }}>Blur creatures</span>
+            <button
+              onClick={() => setCreatureBlurEnabled(!creatureBlurEnabled)}
+              style={{
+                padding: '3px 10px',
+                background: creatureBlurEnabled ? 'var(--accent)' : 'var(--bg-tertiary)',
+                border: `1px solid ${creatureBlurEnabled ? 'var(--accent)' : 'var(--border)'}`,
+                borderRadius: 'var(--radius-sm)',
+                color: creatureBlurEnabled ? 'white' : 'var(--text-tertiary)',
+                fontSize: 10, fontWeight: 600,
+                cursor: 'pointer',
+              }}
+            >{creatureBlurEnabled ? 'On' : 'Off'}</button>
+          </div>
+        </div>
+      </div>
+
       {/* Audio controls */}
       <div>
         {sectionLabel('Audio')}
@@ -414,7 +518,7 @@ export function CoFocusView() {
           <div>
             <div style={{ fontSize: 11, color: 'var(--text-secondary)', marginBottom: 4 }}>Background Noise</div>
             <div style={{ display: 'flex', gap: 4 }}>
-              {(['off', 'white', 'brown'] as const).map(t => (
+              {(['off', 'white', 'pink', 'brown'] as const).map(t => (
                 <button
                   key={t}
                   onClick={() => setAudioNoiseType(t)}
@@ -433,17 +537,41 @@ export function CoFocusView() {
               ))}
             </div>
           </div>
-          {/* Noise volume */}
+          {/* Noise volume + fine-grained controls — only when noise is enabled */}
           {audioNoiseType !== 'off' && (
-            <div>
-              <div style={{ fontSize: 10, color: 'var(--text-tertiary)', marginBottom: 2 }}>Noise Volume</div>
-              <input
-                type="range" min="0" max="1" step="0.05"
-                value={audioNoiseVolume}
-                onChange={(e) => setAudioNoiseVolume(parseFloat(e.target.value))}
-                style={{ width: '100%', accentColor: 'var(--accent)' }}
-              />
-            </div>
+            <>
+              <div>
+                <div style={{ fontSize: 10, color: 'var(--text-tertiary)', marginBottom: 2 }}>Noise Volume</div>
+                <input
+                  type="range" min="0" max="1" step="0.05"
+                  value={audioNoiseVolume}
+                  onChange={(e) => setAudioNoiseVolume(parseFloat(e.target.value))}
+                  style={{ width: '100%', accentColor: 'var(--accent)' }}
+                />
+              </div>
+              <div>
+                <div style={{ fontSize: 10, color: 'var(--text-tertiary)', marginBottom: 2 }}>
+                  Low Cut ({noiseLowCut}Hz)
+                </div>
+                <input
+                  type="range" min="20" max="2000" step="10"
+                  value={noiseLowCut}
+                  onChange={(e) => setNoiseLowCut(parseFloat(e.target.value))}
+                  style={{ width: '100%', accentColor: 'var(--accent)' }}
+                />
+              </div>
+              <div>
+                <div style={{ fontSize: 10, color: 'var(--text-tertiary)', marginBottom: 2 }}>
+                  High Cut ({noiseHighCut >= 20000 ? '20k' : `${Math.round(noiseHighCut / 100) / 10}k`}Hz)
+                </div>
+                <input
+                  type="range" min="200" max="20000" step="100"
+                  value={noiseHighCut}
+                  onChange={(e) => setNoiseHighCut(parseFloat(e.target.value))}
+                  style={{ width: '100%', accentColor: 'var(--accent)' }}
+                />
+              </div>
+            </>
           )}
           {/* Scene sounds toggle + volume */}
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
@@ -462,15 +590,57 @@ export function CoFocusView() {
             >{audioAmbientOn ? 'On' : 'Off'}</button>
           </div>
           {audioAmbientOn && (
-            <div>
-              <div style={{ fontSize: 10, color: 'var(--text-tertiary)', marginBottom: 2 }}>Scene Volume</div>
-              <input
-                type="range" min="0" max="1" step="0.05"
-                value={audioAmbientVolume}
-                onChange={(e) => setAudioAmbientVolume(parseFloat(e.target.value))}
-                style={{ width: '100%', accentColor: 'var(--accent)' }}
-              />
-            </div>
+            <>
+              <div>
+                <div style={{ fontSize: 10, color: 'var(--text-tertiary)', marginBottom: 2 }}>Scene Volume</div>
+                <input
+                  type="range" min="0" max="1" step="0.05"
+                  value={audioAmbientVolume}
+                  onChange={(e) => setAudioAmbientVolume(parseFloat(e.target.value))}
+                  style={{ width: '100%', accentColor: 'var(--accent)' }}
+                />
+              </div>
+              {/* Audio variant selector — show if current scene has sample layers with variants */}
+              {(() => {
+                const scene = scenes.find(s => s.key === sessionSceneKey);
+                const sampleLayers = scene?.audio?.filter(
+                  (a: AmbientLayerConfig) => a.type === 'sample' && a.variants && a.variants.length > 1
+                ) || [];
+                if (sampleLayers.length === 0) return null;
+                const layer = sampleLayers[0];
+                const variants = layer.variants!;
+                const currentSrc = selectedVariants[sessionSceneKey] || layer.src || variants[0].src;
+                return (
+                  <div>
+                    <div style={{ fontSize: 10, color: 'var(--text-tertiary)', marginBottom: 4 }}>Sound Variant</div>
+                    <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
+                      {variants.map((v: AmbientVariant) => (
+                        <button
+                          key={v.src}
+                          onClick={() => {
+                            const next = { ...selectedVariants, [sessionSceneKey]: v.src };
+                            setSelectedVariants(next);
+                            localStorage.setItem('cofocus-audio-variants', JSON.stringify(next));
+                          }}
+                          style={{
+                            flex: 1,
+                            minWidth: 60,
+                            padding: '5px 8px',
+                            background: currentSrc === v.src ? 'var(--accent)' : 'var(--bg-tertiary)',
+                            border: `1px solid ${currentSrc === v.src ? 'var(--accent)' : 'var(--border)'}`,
+                            borderRadius: 'var(--radius-sm)',
+                            color: currentSrc === v.src ? 'white' : 'var(--text-secondary)',
+                            fontSize: 10, fontWeight: 600,
+                            cursor: 'pointer',
+                            whiteSpace: 'nowrap',
+                          }}
+                        >{v.label}</button>
+                      ))}
+                    </div>
+                  </div>
+                );
+              })()}
+            </>
           )}
         </div>
       </div>
@@ -512,6 +682,8 @@ export function CoFocusView() {
         creatures={activeSessionId ? sceneCreatures : []}
         width={containerSize.w}
         height={containerSize.h}
+        sceneBlur={sceneBlur}
+        creatureBlurEnabled={creatureBlurEnabled}
         style={{
           position: 'absolute',
           inset: 0,

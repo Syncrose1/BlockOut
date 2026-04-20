@@ -36,23 +36,23 @@
       "slots": [
         {
           "x": 70,
-          "y": 158
+          "y": 161
         },
         {
           "x": 135,
-          "y": 163
+          "y": 166
         },
         {
           "x": 200,
-          "y": 150
+          "y": 153
         },
         {
           "x": 265,
-          "y": 163
+          "y": 166
         },
         {
           "x": 330,
-          "y": 158
+          "y": 161
         }
       ],
       "safeZone": {
@@ -61,11 +61,16 @@
         "w": 360,
         "h": 180
       },
-      "filter": "brightness(0.55) saturate(0.7) hue-rotate(15deg) blur(0.4px)",
+      "filter": "brightness(0.55) saturate(0.7) hue-rotate(15deg)",
       "audio": [
         {
-          "type": "crackle",
-          "intensity": 0.7
+          "type": "sample",
+          "src": "/cofocus/audio/campfire-1.mp3",
+          "intensity": 0.7,
+          "variants": [
+            { "src": "/cofocus/audio/campfire-1.mp3", "label": "Campfire 1" },
+            { "src": "/cofocus/audio/campfire-2.mp3", "label": "Campfire 2" }
+          ]
         },
         {
           "type": "chirp",
@@ -136,23 +141,23 @@
       "slots": [
         {
           "x": 80,
-          "y": 162
+          "y": 165
         },
         {
           "x": 140,
-          "y": 158
+          "y": 161
         },
         {
           "x": 200,
-          "y": 155
-        },
-        {
-          "x": 260,
           "y": 158
         },
         {
+          "x": 260,
+          "y": 161
+        },
+        {
           "x": 320,
-          "y": 162
+          "y": 165
         }
       ],
       "safeZone": {
@@ -161,14 +166,28 @@
         "w": 320,
         "h": 180
       },
-      "filter": "brightness(0.5) saturate(0.6) sepia(0.3) blur(0.4px)",
+      "filter": "brightness(0.5) saturate(0.6) sepia(0.3)",
       "audio": [
         {
-          "type": "rain",
-          "intensity": 0.6
+          "type": "sample",
+          "src": "/cofocus/audio/rain-1.mp3",
+          "intensity": 0.6,
+          "variants": [
+            { "src": "/cofocus/audio/rain-1.mp3", "label": "Rain 1" },
+            { "src": "/cofocus/audio/rain-2.mp3", "label": "Rain 2" },
+            { "src": "/cofocus/audio/rain-3.mp3", "label": "Rain 3" }
+          ]
         },
         {
-          "type": "crackle",
+          "type": "chirp",
+          "frequency": [
+            3000,
+            4500
+          ],
+          "interval": [
+            2,
+            6
+          ],
           "intensity": 0.2
         }
       ],
@@ -228,23 +247,23 @@
       "slots": [
         {
           "x": 60,
-          "y": 160
+          "y": 163
         },
         {
           "x": 130,
-          "y": 155
+          "y": 158
         },
         {
           "x": 200,
-          "y": 150
+          "y": 153
         },
         {
           "x": 270,
-          "y": 155
+          "y": 158
         },
         {
           "x": 340,
-          "y": 160
+          "y": 163
         }
       ],
       "safeZone": {
@@ -253,7 +272,7 @@
         "w": 360,
         "h": 180
       },
-      "filter": "brightness(0.6) saturate(1.2) hue-rotate(-5deg) blur(0.4px)",
+      "filter": "brightness(0.6) saturate(1.2) hue-rotate(-5deg)",
       "audio": [
         {
           "type": "waves",
@@ -328,23 +347,23 @@
       "slots": [
         {
           "x": 80,
-          "y": 160
+          "y": 163
         },
         {
           "x": 150,
-          "y": 155
+          "y": 158
         },
         {
           "x": 210,
-          "y": 150
+          "y": 153
         },
         {
           "x": 270,
-          "y": 155
+          "y": 158
         },
         {
           "x": 340,
-          "y": 160
+          "y": 163
         }
       ],
       "safeZone": {
@@ -353,7 +372,7 @@
         "w": 340,
         "h": 180
       },
-      "filter": "brightness(0.45) saturate(0.5) hue-rotate(200deg) blur(0.4px)",
+      "filter": "brightness(0.45) saturate(0.5) hue-rotate(200deg)",
       "audio": [
         {
           "type": "wind",

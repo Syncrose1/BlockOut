@@ -79,6 +79,36 @@ export function makeCoFocusActions(set: (fn: (s: any) => any) => void, get: () =
           unreadCount: 0,
         },
       }));
+    } else if (event === 'scene:change') {
+      // Another participant changed the scene
+      const { sceneKey } = payload;
+      if (sceneKey) {
+        set((s: any) => ({
+          coFocus: { ...s.coFocus, sessionSceneKey: sceneKey },
+        }));
+      }
+    } else if (event === 'room:empty') {
+      // All participants left (tab close detection) — close the room
+      const isHost = state.coFocus.isHost;
+      if (isHost) {
+        // Host detected empty room — end session
+        rt.broadcastSessionEnd('Room empty — all participants left');
+        const sessionId = state.coFocus.activeSessionId;
+        if (sessionId) sync.endSession(sessionId);
+      }
+      rt.unsubscribeFromSession();
+      set((s: any) => ({
+        coFocus: {
+          ...s.coFocus,
+          activeSessionId: null,
+          isHost: false,
+          sessionHostId: null,
+          sessionInviteCode: null,
+          participants: {},
+          chatMessages: [],
+          unreadCount: 0,
+        },
+      }));
     }
   }
 
@@ -369,7 +399,7 @@ export function makeCoFocusActions(set: (fn: (s: any) => any) => void, get: () =
     },
 
     // ─── Audio ─────────────────────────────────────────────────────────
-    setAudioNoiseType: (type: 'off' | 'white' | 'brown') => {
+    setAudioNoiseType: (type: 'off' | 'white' | 'brown' | 'pink') => {
       localStorage.setItem('cofocus-noise-type', type);
       set((s: any) => ({ coFocus: { ...s.coFocus, audioNoiseType: type } }));
     },
@@ -384,6 +414,26 @@ export function makeCoFocusActions(set: (fn: (s: any) => any) => void, get: () =
     setAudioAmbientVolume: (vol: number) => {
       localStorage.setItem('cofocus-ambient-vol', String(vol));
       set((s: any) => ({ coFocus: { ...s.coFocus, audioAmbientVolume: vol } }));
+    },
+
+    // ─── Visual ─────────────────────────────────────────────────────────
+    setSceneBlur: (blur: number) => {
+      localStorage.setItem('cofocus-scene-blur', String(blur));
+      set((s: any) => ({ coFocus: { ...s.coFocus, sceneBlur: blur } }));
+    },
+    setCreatureBlurEnabled: (enabled: boolean) => {
+      localStorage.setItem('cofocus-creature-blur', String(enabled));
+      set((s: any) => ({ coFocus: { ...s.coFocus, creatureBlurEnabled: enabled } }));
+    },
+
+    // ─── Noise params ───────────────────────────────────────────────────
+    setNoiseLowCut: (hz: number) => {
+      localStorage.setItem('cofocus-noise-lowcut', String(hz));
+      set((s: any) => ({ coFocus: { ...s.coFocus, noiseLowCut: hz } }));
+    },
+    setNoiseHighCut: (hz: number) => {
+      localStorage.setItem('cofocus-noise-highcut', String(hz));
+      set((s: any) => ({ coFocus: { ...s.coFocus, noiseHighCut: hz } }));
     },
   };
 }
