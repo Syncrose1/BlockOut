@@ -4,6 +4,7 @@ import { getSpecies } from '../store/synamonSlice';
 import { CoFocusParticipantHUD } from './CoFocusParticipantHUD';
 import { CoFocusChat } from './CoFocusChat';
 import { CoFocusScene } from './CoFocusScene';
+import { CoFocusInviteModal } from './CoFocusInviteModal';
 import { useIsMobile } from '../hooks/useIsMobile';
 import * as audio from '../utils/coFocusAudio';
 import { broadcastSceneChange } from '../utils/coFocusRealtime';
@@ -65,6 +66,11 @@ export function CoFocusView() {
   // Task chain sharing
   const taskChainSharing = useStore((s) => s.coFocus.taskChainSharing);
   const setTaskChainSharing = useStore((s) => s.setTaskChainSharing);
+
+  // Invites
+  const pendingInvites = useStore((s) => s.coFocus.pendingInvites);
+  const setShowInviteModal = useStore((s) => s.setShowInviteModal);
+  const changeSessionTimerMode = useStore((s) => s.changeSessionTimerMode);
 
   const setShowSessionModal = useStore((s) => s.setShowSessionModal);
   const setShowFriendModal = useStore((s) => s.setShowFriendModal);
@@ -360,12 +366,27 @@ export function CoFocusView() {
                 >{codeCopied ? 'Copied!' : 'Copy'}</button>
               </div>
             )}
-            <div style={{
-              fontSize: 12, color: 'var(--text-tertiary)',
-              display: 'flex', flexDirection: 'column', gap: 4,
-            }}>
-              <div>Mode: {sessionTimerMode === 'locked' ? 'Locked Timer' : 'Independent'}</div>
-              <div>Participants: {participantList.length}/5</div>
+            {/* Timer mode switcher */}
+            <div style={{ display: 'flex', gap: 6, marginBottom: 4 }}>
+              {(['shared', 'independent'] as const).map(m => (
+                <button
+                  key={m}
+                  onClick={() => changeSessionTimerMode(m)}
+                  style={{
+                    flex: 1, padding: '6px 8px',
+                    background: sessionTimerMode === m ? 'var(--accent)' : 'var(--bg-primary)',
+                    border: `1px solid ${sessionTimerMode === m ? 'var(--accent)' : 'var(--border)'}`,
+                    borderRadius: 'var(--radius-sm)',
+                    color: sessionTimerMode === m ? 'white' : 'var(--text-tertiary)',
+                    fontSize: 10, fontWeight: 600,
+                    cursor: 'pointer',
+                    transition: 'all 0.2s',
+                  }}
+                >{m === 'shared' ? 'Shared' : 'Independent'}</button>
+              ))}
+            </div>
+            <div style={{ fontSize: 11, color: 'var(--text-tertiary)' }}>
+              Participants: {participantList.length}/5
             </div>
             <button
               onClick={leaveSession}
@@ -713,7 +734,7 @@ export function CoFocusView() {
             animation: 'focus-pulse 2s ease-in-out infinite',
           }} />
           <span style={{ fontSize: 12, color: 'white', fontWeight: 600 }}>
-            {sessionTimerMode === 'locked' ? 'Locked' : 'Independent'}
+            {sessionTimerMode === 'shared' ? 'Shared' : 'Independent'}
           </span>
           {/* Hide scene name + invite code on mobile (available in sidebar) */}
           {!isMobile && (
@@ -746,13 +767,45 @@ export function CoFocusView() {
         </div>
       )}
 
-      {/* Top-right: Sidebar toggle + chat toggle */}
+      {/* Top-right: Sidebar toggle + chat toggle + invite badge */}
       <div style={{
         position: 'absolute',
         top: 16, right: 16,
         display: 'flex', gap: 8,
         zIndex: 10,
       }}>
+        {/* Golden invite badge (visible anytime there are pending invites) */}
+        {pendingInvites.length > 0 && (
+          <button
+            onClick={() => setShowInviteModal(true)}
+            style={{
+              position: 'relative',
+              width: btnSize, height: btnSize,
+              background: 'linear-gradient(135deg, hsl(45, 90%, 50%), hsl(35, 90%, 45%))',
+              border: 'none',
+              borderRadius: 'var(--radius-md)',
+              color: 'hsl(45, 90%, 10%)',
+              cursor: 'pointer',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              boxShadow: '0 0 12px hsla(45, 90%, 50%, 0.4)',
+            }}
+            title="Co-Focus invitations"
+          >
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+              <path d="M12 2C6.5 2 2 6.5 2 12s4.5 10 10 10 10-4.5 10-10S17.5 2 12 2zm0 18c-4.4 0-8-3.6-8-8s3.6-8 8-8 8 3.6 8 8-3.6 8-8 8zm-1-13h2v6h-2zm0 8h2v2h-2z"/>
+            </svg>
+            <span style={{
+              position: 'absolute', top: -4, right: -4,
+              background: 'hsl(0, 72%, 55%)',
+              color: 'white',
+              fontSize: 9, fontWeight: 700,
+              minWidth: 16, height: 16,
+              borderRadius: 8,
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              padding: '0 4px',
+            }}>{pendingInvites.length}</span>
+          </button>
+        )}
         {/* Chat toggle */}
         {activeSessionId && (
           <button
@@ -866,6 +919,36 @@ export function CoFocusView() {
                   cursor: 'pointer',
                 }}
               >Start or Join</button>
+              {/* Golden invite button when pending invites exist */}
+              {pendingInvites.length > 0 && (
+                <button
+                  onClick={() => setShowInviteModal(true)}
+                  style={{
+                    position: 'relative',
+                    padding: '10px 24px',
+                    background: 'linear-gradient(135deg, hsl(45, 90%, 50%), hsl(35, 90%, 45%))',
+                    border: 'none',
+                    borderRadius: 'var(--radius-md)',
+                    color: 'hsl(45, 90%, 10%)',
+                    fontSize: 13, fontWeight: 700,
+                    cursor: 'pointer',
+                    boxShadow: '0 0 16px hsla(45, 90%, 50%, 0.4)',
+                    animation: 'focus-pulse 2s ease-in-out infinite',
+                  }}
+                >
+                  Invites
+                  <span style={{
+                    position: 'absolute', top: -6, right: -6,
+                    background: 'hsl(0, 72%, 55%)',
+                    color: 'white',
+                    fontSize: 9, fontWeight: 700,
+                    minWidth: 18, height: 18,
+                    borderRadius: 9,
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    padding: '0 4px',
+                  }}>{pendingInvites.length}</span>
+                </button>
+              )}
             </div>
           </div>
         </div>
@@ -955,6 +1038,9 @@ export function CoFocusView() {
 
         {sidebarContent}
       </div>
+
+      {/* ─── Invite modal ──────────────────────────────────────────────────── */}
+      <CoFocusInviteModal />
     </div>
   );
 }

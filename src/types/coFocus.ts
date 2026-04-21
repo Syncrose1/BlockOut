@@ -18,7 +18,7 @@ export interface Friend {
 export interface CoFocusSession {
   id: string;
   hostId: string;
-  timerMode: 'locked' | 'independent';
+  timerMode: 'shared' | 'independent';
   sceneKey: string;
   status: 'active' | 'ended';
   maxParticipants: number;
@@ -61,12 +61,24 @@ export interface CoFocusParticipant extends CoFocusPresence {
   slotIndex: number;
 }
 
+// ─── Invites ─────────────────────────────────────────────────────────────────
+
+export interface CoFocusInvite {
+  id: string;
+  fromUserId: string;
+  fromDisplayName: string;
+  sessionId: string | null;
+  timerMode: 'shared' | 'independent';
+  createdAt: string;
+}
+
 // ─── Store State ────────────────────────────────────────────────────────────
 
 export interface CoFocusState {
   // Friends
   friends: Friend[];
   friendsLoaded: boolean;
+  friendOnlineStatus: Record<string, boolean>; // userId → isOnline
   myInviteCode: string | null;
   myDisplayName: string;
 
@@ -74,10 +86,14 @@ export interface CoFocusState {
   activeSessionId: string | null;
   isHost: boolean;
   sessionHostId: string | null;
-  sessionTimerMode: 'locked' | 'independent';
+  sessionTimerMode: 'shared' | 'independent';
   sessionInviteCode: string | null;
   sessionSceneKey: string;
   participants: Record<string, CoFocusParticipant>;
+
+  // Invites
+  pendingInvites: CoFocusInvite[];
+  showInviteModal: boolean;
 
   // Chat
   chatMessages: ChatMessage[];
@@ -108,16 +124,20 @@ export interface CoFocusState {
 export const initialCoFocusState: CoFocusState = {
   friends: [],
   friendsLoaded: false,
+  friendOnlineStatus: {},
   myInviteCode: null,
   myDisplayName: '',
 
   activeSessionId: null,
   isHost: false,
   sessionHostId: null,
-  sessionTimerMode: 'locked',
+  sessionTimerMode: 'shared',
   sessionInviteCode: null,
   sessionSceneKey: 'campfire',
   participants: {},
+
+  pendingInvites: [],
+  showInviteModal: false,
 
   chatMessages: [],
   chatOpen: false,

@@ -248,10 +248,10 @@ interface BlockOutState {
   updateCoFocusDisplayName: (name: string) => Promise<void>;
   loadFriends: () => Promise<void>;
   sendFriendRequest: (emailOrCode: string) => Promise<{ error: string | null }>;
-  acceptFriendRequest: (requestId: string, friendUserId: string) => Promise<void>;
+  acceptFriendRequest: (requestId: string) => Promise<void>;
   rejectFriendRequest: (requestId: string) => Promise<void>;
   removeFriend: (friendUserId: string) => Promise<void>;
-  createSession: (timerMode: 'locked' | 'independent') => Promise<any>;
+  createSession: (timerMode: 'shared' | 'independent') => Promise<any>;
   joinSession: (inviteCode: string) => Promise<{ error: string | null }>;
   leaveSession: () => Promise<void>;
   broadcastTimerAction: (action: 'start' | 'pause' | 'reset' | 'skip') => void;
@@ -269,6 +269,16 @@ interface BlockOutState {
   setCreatureBlurEnabled: (enabled: boolean) => void;
   setNoiseLowCut: (hz: number) => void;
   setNoiseHighCut: (hz: number) => void;
+  refreshFriendOnlineStatus: () => Promise<void>;
+  startOnlineHeartbeat: () => Promise<void>;
+  stopOnlineHeartbeat: () => void;
+  loadPendingInvites: () => Promise<void>;
+  sendCoFocusInvite: (toUserId: string) => Promise<{ error: string | null }>;
+  acceptCoFocusInvite: (inviteId: string) => Promise<{ error: string | null }>;
+  declineCoFocusInvite: (inviteId: string) => Promise<void>;
+  setShowInviteModal: (show: boolean) => void;
+  setupInviteSubscription: () => Promise<void>;
+  changeSessionTimerMode: (timerMode: 'shared' | 'independent') => Promise<void>;
 
   // Synamon system
   synamon: SynamonState;

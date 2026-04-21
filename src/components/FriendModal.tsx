@@ -5,23 +5,36 @@ export function FriendModal() {
   const show = useStore((s) => s.coFocus.showFriendModal);
   const friends = useStore((s) => s.coFocus.friends);
   const friendsLoaded = useStore((s) => s.coFocus.friendsLoaded);
+  const friendOnlineStatus = useStore((s) => s.coFocus.friendOnlineStatus);
   const myInviteCode = useStore((s) => s.coFocus.myInviteCode);
+  const activeSessionId = useStore((s) => s.coFocus.activeSessionId);
   const setShowFriendModal = useStore((s) => s.setShowFriendModal);
   const loadFriends = useStore((s) => s.loadFriends);
   const sendFriendRequest = useStore((s) => s.sendFriendRequest);
   const acceptFriendRequest = useStore((s) => s.acceptFriendRequest);
   const rejectFriendRequest = useStore((s) => s.rejectFriendRequest);
   const removeFriend = useStore((s) => s.removeFriend);
+  const refreshFriendOnlineStatus = useStore((s) => s.refreshFriendOnlineStatus);
+  const sendCoFocusInvite = useStore((s) => s.sendCoFocusInvite);
 
   const [tab, setTab] = useState<'add' | 'requests' | 'friends'>('friends');
   const [input, setInput] = useState('');
   const [sending, setSending] = useState(false);
   const [feedback, setFeedback] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
+  const [inviteSent, setInviteSent] = useState<Record<string, boolean>>({});
 
   useEffect(() => {
     if (show && !friendsLoaded) loadFriends();
   }, [show]);
+
+  // Refresh online status when modal opens and periodically
+  useEffect(() => {
+    if (!show || !friendsLoaded) return;
+    refreshFriendOnlineStatus();
+    const interval = setInterval(refreshFriendOnlineStatus, 30000);
+    return () => clearInterval(interval);
+  }, [show, friendsLoaded]);
 
   if (!show) return null;
 
@@ -49,6 +62,14 @@ export function FriendModal() {
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
     }
+  };
+
+  const handleInvite = async (friendUserId: string) => {
+    setInviteSent(prev => ({ ...prev, [friendUserId]: true }));
+    await sendCoFocusInvite(friendUserId);
+    setTimeout(() => {
+      setInviteSent(prev => ({ ...prev, [friendUserId]: false }));
+    }, 3000);
   };
 
   return (
@@ -222,7 +243,7 @@ export function FriendModal() {
                   </div>
                   <div style={{ display: 'flex', gap: 6 }}>
                     <button
-                      onClick={() => acceptFriendRequest(f.id, f.userId)}
+                      onClick={() => acceptFriendRequest(f.id)}
                       style={{
                         padding: '6px 12px',
                         background: 'hsl(142, 72%, 45%)',
@@ -274,28 +295,65 @@ export function FriendModal() {
                   No friends yet. Add someone to get started!
                 </div>
               )}
-              {accepted.map(f => (
-                <div key={f.id} style={{
-                  display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-                  padding: '10px 0',
-                  borderBottom: '1px solid var(--border)',
-                }}>
-                  <div style={{ fontSize: 14, color: 'var(--text-primary)', fontWeight: 500 }}>
-                    {f.displayName || 'Unknown user'}
+              {accepted.map(f => {
+                const isOnline = friendOnlineStatus[f.userId] ?? false;
+                const alreadyInvited = inviteSent[f.userId] ?? false;
+                return (
+                  <div key={f.id} style={{
+                    display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                    padding: '10px 0',
+                    borderBottom: '1px solid var(--border)',
+                  }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                      {/* Online status dot */}
+                      <span style={{
+                        width: 8, height: 8, borderRadius: '50%',
+                        background: isOnline ? 'hsl(142, 72%, 50%)' : 'var(--text-tertiary)',
+                        opacity: isOnline ? 1 : 0.3,
+                        flexShrink: 0,
+                      }} />
+                      <div>
+                        <div style={{ fontSize: 14, color: 'var(--text-primary)', fontWeight: 500 }}>
+                          {f.displayName || 'Unknown user'}
+                        </div>
+                        <div style={{ fontSize: 10, color: isOnline ? 'hsl(142, 72%, 50%)' : 'var(--text-tertiary)' }}>
+                          {isOnline ? 'Online' : 'Offline'}
+                        </div>
+                      </div>
+                    </div>
+                    <div style={{ display: 'flex', gap: 6 }}>
+                      {/* Co-Focus invite button (only for online friends) */}
+                      {isOnline && (
+                        <button
+                          onClick={() => handleInvite(f.userId)}
+                          disabled={alreadyInvited}
+                          style={{
+                            padding: '6px 10px',
+                            background: alreadyInvited ? 'hsl(142, 72%, 45%)' : 'hsl(45, 90%, 50%)',
+                            border: 'none',
+                            borderRadius: 'var(--radius-sm)',
+                            color: alreadyInvited ? 'white' : 'hsl(45, 90%, 10%)',
+                            fontSize: 11, fontWeight: 600,
+                            cursor: alreadyInvited ? 'default' : 'pointer',
+                            opacity: alreadyInvited ? 0.8 : 1,
+                          }}
+                        >{alreadyInvited ? 'Sent!' : 'Co-Focus'}</button>
+                      )}
+                      <button
+                        onClick={() => removeFriend(f.userId)}
+                        style={{
+                          padding: '6px 12px',
+                          background: 'var(--bg-tertiary)',
+                          border: '1px solid var(--border)',
+                          borderRadius: 'var(--radius-sm)',
+                          color: 'hsl(0, 60%, 55%)',
+                          fontSize: 11, cursor: 'pointer',
+                        }}
+                      >Remove</button>
+                    </div>
                   </div>
-                  <button
-                    onClick={() => removeFriend(f.userId)}
-                    style={{
-                      padding: '6px 12px',
-                      background: 'var(--bg-tertiary)',
-                      border: '1px solid var(--border)',
-                      borderRadius: 'var(--radius-sm)',
-                      color: 'hsl(0, 60%, 55%)',
-                      fontSize: 11, cursor: 'pointer',
-                    }}
-                  >Remove</button>
-                </div>
-              ))}
+                );
+              })}
             </div>
           )}
         </div>

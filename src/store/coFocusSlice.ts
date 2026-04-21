@@ -37,8 +37,8 @@ export function makeCoFocusActions(set: (fn: (s: any) => any) => void, get: () =
   // ─── Broadcast handler ─────────────────────────────────────────────────
   function handleBroadcast(event: string, payload: any) {
     const state = get();
-    if (event === 'timer:sync' && state.coFocus.sessionTimerMode === 'locked' && !state.coFocus.isHost) {
-      // Apply host's timer action
+    if (event === 'timer:sync' && state.coFocus.sessionTimerMode === 'shared') {
+      // Apply shared timer action from another participant
       const { action, timeRemaining, mode } = payload;
       if (action === 'start') state.startPomodoro();
       else if (action === 'pause') state.pausePomodoro();
@@ -85,6 +85,13 @@ export function makeCoFocusActions(set: (fn: (s: any) => any) => void, get: () =
       if (sceneKey) {
         set((s: any) => ({
           coFocus: { ...s.coFocus, sessionSceneKey: sceneKey },
+        }));
+      }
+    } else if (event === 'timerMode:change') {
+      const { timerMode } = payload;
+      if (timerMode) {
+        set((s: any) => ({
+          coFocus: { ...s.coFocus, sessionTimerMode: timerMode },
         }));
       }
     } else if (event === 'room:empty') {
@@ -173,12 +180,12 @@ export function makeCoFocusActions(set: (fn: (s: any) => any) => void, get: () =
       return result;
     },
 
-    acceptFriendRequest: async (requestId: string, friendUserId: string) => {
+    acceptFriendRequest: async (requestId: string) => {
       const sb = sync.getSupabaseClient();
       if (!sb) return;
       const { data: { user } } = await sb.auth.getUser();
       if (!user) return;
-      await sync.acceptFriendRequest(requestId, user.id, friendUserId);
+      await sync.acceptFriendRequest(requestId);
       const friends = await sync.loadFriends(user.id);
       set((s: any) => ({ coFocus: { ...s.coFocus, friends } }));
     },
@@ -204,7 +211,7 @@ export function makeCoFocusActions(set: (fn: (s: any) => any) => void, get: () =
     },
 
     // ─── Session ──────────────────────────────────────────────────────────
-    createSession: async (timerMode: 'locked' | 'independent') => {
+    createSession: async (timerMode: 'shared' | 'independent') => {
       // Guard: already in a session
       if (get().coFocus.activeSessionId) return null;
 
@@ -311,10 +318,10 @@ export function makeCoFocusActions(set: (fn: (s: any) => any) => void, get: () =
       }));
     },
 
-    // ─── Timer Broadcast (locked mode, host only) ─────────────────────────
+    // ─── Timer Broadcast (shared mode, any participant) ─────────────────────
     broadcastTimerAction: (action: 'start' | 'pause' | 'reset' | 'skip') => {
       const state = get();
-      if (!state.coFocus.isHost || state.coFocus.sessionTimerMode !== 'locked') return;
+      if (state.coFocus.sessionTimerMode !== 'shared') return;
       rt.broadcastTimerSync({
         action,
         timeRemaining: state.pomodoro.timeRemaining,
@@ -434,6 +441,247 @@ export function makeCoFocusActions(set: (fn: (s: any) => any) => void, get: () =
     setNoiseHighCut: (hz: number) => {
       localStorage.setItem('cofocus-noise-highcut', String(hz));
       set((s: any) => ({ coFocus: { ...s.coFocus, noiseHighCut: hz } }));
+    },
+
+    // ─── Online Status ───────────────────────────────────────────────────
+    refreshFriendOnlineStatus: async () => {
+      const state = get();
+      const acceptedFriends = state.coFocus.friends.filter((f: any) => f.status === 'accepted');
+      if (acceptedFriends.length === 0) return;
+      const ids = acceptedFriends.map((f: any) => f.userId);
+      const statuses = await sync.getFriendOnlineStatuses(ids);
+      set((s: any) => ({
+        coFocus: { ...s.coFocus, friendOnlineStatus: statuses },
+      }));
+    },
+
+    startOnlineHeartbeat: async () => {
+      const sb = sync.getSupabaseClient();
+      if (!sb) return;
+      const { data: { user } } = await sb.auth.getUser();
+      if (!user) return;
+      sync.startOnlineHeartbeat(user.id);
+    },
+
+    stopOnlineHeartbeat: () => {
+      sync.stopOnlineHeartbeat();
+    },
+
+    // ─── Invites ─────────────────────────────────────────────────────────
+    loadPendingInvites: async () => {
+      const sb = sync.getSupabaseClient();
+      if (!sb) return;
+      const { data: { user } } = await sb.auth.getUser();
+      if (!user) return;
+      const invites = await sync.loadPendingInvites(user.id);
+      set((s: any) => ({
+        coFocus: { ...s.coFocus, pendingInvites: invites },
+      }));
+    },
+
+    sendCoFocusInvite: async (toUserId: string) => {
+      const sb = sync.getSupabaseClient();
+      if (!sb) return { error: 'Not connected' };
+      const { data: { user } } = await sb.auth.getUser();
+      if (!user) return { error: 'Not signed in' };
+
+      const state = get();
+      const sessionId = state.coFocus.activeSessionId;
+      const timerMode = state.coFocus.sessionTimerMode;
+
+      return sync.sendCoFocusInvite(user.id, toUserId, sessionId, timerMode);
+    },
+
+    acceptCoFocusInvite: async (inviteId: string) => {
+      const sb = sync.getSupabaseClient();
+      if (!sb) return { error: 'Not connected' };
+      const { data: { user } } = await sb.auth.getUser();
+      if (!user) return { error: 'Not signed in' };
+
+      // Guard: already in a session
+      if (get().coFocus.activeSessionId) return { error: 'Already in a session' };
+
+      const state = get();
+      const invite = state.coFocus.pendingInvites.find((i: any) => i.id === inviteId);
+      if (!invite) return { error: 'Invite not found' };
+
+      // Remove from local state immediately
+      set((s: any) => ({
+        coFocus: {
+          ...s.coFocus,
+          pendingInvites: s.coFocus.pendingInvites.filter((i: any) => i.id !== inviteId),
+          showInviteModal: s.coFocus.pendingInvites.length <= 1 ? false : s.coFocus.showInviteModal,
+        },
+      }));
+
+      if (invite.sessionId) {
+        // ── Join existing session ─────────────────────────────────────────
+        const sessionData = await sync.getSessionById(invite.sessionId);
+        if (!sessionData) {
+          await sync.respondToInvite(inviteId, false);
+          return { error: 'Session no longer active' };
+        }
+
+        // Add myself via RPC (security definer — handles upsert cleanly)
+        await sync.addParticipantRpc(sessionData.id, user.id);
+
+        // Mark invite as accepted
+        await sync.respondToInvite(inviteId, true, sessionData.id);
+
+        const messages = await sync.loadRecentMessages(sessionData.id);
+
+        set((s: any) => ({
+          coFocus: {
+            ...s.coFocus,
+            activeSessionId: sessionData.id,
+            isHost: false,
+            sessionHostId: sessionData.host_id,
+            sessionTimerMode: sessionData.timer_mode,
+            sessionInviteCode: sessionData.invite_code,
+            sessionSceneKey: sessionData.scene_key,
+            chatMessages: messages.map((m: any) => ({
+              id: m.id, sessionId: m.session_id, userId: m.user_id,
+              displayName: '', content: m.content, createdAt: m.created_at,
+            })),
+            unreadCount: 0,
+            coFocusPanelOpen: true,
+          },
+        }));
+
+        rt.subscribeToSession(sessionData.id, handlePresenceSync, handleBroadcast);
+        return { error: null };
+      } else {
+        // ── No session — create one for both users ────────────────────────
+        const sceneKey = state.coFocus.sessionSceneKey || 'campfire';
+        const session = await sync.createSession(user.id, invite.timerMode, sceneKey);
+        if (!session) return { error: 'Failed to create session' };
+
+        // Add the inviter via security-definer RPC (bypasses RLS)
+        await sync.addParticipantRpc(session.id, invite.fromUserId);
+
+        // Mark invite as accepted with the new session_id so inviter can auto-join
+        await sync.respondToInvite(inviteId, true, session.id);
+
+        set((s: any) => ({
+          coFocus: {
+            ...s.coFocus,
+            activeSessionId: session.id,
+            isHost: true,
+            sessionHostId: user.id,
+            sessionTimerMode: invite.timerMode,
+            sessionInviteCode: session.invite_code,
+            sessionSceneKey: session.scene_key,
+            chatMessages: [],
+            unreadCount: 0,
+            coFocusPanelOpen: true,
+          },
+        }));
+
+        rt.subscribeToSession(session.id, handlePresenceSync, handleBroadcast);
+        return { error: null };
+      }
+    },
+
+    declineCoFocusInvite: async (inviteId: string) => {
+      await sync.respondToInvite(inviteId, false);
+      set((s: any) => ({
+        coFocus: {
+          ...s.coFocus,
+          pendingInvites: s.coFocus.pendingInvites.filter((i: any) => i.id !== inviteId),
+        },
+      }));
+    },
+
+    setShowInviteModal: (show: boolean) => {
+      set((s: any) => ({
+        coFocus: { ...s.coFocus, showInviteModal: show },
+      }));
+    },
+
+    // ─── Invite subscription (for realtime notifications + auto-join) ────
+    setupInviteSubscription: async () => {
+      const sb = sync.getSupabaseClient();
+      if (!sb) return;
+      const { data: { user } } = await sb.auth.getUser();
+      if (!user) return;
+
+      // Load existing pending invites
+      const invites = await sync.loadPendingInvites(user.id);
+      set((s: any) => ({
+        coFocus: { ...s.coFocus, pendingInvites: invites },
+      }));
+
+      // Subscribe to realtime invite events
+      sync.subscribeToInvites(
+        user.id,
+        // New incoming invite
+        async (raw: any) => {
+          // Fetch the sender's display name
+          const profile = await sync.getProfile(raw.from_user_id);
+          const invite = {
+            id: raw.id,
+            fromUserId: raw.from_user_id,
+            fromDisplayName: profile?.display_name || 'Someone',
+            sessionId: raw.session_id,
+            timerMode: raw.timer_mode,
+            createdAt: raw.created_at,
+          };
+          set((s: any) => ({
+            coFocus: {
+              ...s.coFocus,
+              pendingInvites: [invite, ...s.coFocus.pendingInvites],
+            },
+          }));
+        },
+        // My sent invite was accepted — auto-join the session
+        async (raw: any) => {
+          const currentState = get();
+          // Don't auto-join if already in a session
+          if (currentState.coFocus.activeSessionId) return;
+
+          const sessionData = await sync.getSessionById(raw.session_id);
+          if (!sessionData) return;
+
+          // I'm already a participant (added by acceptor via RPC), just subscribe
+          const messages = await sync.loadRecentMessages(sessionData.id);
+
+          set((s: any) => ({
+            coFocus: {
+              ...s.coFocus,
+              activeSessionId: sessionData.id,
+              isHost: sessionData.host_id === user.id,
+              sessionHostId: sessionData.host_id,
+              sessionTimerMode: sessionData.timer_mode,
+              sessionInviteCode: sessionData.invite_code,
+              sessionSceneKey: sessionData.scene_key,
+              chatMessages: messages.map((m: any) => ({
+                id: m.id, sessionId: m.session_id, userId: m.user_id,
+                displayName: '', content: m.content, createdAt: m.created_at,
+              })),
+              unreadCount: 0,
+              coFocusPanelOpen: true,
+            },
+          }));
+
+          rt.subscribeToSession(sessionData.id, handlePresenceSync, handleBroadcast);
+        },
+      );
+    },
+
+    // ─── In-session timer mode switch ────────────────────────────────────
+    changeSessionTimerMode: async (timerMode: 'shared' | 'independent') => {
+      const state = get();
+      const sessionId = state.coFocus.activeSessionId;
+      if (!sessionId) return;
+
+      // Update DB
+      await sync.updateSessionTimerMode(sessionId, timerMode);
+      // Update local
+      set((s: any) => ({
+        coFocus: { ...s.coFocus, sessionTimerMode: timerMode },
+      }));
+      // Broadcast to others
+      rt.broadcastTimerModeChange(timerMode);
     },
   };
 }

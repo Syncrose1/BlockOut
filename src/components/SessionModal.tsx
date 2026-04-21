@@ -8,7 +8,7 @@ export function SessionModal() {
   const joinSession = useStore((s) => s.joinSession);
 
   const [mode, setMode] = useState<'create' | 'join'>('create');
-  const [timerMode, setTimerMode] = useState<'locked' | 'independent'>('locked');
+  const [timerMode, setTimerMode] = useState<'shared' | 'independent'>('shared');
   const [joinCode, setJoinCode] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -108,7 +108,7 @@ export function SessionModal() {
                 Timer Mode
               </div>
               <div style={{ display: 'flex', gap: 8, marginBottom: 16 }}>
-                {(['locked', 'independent'] as const).map(m => (
+                {(['shared', 'independent'] as const).map(m => (
                   <button
                     key={m}
                     onClick={() => setTimerMode(m)}
@@ -123,12 +123,12 @@ export function SessionModal() {
                       transition: 'all 0.2s',
                     }}
                   >
-                    <div>{m === 'locked' ? 'Locked' : 'Independent'}</div>
+                    <div>{m === 'shared' ? 'Shared' : 'Independent'}</div>
                     <div style={{
                       fontSize: 10, fontWeight: 400, marginTop: 4,
                       opacity: 0.8,
                     }}>
-                      {m === 'locked' ? 'Host controls all timers' : 'Everyone runs their own'}
+                      {m === 'shared' ? 'Anyone can control the timer' : 'Everyone runs their own'}
                     </div>
                   </button>
                 ))}

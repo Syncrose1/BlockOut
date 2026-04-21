@@ -85,8 +85,11 @@ export function App() {
         console.warn('[BlockOut] Synamon Supabase load skipped:', e)
       );
 
-      // Initialize Co-Focus profile (fire-and-forget)
-      useStore.getState().initCoFocusProfile();
+      // Initialize Co-Focus profile, online heartbeat, and invite subscription
+      useStore.getState().initCoFocusProfile().then(() => {
+        useStore.getState().startOnlineHeartbeat();
+        useStore.getState().setupInviteSubscription();
+      });
 
       // After data loads, check if no view is selected
       // If nothing cached, default to "All Tasks" view

@@ -67,6 +67,9 @@ export function subscribeToSession(
     .on('broadcast', { event: 'scene:change' }, ({ payload }: any) => {
       onBroadcast?.('scene:change', payload);
     })
+    .on('broadcast', { event: 'timerMode:change' }, ({ payload }: any) => {
+      onBroadcast?.('timerMode:change', payload);
+    })
     .subscribe((status: string) => {
       if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
         console.warn('[CoFocus] Channel error/timeout, reconnecting in 3s...');
@@ -130,6 +133,11 @@ export function broadcastSessionEnd(reason: string) {
 export function broadcastSceneChange(sceneKey: string) {
   if (!channel) return;
   channel.send({ type: 'broadcast', event: 'scene:change', payload: { sceneKey } });
+}
+
+export function broadcastTimerModeChange(timerMode: 'shared' | 'independent') {
+  if (!channel) return;
+  channel.send({ type: 'broadcast', event: 'timerMode:change', payload: { timerMode } });
 }
 
 export function unsubscribeFromSession() {

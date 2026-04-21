@@ -93,12 +93,11 @@ export function Pomodoro() {
 
   const activeMode = pomodoro.activeTimerMode;
 
-  // Co-Focus: locked mode disables non-host controls
+  // Co-Focus: shared mode — any participant can control the timer
   const coFocusActiveSession = useStore((s) => s.coFocus.activeSessionId);
-  const coFocusIsHost = useStore((s) => s.coFocus.isHost);
   const coFocusTimerMode = useStore((s) => s.coFocus.sessionTimerMode);
   const broadcastTimerAction = useStore((s) => s.broadcastTimerAction);
-  const isLockedNonHost = !!coFocusActiveSession && coFocusTimerMode === 'locked' && !coFocusIsHost;
+  const isSharedMode = !!coFocusActiveSession && coFocusTimerMode === 'shared';
 
   // Synamon companion
   const activeUid = useStore((s) => s.synamon.activeUid);
@@ -302,29 +301,26 @@ export function Pomodoro() {
     : pomodoro.stopwatch.sessions.filter((s) => new Date(s.endTime).toISOString().slice(0, 10) === todayStr).length;
 
   // Play/pause/reset handlers per mode
-  // In locked Co-Focus mode, non-hosts are blocked; hosts broadcast actions
+  // In shared Co-Focus mode, any participant can control and broadcast timer actions
   const handlePlay = () => {
-    if (isLockedNonHost) return;
     if (activeMode === 'pomodoro') startPomodoro();
     else if (activeMode === 'timer') startTimer();
     else startStopwatch();
-    if (coFocusIsHost && coFocusTimerMode === 'locked') broadcastTimerAction('start');
+    if (isSharedMode) broadcastTimerAction('start');
   };
 
   const handlePause = () => {
-    if (isLockedNonHost) return;
     if (activeMode === 'pomodoro') pausePomodoro();
     else if (activeMode === 'timer') pauseTimer();
     else pauseStopwatch();
-    if (coFocusIsHost && coFocusTimerMode === 'locked') broadcastTimerAction('pause');
+    if (isSharedMode) broadcastTimerAction('pause');
   };
 
   const handleReset = () => {
-    if (isLockedNonHost) return;
     if (activeMode === 'pomodoro') resetPomodoro();
     else if (activeMode === 'timer') resetTimer();
     else resetStopwatch();
-    if (coFocusIsHost && coFocusTimerMode === 'locked') broadcastTimerAction('reset');
+    if (isSharedMode) broadcastTimerAction('reset');
   };
 
   // Check if any mode has something running (for indicator)
@@ -600,7 +596,7 @@ export function Pomodoro() {
             </div>
           ) : null}
           {/* Right column: play/pause, reset, settings — always against the right wall */}
-          <div className="pomodoro-controls-col" style={isLockedNonHost ? { opacity: 0.4, pointerEvents: 'none' } : undefined}>
+          <div className="pomodoro-controls-col">
             {isRunning ? (
               <button className="pomodoro-btn" onClick={handlePause} title="Pause">&#x23F8;</button>
             ) : (
@@ -618,13 +614,13 @@ export function Pomodoro() {
           </div>
         </div>
 
-        {/* Locked mode indicator */}
-        {isLockedNonHost && (
+        {/* Shared mode indicator */}
+        {isSharedMode && (
           <div style={{
             position: 'absolute', bottom: 2, left: 0, right: 0,
             textAlign: 'center', fontSize: 9, color: 'var(--text-tertiary)',
             pointerEvents: 'none',
-          }}>Host controls timer</div>
+          }}>Shared timer</div>
         )}
 
         {/* Resize handle */}

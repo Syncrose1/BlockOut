@@ -51,7 +51,7 @@ export function useCoFocusPresence() {
       const chain = taskChains[selectedChainDate];
       if (chain) {
         const links = chain.groups
-          ? chain.groups.flatMap(g => g.links)
+          ? chain.groups.filter(g => !g.readonly).flatMap(g => g.links)
           : chain.links;
         taskChainSteps = links
           .slice(0, 12)
@@ -96,18 +96,36 @@ export function useCoFocusPresence() {
       anchorValue = state.pomodoro.timeRemaining;
     }
 
-    // Compute total focus time today from sessions
+    // Compute total focus time today from all session types
     const todayStr = new Date().toISOString().slice(0, 10);
-    const todaySessions = state.pomodoro.sessions.filter(s => {
-      return new Date(s.startTime).toISOString().slice(0, 10) === todayStr && s.mode === 'work';
-    });
-    let totalFocusTimeToday = todaySessions.reduce((acc, s) => acc + (s.endTime - s.startTime) / 1000, 0);
+    const isToday = (ts: number) => new Date(ts).toISOString().slice(0, 10) === todayStr;
 
-    // Add currently-running session time if actively focusing
-    if (effectiveIsRunning && activeTimerMode === 'pomodoro' && pomodoroMode === 'work') {
-      const workDuration = state.pomodoro.workDuration;
-      const elapsed = workDuration - anchorValue;
-      if (elapsed > 0) totalFocusTimeToday += elapsed;
+    // Pomodoro work sessions
+    const pomodoroTime = state.pomodoro.sessions
+      .filter(s => isToday(s.startTime) && s.mode === 'work')
+      .reduce((acc, s) => acc + (s.endTime - s.startTime) / 1000, 0);
+
+    // Timer sessions
+    const timerTime = (state.pomodoro.timer?.sessions || [])
+      .filter((s: any) => isToday(s.startTime))
+      .reduce((acc: number, s: any) => acc + (s.endTime - s.startTime) / 1000, 0);
+
+    // Stopwatch sessions
+    const stopwatchTime = (state.pomodoro.stopwatch?.sessions || [])
+      .filter((s: any) => isToday(s.startTime))
+      .reduce((acc: number, s: any) => acc + (s.endTime - s.startTime) / 1000, 0);
+
+    let totalFocusTimeToday = pomodoroTime + timerTime + stopwatchTime;
+
+    // Add currently-running session time
+    if (effectiveIsRunning) {
+      const sessionStart =
+        activeTimerMode === 'pomodoro' ? state.pomodoro.currentSessionStart
+        : activeTimerMode === 'timer' ? state.pomodoro.timer?.currentSessionStart
+        : state.pomodoro.stopwatch?.currentSessionStart;
+      if (sessionStart) {
+        totalFocusTimeToday += (Date.now() - sessionStart) / 1000;
+      }
     }
 
     const presence: CoFocusPresence = {
