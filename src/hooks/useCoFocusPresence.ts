@@ -28,9 +28,9 @@ export function useCoFocusPresence() {
   const activeUid = useStore((s) => s.synamon.activeUid);
   const collection = useStore((s) => s.synamon.collection);
 
-  // Task chain state
+  // Task chain state — subscribe to the specific chain for the selected date
   const selectedChainDate = useStore((s) => s.selectedChainDate);
-  const taskChains = useStore((s) => s.taskChains);
+  const currentChain = useStore((s) => s.taskChains[s.selectedChainDate]);
   const chainTasks = useStore((s) => s.chainTasks);
   const tasks = useStore((s) => s.tasks);
 
@@ -47,12 +47,16 @@ export function useCoFocusPresence() {
     // Task chain steps (including subtasks)
     let taskChainSteps: { title: string; completed: boolean; isSubtask?: boolean }[] | undefined;
     let lastTaskCompletedAt: number | undefined;
-    if (taskChainSharing) {
-      const chain = taskChains[selectedChainDate];
-      if (chain) {
-        const links = chain.groups
-          ? chain.groups.filter(g => !g.readonly).flatMap(g => g.links)
-          : chain.links;
+    if (taskChainSharing && currentChain) {
+      // Extract links — prefer groups with content, fall back to flat links
+      let links: typeof currentChain.links;
+      if (currentChain.groups && currentChain.groups.length > 0) {
+        links = currentChain.groups.filter(g => !g.readonly).flatMap(g => g.links);
+      } else {
+        links = currentChain.links || [];
+      }
+
+      if (links.length > 0) {
         taskChainSteps = links
           .slice(0, 12)
           .map(l => {
@@ -173,6 +177,6 @@ export function useCoFocusPresence() {
     timerIsRunning, stopwatchIsRunning,
     // Don't subscribe to timerTimeRemaining/stopwatchElapsed — use anchor-based approach
     activeUid, collection,
-    taskChainSharing, selectedChainDate, taskChains, chainTasks, tasks,
+    taskChainSharing, selectedChainDate, currentChain, chainTasks, tasks,
   ]);
 }
