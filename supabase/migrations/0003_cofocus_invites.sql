@@ -56,6 +56,12 @@ create index cofocus_invites_from_user_idx on cofocus_invites (from_user_id, sta
 -- Enable realtime on cofocus_invites so clients get INSERT/UPDATE notifications
 alter publication supabase_realtime add table cofocus_invites;
 
+-- ─── Fix: allow users to see their own participant rows ──────────────────────
+-- Without this, upsert fails because the joiner can't SELECT the conflicting
+-- row (the existing SELECT policy requires session membership).
+create policy "cofocus_participants_select_own" on cofocus_session_participants
+  for select to authenticated using (auth.uid() = user_id);
+
 -- ─── Security-definer helper: add a participant to a session ─────────────────
 -- Needed when user A accepts an invite and needs to add user B (the inviter)
 -- to the session, bypassing the RLS rule that only allows self-insert.

@@ -186,9 +186,8 @@ export async function createSession(hostId: string, timerMode: 'shared' | 'indep
 
   if (error) { console.error('[co-focus] createSession error:', error); return null; }
 
-  await (sb as any)
-    .from('cofocus_session_participants')
-    .insert({ session_id: data.id, user_id: hostId });
+  // Use security-definer RPC to add host as participant
+  await addParticipantRpc(data.id, hostId);
 
   return data;
 }
@@ -216,15 +215,9 @@ export async function joinSessionByCode(userId: string, inviteCode: string) {
     return { session: null, error: 'Session is full' };
   }
 
-  // Upsert: if user already has a row (e.g. tab closed without leaving), re-activate it
-  const { error: joinErr } = await (sb as any)
-    .from('cofocus_session_participants')
-    .upsert(
-      { session_id: session.id, user_id: userId, left_at: null },
-      { onConflict: 'session_id,user_id' }
-    );
-
-  if (joinErr) return { session: null, error: joinErr.message };
+  // Use security-definer RPC to add participant (bypasses RLS SELECT limitation
+  // that prevents upsert from seeing the conflicting row for non-members)
+  await addParticipantRpc(session.id, userId);
   return { session, error: null };
 }
 
