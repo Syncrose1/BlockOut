@@ -16,15 +16,13 @@ export function useCoFocusPresence() {
   const myDisplayName = useStore((s) => s.coFocus.myDisplayName);
   const taskChainSharing = useStore((s) => s.coFocus.taskChainSharing);
 
-  // Timer state — subscribe to all mode-specific running states
+  // Timer state — subscribe to event-level changes only (not ticking values)
   const pomodoroMode = useStore((s) => s.pomodoro.mode);
   const pomodoroIsRunning = useStore((s) => s.pomodoro.isRunning);
   const activeTimerMode = useStore((s) => s.pomodoro.activeTimerMode);
   const sessionsCompleted = useStore((s) => s.pomodoro.sessionsCompleted);
   const timerIsRunning = useStore((s) => s.pomodoro.timer?.isRunning ?? false);
   const stopwatchIsRunning = useStore((s) => s.pomodoro.stopwatch?.isRunning ?? false);
-  const timerTimeRemaining = useStore((s) => s.pomodoro.timer?.timeRemaining ?? 0);
-  const stopwatchElapsed = useStore((s) => s.pomodoro.stopwatch?.elapsed ?? 0);
 
   // Synamon state
   const activeUid = useStore((s) => s.synamon.activeUid);
@@ -46,8 +44,8 @@ export function useCoFocusPresence() {
     const synamon = activeUid ? collection[activeUid] : undefined;
     const mood = synamon ? getSynamonMood(synamon) : undefined;
 
-    // Task chain steps
-    let taskChainSteps: { title: string; completed: boolean }[] | undefined;
+    // Task chain steps (including subtasks)
+    let taskChainSteps: { title: string; completed: boolean; isSubtask?: boolean }[] | undefined;
     let lastTaskCompletedAt: number | undefined;
     if (taskChainSharing) {
       const chain = taskChains[selectedChainDate];
@@ -56,21 +54,23 @@ export function useCoFocusPresence() {
           ? chain.groups.flatMap(g => g.links)
           : chain.links;
         taskChainSteps = links
-          .filter(l => l.type !== 'subtask')
-          .slice(0, 8)
+          .slice(0, 12)
           .map(l => {
-            if (l.type === 'ct') {
+            const isSubtask = l.type === 'subtask';
+            if (l.type === 'ct' || (isSubtask && (l as any).subType === 'ct')) {
               const ct = chainTasks[l.taskId];
-              return { title: ct?.title || '...', completed: ct?.completed || false };
+              return { title: ct?.title || '...', completed: ct?.completed || false, isSubtask };
             } else {
               const task = tasks[l.taskId];
-              return { title: task?.title || '...', completed: task?.completed || false };
+              return { title: task?.title || '...', completed: task?.completed || false, isSubtask };
             }
           });
         // Find most recent completed task timestamp
         const completedTasks = links
           .map(l => {
-            const t = l.type === 'ct' ? chainTasks[l.taskId] : tasks[l.taskId];
+            const t = l.type === 'ct' || ((l as any).subType === 'ct')
+              ? chainTasks[l.taskId]
+              : tasks[l.taskId];
             return t?.completed && t?.completedAt ? new Date(t.completedAt).getTime() : 0;
           })
           .filter(t => t > 0);
@@ -85,7 +85,7 @@ export function useCoFocusPresence() {
       : activeTimerMode === 'stopwatch' ? stopwatchIsRunning
       : pomodoroIsRunning;
 
-    // Compute anchor value based on active timer mode
+    // Compute anchor value from current store state (read directly, not from subscription)
     const state = useStore.getState();
     let anchorValue: number;
     if (activeTimerMode === 'stopwatch') {
@@ -101,7 +101,14 @@ export function useCoFocusPresence() {
     const todaySessions = state.pomodoro.sessions.filter(s => {
       return new Date(s.startTime).toISOString().slice(0, 10) === todayStr && s.mode === 'work';
     });
-    const totalFocusTimeToday = todaySessions.reduce((acc, s) => acc + (s.endTime - s.startTime) / 1000, 0);
+    let totalFocusTimeToday = todaySessions.reduce((acc, s) => acc + (s.endTime - s.startTime) / 1000, 0);
+
+    // Add currently-running session time if actively focusing
+    if (effectiveIsRunning && activeTimerMode === 'pomodoro' && pomodoroMode === 'work') {
+      const workDuration = state.pomodoro.workDuration;
+      const elapsed = workDuration - anchorValue;
+      if (elapsed > 0) totalFocusTimeToday += elapsed;
+    }
 
     const presence: CoFocusPresence = {
       userId: '', // set by trackPresence
@@ -121,8 +128,9 @@ export function useCoFocusPresence() {
       totalFocusTimeToday: Math.round(totalFocusTimeToday),
     };
 
-    // Debounce: only send if changed
-    const key = JSON.stringify(presence);
+    // Debounce: only send if changed (compare without anchorTimestamp to avoid spurious updates)
+    const keyObj = { ...presence, anchorTimestamp: 0 };
+    const key = JSON.stringify(keyObj);
     if (key === lastPresenceRef.current) return;
 
     if (debounceRef.current) clearTimeout(debounceRef.current);
@@ -135,7 +143,7 @@ export function useCoFocusPresence() {
           if (user) trackPresence(user.id, presence);
         });
       });
-    }, 1000);
+    }, 500);
 
     return () => {
       if (debounceRef.current) clearTimeout(debounceRef.current);
@@ -145,7 +153,7 @@ export function useCoFocusPresence() {
     pomodoroMode, pomodoroIsRunning,
     activeTimerMode, sessionsCompleted,
     timerIsRunning, stopwatchIsRunning,
-    timerTimeRemaining, stopwatchElapsed,
+    // Don't subscribe to timerTimeRemaining/stopwatchElapsed — use anchor-based approach
     activeUid, collection,
     taskChainSharing, selectedChainDate, taskChains, chainTasks, tasks,
   ]);

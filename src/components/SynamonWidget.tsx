@@ -123,7 +123,7 @@ export function SynamonWidget() {
       <img
         src="/synamon/Synamon-Logo-cropped.svg"
         alt="Synamon"
-        style={{ width: 24, height: 24 }}
+        style={{ width: 24, height: 24, filter: 'brightness(0) invert(1)' }}
       />
     </motion.button>
   );

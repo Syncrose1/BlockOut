@@ -217,6 +217,21 @@ export async function loadData(): Promise<void> {
         remote = result.data;
         if (DEBUG) console.log('[BlockOut] Loaded remote data from R2');
 
+        // Guard: reject suspiciously empty remote data when local has content
+        const remoteTaskCount = remote.tasks ? Object.keys(remote.tasks).length : 0;
+        const localTaskCount = local?.tasks ? Object.keys(local.tasks).length : 0;
+        const remoteIsEmpty = remoteTaskCount === 0 && (!remote.categories || Object.keys(remote.categories).length === 0);
+        const localHasData = localTaskCount > 0;
+
+        if (remoteIsEmpty && localHasData) {
+          console.warn(`[BlockOut] R2 returned empty data (0 tasks) but local has ${localTaskCount} tasks — ignoring remote, pushing local`);
+          applyData(local!, 'r2-empty-rejected');
+          const data = useStore.getState().getSerializableState();
+          saveToR2(data).catch((e) => console.warn('[BlockOut] R2 push failed', e));
+          useStore.getState().setSyncStatus('synced');
+          return;
+        }
+
         if (!local) {
           applyData(remote, 'r2-remote');
           useStore.getState().setSyncStatus('synced');

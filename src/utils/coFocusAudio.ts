@@ -92,6 +92,9 @@ export function setNoiseType(type: 'off' | 'white' | 'brown' | 'pink') {
   rebuildNoise();
 }
 
+// Track the target noise volume so we can apply it on rebuild
+let noiseTargetVolume = 0.3;
+
 function rebuildNoise() {
   // Stop existing source
   if (noiseSource) {
@@ -107,6 +110,7 @@ function rebuildNoise() {
   const ac = getContext();
   if (!noiseGain) {
     noiseGain = ac.createGain();
+    noiseGain.gain.value = 0; // Start silent
     noiseGain.connect(ac.destination);
   }
 
@@ -134,6 +138,10 @@ function rebuildNoise() {
   noiseSource.connect(hp).connect(lp).connect(noiseGain);
   noiseFilter = hp; // keep ref for cleanup
   noiseSource.start();
+
+  // Fade in from 0 to target volume over 300ms
+  const targetGain = noiseTargetVolume * NOISE_GAIN_CAP;
+  noiseGain.gain.setTargetAtTime(targetGain, ac.currentTime, 0.1);
 }
 
 export function setNoiseParams(params: Partial<NoiseParams>) {
@@ -153,6 +161,7 @@ export function setNoiseParams(params: Partial<NoiseParams>) {
 }
 
 export function setNoiseVolume(vol: number) {
+  noiseTargetVolume = vol;
   if (noiseGain) {
     const actualGain = vol * NOISE_GAIN_CAP;
     noiseGain.gain.setTargetAtTime(actualGain, getContext().currentTime, 0.05);
@@ -264,7 +273,8 @@ function createRainLayer(ac: AudioContext, dest: AudioNode, intensity: number) {
   hp.frequency.value = 1000;
 
   const gain = ac.createGain();
-  gain.gain.value = intensity * 0.25;
+  gain.gain.value = 0;
+  gain.gain.setTargetAtTime(intensity * 0.25, ac.currentTime, 0.1);
 
   src.connect(hp).connect(gain).connect(dest);
   src.start();
@@ -294,7 +304,8 @@ function createWindLayer(ac: AudioContext, dest: AudioNode, intensity: number) {
   src.loop = true;
 
   const gain = ac.createGain();
-  gain.gain.value = intensity * 0.3;
+  gain.gain.value = 0;
+  gain.gain.setTargetAtTime(intensity * 0.3, ac.currentTime, 0.1);
 
   // LFO for wind gusts
   const lfo = ac.createOscillator();
@@ -337,7 +348,8 @@ function createWavesLayer(ac: AudioContext, dest: AudioNode, intensity: number) 
   lp.frequency.value = 400;
 
   const gain = ac.createGain();
-  gain.gain.value = intensity * 0.35;
+  gain.gain.value = 0;
+  gain.gain.setTargetAtTime(intensity * 0.35, ac.currentTime, 0.1);
 
   // LFO for wave swell
   const lfo = ac.createOscillator();
@@ -375,7 +387,9 @@ function createSampleLayer(ac: AudioContext, dest: AudioNode, intensity: number,
       sourceNode.loop = true;
 
       gainNode = ac.createGain();
-      gainNode.gain.value = intensity;
+      gainNode.gain.value = 0; // Start silent
+      // Fade in over 300ms
+      gainNode.gain.setTargetAtTime(intensity, ac.currentTime, 0.1);
 
       sourceNode.connect(gainNode).connect(dest);
       sourceNode.start();
@@ -404,8 +418,11 @@ export function loadAmbientForScene(configs: AmbientLayerConfig[]) {
   const ac = getContext();
   if (!ambientGain) {
     ambientGain = ac.createGain();
+    ambientGain.gain.value = 0; // Start silent
     ambientGain.connect(ac.destination);
   }
+  // Fade in ambient master gain over 300ms
+  ambientGain.gain.setTargetAtTime(ambientMasterVolume * AMBIENT_GAIN_CAP, ac.currentTime, 0.1);
 
   for (const cfg of configs) {
     const intensity = cfg.intensity ?? 0.5;

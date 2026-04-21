@@ -171,12 +171,32 @@ export function CoFocusScene({
     return () => { cancelled = true; };
   }, [sceneKey]);
 
+  // Stable creature key for comparing frame paths
+  const creatureKeyRef = useRef('');
+
   // Load creature frames when creatures prop changes
   useEffect(() => {
     if (!loaded) return;
     const s = stateRef.current;
     const scene = s.scene;
     if (!scene) return;
+
+    // Build a stable key to avoid unnecessary rebuilds
+    const key = creatures.map(c => `${c.slotIndex}:${c.stage}:${c.framePaths.join(',')}`).join('|');
+    const needsFrameReload = key !== creatureKeyRef.current;
+
+    // Always update mutable display fields without reloading frames
+    if (!needsFrameReload) {
+      for (const c of creatures) {
+        const existing = s.creatureSlots.find(cs => cs.slot === scene.slots[c.slotIndex]);
+        if (existing) {
+          existing.displayName = c.displayName;
+          existing.isRunning = c.isRunning;
+          existing.lastTaskCompletedAt = c.lastTaskCompletedAt;
+        }
+      }
+      return;
+    }
 
     let cancelled = false;
     (async () => {
@@ -185,18 +205,25 @@ export function CoFocusScene({
         if (c.slotIndex >= scene.slots.length) continue;
         const frames = await Promise.all(c.framePaths.map(loadImage));
         if (cancelled) return;
+        // Preserve animation state from existing slot if same creature
+        const existing = s.creatureSlots.find(
+          cs => cs.slot === scene.slots[c.slotIndex] && cs.stage === c.stage
+        );
         slots.push({
           frames,
           stage: c.stage,
           slot: scene.slots[c.slotIndex],
-          idx: 0,
-          acc: 0,
+          idx: existing?.idx ?? 0,
+          acc: existing?.acc ?? 0,
           displayName: c.displayName,
           isRunning: c.isRunning,
           lastTaskCompletedAt: c.lastTaskCompletedAt,
         });
       }
-      if (!cancelled) s.creatureSlots = slots;
+      if (!cancelled) {
+        s.creatureSlots = slots;
+        creatureKeyRef.current = key;
+      }
     })();
     return () => { cancelled = true; };
   }, [loaded, creatures]);
@@ -387,8 +414,8 @@ export function CoFocusScene({
 
   const scene = stateRef.current.scene;
   const colorFilter = extractColorFilter(scene?.filter);
-  const bgFilter = `${colorFilter} blur(${sceneBlur}px)`.trim();
-  const crFilter = creatureBlurEnabled ? `${colorFilter} blur(${sceneBlur}px)`.trim() : colorFilter;
+  const bgFilter = sceneBlur > 0 ? `${colorFilter} blur(${sceneBlur}px)`.trim() : colorFilter;
+  const crFilter = creatureBlurEnabled && sceneBlur > 0 ? `${colorFilter} blur(${sceneBlur}px)`.trim() : colorFilter;
 
   const canvasBase: React.CSSProperties = {
     width: canvasW,

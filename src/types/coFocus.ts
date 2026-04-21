@@ -49,7 +49,7 @@ export interface CoFocusPresence {
   activeTimerMode: 'pomodoro' | 'timer' | 'stopwatch';
   lastTaskCompletedAt?: number; // timestamp of most recent task completion
   taskChainVisible: boolean;
-  taskChainSteps?: { title: string; completed: boolean }[];
+  taskChainSteps?: { title: string; completed: boolean; isSubtask?: boolean }[];
   synamonSpeciesId?: string;
   synamonStage?: number;
   synamonMood?: string;

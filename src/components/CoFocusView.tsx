@@ -817,6 +817,7 @@ export function CoFocusView() {
           myUserId={myUserId}
           sessionHostId={sessionHostId}
           isMobile={isMobile}
+          boundsRef={containerRef}
         />
       )}
 

@@ -383,7 +383,7 @@ export function Pomodoro() {
             <img
               src="/synamon/Synamon-Logo-cropped.svg"
               alt="Synamon"
-              style={{ width: 18, height: 18 }}
+              style={{ width: 18, height: 18, filter: 'brightness(0) invert(1)' }}
             />
           ) : (
             [0, 1, 2].map((i) => (
