@@ -219,6 +219,7 @@ interface BlockOutState {
   replacePlaceholderWithTask: (chainDate: string, linkIndex: number, taskId: string) => void;
   saveChainAsTemplate: (chainDate: string, name: string) => void;
   loadTemplateAsChain: (templateId: string, date: string) => void;
+  appendTemplateToChain: (templateId: string, date: string) => void;
   updateTemplate: (templateId: string, updates: Partial<ChainTemplate>) => void;
   deleteTemplate: (templateId: string) => void;
   setChainTaskDuration: (ctId: string, minutes: number) => void;
@@ -1287,6 +1288,7 @@ export const useStore = create<BlockOutState>((set, get) => ({
             id: existingChain?.id || uuid(),
             date: chainDate,
             links: newLinks,
+            groups: existingChain?.groups,
             createdAt: existingChain?.createdAt || Date.now(),
           },
         },
@@ -1351,6 +1353,7 @@ export const useStore = create<BlockOutState>((set, get) => ({
           id: existingChain?.id || uuid(),
           date: chainDate,
           links: newLinks,
+          groups: existingChain?.groups,
           createdAt: existingChain?.createdAt || Date.now(),
         },
       },
@@ -1655,6 +1658,92 @@ export const useStore = create<BlockOutState>((set, get) => ({
     return {
       chainTasks: { ...state.chainTasks, ...newChainTasks },
       taskChains: { ...state.taskChains, [date]: chain },
+    };
+  }),
+
+  appendTemplateToChain: (templateId, date) => set((state) => {
+    const template = state.chainTemplates[templateId];
+    if (!template) return state;
+
+    const existingChain = state.taskChains[date];
+    if (!existingChain) {
+      // No existing chain — just load normally (delegate via same logic)
+      // Re-use loadTemplateAsChain inline
+      return state; // handled by caller falling back to loadTemplateAsChain
+    }
+
+    const newChainTasks: Record<string, ChainTask> = {};
+
+    // Helper to create links from template links
+    const createLinks = (templateLinks: typeof template.links) => {
+      const parentIdMap: Record<number, string> = {};
+      return templateLinks.map((link, index) => {
+        const newLinkId = uuid();
+        if (link.type === 'ct') {
+          const ctId = uuid();
+          newChainTasks[ctId] = { id: ctId, title: link.ctTitle || 'Chain Task', type: 'ct', completed: false };
+          parentIdMap[index] = newLinkId;
+          return { id: newLinkId, type: 'ct' as const, taskId: ctId };
+        } else if (link.type === 'realtask') {
+          parentIdMap[index] = newLinkId;
+          return { id: newLinkId, type: 'realtask' as const, taskId: '', placeholder: link.realTaskPlaceholder || 'Insert Real Task' };
+        } else if (link.type === 'subtask') {
+          const parentId = link.parentIndex !== undefined ? parentIdMap[link.parentIndex] : undefined;
+          if (link.subType === 'ct') {
+            const ctId = uuid();
+            newChainTasks[ctId] = { id: ctId, title: link.ctTitle || 'Subtask', type: 'ct', completed: false };
+            return { id: newLinkId, type: 'subtask' as const, taskId: ctId, parentId, subType: 'ct' as const };
+          } else {
+            return { id: newLinkId, type: 'subtask' as const, taskId: '', parentId, subType: 'realtask' as const, placeholder: link.realTaskPlaceholder || 'Insert Real Task' };
+          }
+        }
+        return { id: newLinkId, type: 'ct' as const, taskId: '' };
+      });
+    };
+
+    // If existing chain has groups, append template as new group(s)
+    if (existingChain.groups && existingChain.groups.length > 0) {
+      let newGroups = [...existingChain.groups];
+      if (template.groups) {
+        for (const groupTemplate of template.groups) {
+          newGroups.push({
+            id: uuid(),
+            name: groupTemplate.name,
+            color: groupTemplate.color,
+            links: createLinks(groupTemplate.links),
+          });
+        }
+      } else {
+        // Template has flat links — add as a new group
+        newGroups.push({
+          id: uuid(),
+          name: template.name,
+          links: createLinks(template.links),
+        });
+      }
+      return {
+        chainTasks: { ...state.chainTasks, ...newChainTasks },
+        taskChains: {
+          ...state.taskChains,
+          [date]: { ...existingChain, groups: newGroups },
+        },
+      };
+    }
+
+    // Existing chain has flat links — append to them
+    const appendedLinks = createLinks(template.groups
+      ? template.groups.flatMap(g => g.links)
+      : template.links);
+
+    return {
+      chainTasks: { ...state.chainTasks, ...newChainTasks },
+      taskChains: {
+        ...state.taskChains,
+        [date]: {
+          ...existingChain,
+          links: [...existingChain.links, ...appendedLinks],
+        },
+      },
     };
   }),
 

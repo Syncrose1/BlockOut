@@ -407,7 +407,28 @@ export function Overview() {
 
   const savePlaceholderSelection = () => {
     if (!selectingPlaceholderBlock) return;
-    
+
+    // Add newly selected Main Tasks to the Task Chain for that date
+    const dateStr = getDateForDayIndex(selectingPlaceholderBlock.dayIndex, currentWeekStart);
+    const chain = taskChains[dateStr];
+    const existingTaskIds = new Set<string>();
+    if (chain) {
+      for (const l of chain.links || []) {
+        if (l.taskId) existingTaskIds.add(l.taskId);
+      }
+      for (const g of chain.groups || []) {
+        for (const l of g.links || []) {
+          if (l.taskId) existingTaskIds.add(l.taskId);
+        }
+      }
+    }
+    for (const taskId of placeholderSelectedTaskIds) {
+      // Only add MTs that aren't already in the chain (CTs were added at creation time)
+      if (!existingTaskIds.has(taskId) && !newlyCreatedCTIds.includes(taskId) && tasks[taskId]) {
+        addRealTaskToChain(dateStr, taskId);
+      }
+    }
+
     const now = Date.now();
     updateBlocks(allBlocks.map(b => {
       if (b.id === selectingPlaceholderBlock.id) {
@@ -419,7 +440,7 @@ export function Overview() {
       }
       return b;
     }));
-    
+
     setShowPlaceholderSelectModal(false);
     setSelectingPlaceholderBlock(null);
     setPlaceholderSelectedTaskIds([]);

@@ -31,7 +31,11 @@ export async function signUp(email: string, password: string): Promise<{ user: U
   const client = getSupabaseClient();
   if (!client) return { user: null, error: 'Supabase not configured' };
 
-  const { data, error } = await client.auth.signUp({ email, password });
+  const { data, error } = await client.auth.signUp({
+    email,
+    password,
+    options: { emailRedirectTo: window.location.origin },
+  });
   if (error) return { user: null, error: error.message };
   return { user: data.user, error: null };
 }

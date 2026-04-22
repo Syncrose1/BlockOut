@@ -123,15 +123,20 @@ export function AuthModal({ open, onClose, onAuthSuccess }: AuthModalProps) {
 
           {message && (
             <div style={{
-              padding: '8px 12px',
+              padding: '12px 16px',
               background: 'hsla(140, 60%, 50%, 0.1)',
               border: '1px solid hsla(140, 60%, 50%, 0.3)',
               borderRadius: 'var(--radius-sm)',
               color: 'hsl(140, 60%, 50%)',
-              fontSize: 12,
+              fontSize: 14,
+              fontWeight: 500,
               marginBottom: 14,
+              display: 'flex',
+              alignItems: 'flex-start',
+              gap: 10,
             }}>
-              {message}
+              <span style={{ fontSize: 20, lineHeight: 1 }}>✉</span>
+              <span>{message}</span>
             </div>
           )}
 

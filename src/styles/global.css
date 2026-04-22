@@ -1848,6 +1848,33 @@ select {
   color: var(--text-tertiary);
 }
 
+/* ─── Small desktop / tablet media query overrides ─────────────────────── */
+
+@media (max-width: 1100px) and (min-width: 769px) {
+  .sidebar {
+    zoom: 1;
+    width: 240px;
+    min-width: 240px;
+  }
+
+  .topbar {
+    zoom: 1;
+    padding: 8px 14px;
+  }
+
+  .pomodoro-widget {
+    min-width: 220px;
+    padding: 10px 14px;
+    gap: 10px;
+    bottom: 12px;
+    right: 12px;
+  }
+
+  .pomodoro-timer {
+    font-size: 22px;
+  }
+}
+
 /* ─── Mobile media query overrides ──────────────────────────────────────── */
 
 @media (max-width: 768px) {

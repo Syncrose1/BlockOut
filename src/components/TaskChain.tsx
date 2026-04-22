@@ -29,6 +29,7 @@ export function TaskChain() {
   const toggleTask = useStore((s) => s.toggleTask);
   const saveChainAsTemplate = useStore((s) => s.saveChainAsTemplate);
   const loadTemplateAsChain = useStore((s) => s.loadTemplateAsChain);
+  const appendTemplateToChain = useStore((s) => s.appendTemplateToChain);
   const deleteTemplate = useStore((s) => s.deleteTemplate);
   const setChainTaskDuration = useStore((s) => s.setChainTaskDuration);
   const setChainTaskCompletionSurveyId = useStore((s) => s.setChainTaskCompletionSurveyId);
@@ -55,6 +56,8 @@ export function TaskChain() {
   ];
 
   const [showTemplates, setShowTemplates] = useState(false);
+  const [pendingTemplateId, setPendingTemplateId] = useState<string | null>(null);
+  const [showTemplateConfirm, setShowTemplateConfirm] = useState(false);
   const [newTaskTitle, setNewTaskTitle] = useState('');
   const [selectedMainTaskId, setSelectedMainTaskId] = useState('');
   const [templateName, setTemplateName] = useState('');
@@ -2157,9 +2160,19 @@ export function TaskChain() {
                         <button
                           className="btn btn-primary btn-sm"
                           onClick={() => {
-                            loadTemplateAsChain(template.id, selectedChainDate);
-                            setShowTemplates(false);
-                            debouncedSave();
+                            const chain = taskChains[selectedChainDate];
+                            const hasContent = chain && (
+                              (chain.links && chain.links.length > 0) ||
+                              (chain.groups && chain.groups.some(g => g.links.length > 0))
+                            );
+                            if (hasContent) {
+                              setPendingTemplateId(template.id);
+                              setShowTemplateConfirm(true);
+                            } else {
+                              loadTemplateAsChain(template.id, selectedChainDate);
+                              setShowTemplates(false);
+                              debouncedSave();
+                            }
                           }}
                         >
                           Load
@@ -2181,6 +2194,66 @@ export function TaskChain() {
               
               <div className="modal-actions">
                 <button className="btn btn-ghost" onClick={() => setShowTemplates(false)}>
+                  Cancel
+                </button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Template Overwrite/Append Confirmation Modal */}
+      <AnimatePresence>
+        {showTemplateConfirm && pendingTemplateId && (
+          <motion.div
+            className="modal-overlay"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            onClick={() => { setShowTemplateConfirm(false); setPendingTemplateId(null); }}
+          >
+            <motion.div
+              className="modal"
+              initial={{ scale: 0.95, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.95, opacity: 0 }}
+              onClick={(e) => e.stopPropagation()}
+              style={{ maxWidth: 400 }}
+            >
+              <h2 style={{ marginBottom: 8 }}>Load Template</h2>
+              <p style={{ color: 'var(--text-secondary)', fontSize: 14, marginBottom: 20 }}>
+                Today's task chain already has content. Would you like to replace it or append the template?
+              </p>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                <button
+                  className="btn btn-primary"
+                  onClick={() => {
+                    loadTemplateAsChain(pendingTemplateId, selectedChainDate);
+                    setShowTemplateConfirm(false);
+                    setPendingTemplateId(null);
+                    setShowTemplates(false);
+                    debouncedSave();
+                  }}
+                >
+                  Replace existing chain
+                </button>
+                <button
+                  className="btn btn-ghost"
+                  style={{ border: '1px solid var(--border)' }}
+                  onClick={() => {
+                    appendTemplateToChain(pendingTemplateId, selectedChainDate);
+                    setShowTemplateConfirm(false);
+                    setPendingTemplateId(null);
+                    setShowTemplates(false);
+                    debouncedSave();
+                  }}
+                >
+                  Append to existing chain
+                </button>
+                <button
+                  className="btn btn-ghost"
+                  onClick={() => { setShowTemplateConfirm(false); setPendingTemplateId(null); }}
+                >
                   Cancel
                 </button>
               </div>
