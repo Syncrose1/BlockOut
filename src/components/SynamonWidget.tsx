@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, useCallback } from 'react';
+import { useEffect, useRef, useState, useCallback, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useStore } from '../store';
 import { getSpecies } from '../store/synamonSlice';
@@ -99,6 +99,47 @@ export function SynamonWidget() {
   const species = activeSyn ? getSpecies(activeSyn.speciesId) : null;
   const stageData = activeSyn && species ? species.stages.find(s => s.stage === activeSyn.stage) : null;
   const mood = activeSyn ? getSynamonMood(activeSyn) : null;
+
+  const pomodoroRunning = useStore(s => s.pomodoro?.timer?.isRunning || s.pomodoro?.stopwatch?.isRunning || false);
+  const focusMode = useStore(s => s.focusMode);
+
+  // Pick the right animation frames: action > focused > mood > idle > static
+  const widgetFrames = useMemo(() => {
+    if (!species || !activeSyn) return stageData?.idleFrames ?? [];
+    const stage = activeSyn.stage;
+    const activeAnim = synamonState.activeAnimation;
+
+    // 1. Temporary action animation (feed, pet, play, celebrating)
+    if (activeAnim) {
+      const actionFrames = species.animations?.[`stage${stage}-${activeAnim}`];
+      if (Array.isArray(actionFrames) && actionFrames.length) return actionFrames;
+    }
+
+    // 2. Focused animation when pomodoro/focus is active
+    if (pomodoroRunning || focusMode) {
+      const focusedFrames = species.animations?.[`stage${stage}-focused`];
+      if (Array.isArray(focusedFrames) && focusedFrames.length) return focusedFrames;
+    }
+
+    // 3. Sleep animation at night (11pm - 6am)
+    const hour = new Date().getHours();
+    if (hour >= 23 || hour < 6) {
+      const sleepFrames = species.animations?.[`stage${stage}-sleep`];
+      if (Array.isArray(sleepFrames) && sleepFrames.length) return sleepFrames;
+    }
+
+    // 4. Mood-based animation
+    if (mood) {
+      const moodFrames = species.animations?.[`stage${stage}-${mood}`];
+      if (Array.isArray(moodFrames) && moodFrames.length) return moodFrames;
+    }
+
+    // 5. Idle
+    const idleFrames = species.animations?.[`stage${stage}-idle`];
+    if (Array.isArray(idleFrames) && idleFrames.length) return idleFrames;
+
+    return stageData?.idleFrames ?? [];
+  }, [species, activeSyn?.stage, mood, synamonState.activeAnimation, stageData, pomodoroRunning, focusMode]);
 
   const toggleBtn = (
     <motion.button
@@ -250,7 +291,7 @@ export function SynamonWidget() {
             {/* Sprite area */}
             <div className="synamon-widget-sprite-area">
               <SynamonSprite
-                frames={stageData?.idleFrames ?? []}
+                frames={widgetFrames}
                 fallbackSprite={stageData?.sprite ?? undefined}
                 fps={8}
                 size={80}

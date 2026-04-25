@@ -59,11 +59,22 @@ export const initialSynamonState: SynamonState = {
   panelOpen: false,
   dailyXp: { blockout: 0, synamon: 0, resetDate: new Date().toISOString().slice(0, 10) },
   pendingEvents: [],
+  activeAnimation: null,
 };
 
 // ─── Action Implementations ───────────────────────────────────────────────────
 
 function makeSynamonActions(set: (fn: (s: any) => any) => void, get: () => any) {
+
+  let animTimer: ReturnType<typeof setTimeout> | null = null;
+  const triggerAnimation = (anim: string, durationMs = 3000) => {
+    if (animTimer) clearTimeout(animTimer);
+    set((state: any) => ({ synamon: { ...state.synamon, activeAnimation: anim } }));
+    animTimer = setTimeout(() => {
+      set((state: any) => ({ synamon: { ...state.synamon, activeAnimation: null } }));
+      animTimer = null;
+    }, durationMs);
+  };
 
   const giveXpToActive = (amount: number) => {
     set((state: any) => {
@@ -97,6 +108,7 @@ function makeSynamonActions(set: (fn: (s: any) => any) => void, get: () => any) 
         },
       };
     });
+    triggerAnimation('celebrating', 4000);
   };
 
   return {
@@ -190,6 +202,7 @@ function makeSynamonActions(set: (fn: (s: any) => any) => void, get: () => any) 
           },
         };
       });
+      triggerAnimation('feed');
     },
 
     playWithActiveSynamon: () => {
@@ -207,6 +220,7 @@ function makeSynamonActions(set: (fn: (s: any) => any) => void, get: () => any) 
           },
         };
       });
+      triggerAnimation('play');
     },
 
     tickSynamonDecay: () => {
@@ -284,6 +298,7 @@ function makeSynamonActions(set: (fn: (s: any) => any) => void, get: () => any) 
           },
         };
       });
+      triggerAnimation('pet');
     },
 
     grantProductivityXp: (amount: number, source: 'blockout' | 'synamon') => {

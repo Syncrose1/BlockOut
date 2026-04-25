@@ -160,4 +160,7 @@ export interface SynamonState {
 
   // Stalled events — resolved in Synamon app, displayed as banners in BlockOut
   pendingEvents: PendingEvent[];
+
+  // Temporary animation override (e.g. 'feed', 'pet', 'play' after care action)
+  activeAnimation: string | null;
 }

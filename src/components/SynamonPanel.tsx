@@ -3,10 +3,12 @@ import { useStore } from '../store';
 import { getSpecies } from '../store/synamonSlice';
 import { getSynamonMood, getMoodLabel, xpForLevel } from '../utils/synamonMath';
 import { SynamonScene } from './SynamonScene';
+import { SynamonSprite } from './SynamonSprite';
+import { setActiveCompanion } from '../utils/synamonSync';
 import type { OwnedSynamon } from '../types/synamon';
 
 const DEFAULT_ZONE = 'aureum-basin';
-const SYNAMON_APP_URL = '/synamon/';
+const SYNAMON_APP_URL = 'https://synamon.syncratic.app';
 
 function getTimeOfDay(): 'day' | 'dusk' | 'night' {
   const hour = new Date().getHours();
@@ -29,6 +31,13 @@ export function SynamonPanel() {
   const clearPendingXp = useStore((s) => s.clearPendingXp);
   const computePendingEvents = useStore((s) => s.computePendingEvents);
   const tickSynamonDecay = useStore((s) => s.tickSynamonDecay);
+  const setActiveSynamon = useStore((s) => s.setActiveSynamon);
+  const activeAnimation = useStore((s) => s.synamon.activeAnimation);
+  const pomodoroRunning = useStore(s => s.pomodoro?.timer?.isRunning || s.pomodoro?.stopwatch?.isRunning || false);
+  const focusMode = useStore(s => s.focusMode);
+
+  const [showSwitcher, setShowSwitcher] = useState(false);
+  const allCreatures = useMemo(() => Object.values(collection) as OwnedSynamon[], [collection]);
 
   const synamon = activeUid ? collection[activeUid] as OwnedSynamon | undefined : undefined;
   const species = synamon ? getSpecies(synamon.speciesId) : undefined;
@@ -52,21 +61,45 @@ export function SynamonPanel() {
     }
   }, [pendingXpGain]);
 
-  // Get creature frame paths for the scene
+  // Animation priority: action > focused > sleep > mood > idle > static
   const creatureFramePaths = useMemo(() => {
     if (!species || !synamon) return [];
+    const stage = synamon.stage;
+
+    // 1. Temporary action animation (feed, pet, play, celebrating)
+    if (activeAnimation) {
+      const actionFrames = species.animations?.[`stage${stage}-${activeAnimation}`];
+      if (Array.isArray(actionFrames) && actionFrames.length) return actionFrames;
+    }
+
+    // 2. Focused animation when pomodoro/focus is active
+    if (pomodoroRunning || focusMode) {
+      const focusedFrames = species.animations?.[`stage${stage}-focused`];
+      if (Array.isArray(focusedFrames) && focusedFrames.length) return focusedFrames;
+    }
+
+    // 3. Sleep animation at night (11pm - 6am)
+    const hour = new Date().getHours();
+    if (hour >= 23 || hour < 6) {
+      const sleepFrames = species.animations?.[`stage${stage}-sleep`];
+      if (Array.isArray(sleepFrames) && sleepFrames.length) return sleepFrames;
+    }
+
+    // 4. Mood-based animation
     const mood = getSynamonMood(synamon);
-    const animKey = `stage${synamon.stage}-${mood}`;
-    const frames = species.animations?.[animKey];
-    if (Array.isArray(frames) && frames.length) return frames;
-    // Fallback to idle
-    const idleKey = `stage${synamon.stage}-idle`;
-    const idleFrames = species.animations?.[idleKey];
+    if (mood) {
+      const moodFrames = species.animations?.[`stage${stage}-${mood}`];
+      if (Array.isArray(moodFrames) && moodFrames.length) return moodFrames;
+    }
+
+    // 5. Idle
+    const idleFrames = species.animations?.[`stage${stage}-idle`];
     if (Array.isArray(idleFrames) && idleFrames.length) return idleFrames;
-    // Fallback to static sprite
+
+    // 6. Static sprite
     if (stageData?.sprite) return [stageData.sprite];
     return [];
-  }, [species, synamon?.stage, synamon?.hunger, synamon?.happiness, synamon?.energy]);
+  }, [species, synamon?.stage, synamon?.hunger, synamon?.happiness, synamon?.energy, activeAnimation, pomodoroRunning, focusMode]);
 
   if (!synamon || !species) return null;
 
@@ -260,6 +293,59 @@ export function SynamonPanel() {
             <CareButton label="Pet" icon="✋" onClick={petActiveSynamon} />
             <CareButton label="Play" icon="⚽" onClick={playWithActiveSynamon} />
           </div>
+
+          {/* Change Companion */}
+          {allCreatures.length > 1 && (
+            <div style={{ textAlign: 'center' }}>
+              <button
+                onClick={() => setShowSwitcher(!showSwitcher)}
+                style={{
+                  background: 'none', border: '1px solid var(--border)',
+                  borderRadius: 'var(--radius-md)', color: 'var(--text-secondary)',
+                  cursor: 'pointer', padding: '4px 12px', fontSize: 11,
+                }}
+              >
+                Change Companion
+              </button>
+              {showSwitcher && (
+                <div style={{
+                  marginTop: 8, maxHeight: 120, overflowY: 'auto',
+                  display: 'flex', flexDirection: 'column', gap: 4,
+                }}>
+                  {allCreatures.filter(c => c.uid !== activeUid).map(c => {
+                    const sp = getSpecies(c.speciesId);
+                    const sd = sp?.stages.find(s => s.stage === c.stage);
+                    return (
+                      <button
+                        key={c.uid}
+                        onClick={() => {
+                          setActiveSynamon(c.uid);
+                          setActiveCompanion(c.uid, c.zoneKey ?? DEFAULT_ZONE);
+                          setShowSwitcher(false);
+                        }}
+                        style={{
+                          display: 'flex', alignItems: 'center', gap: 8,
+                          background: 'var(--bg-tertiary)', border: '1px solid var(--border)',
+                          borderRadius: 'var(--radius-md)', padding: '4px 8px',
+                          cursor: 'pointer', color: 'var(--text-primary)', fontSize: 12,
+                        }}
+                      >
+                        <SynamonSprite
+                          frames={sd?.idleFrames ?? []}
+                          fallbackSprite={sd?.sprite ?? undefined}
+                          size={28}
+                        />
+                        <span>{c.nickname || sd?.name || sp?.name}</span>
+                        <span style={{ fontSize: 10, color: 'var(--text-tertiary)', marginLeft: 'auto' }}>
+                          Lv.{c.level}
+                        </span>
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          )}
 
         </div>
       </div>

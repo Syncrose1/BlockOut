@@ -1,7 +1,6 @@
 import { useStore } from '../store';
 import { useMemo, useState } from 'react';
 import { debouncedSave } from '../utils/persistence';
-import { upsertCreature, setActiveCompanion, upsertDexEntry } from '../utils/synamonSync';
 import { CategorySettingsModal, BlockSettingsModal } from './Modals';
 import { AnalyticsModal } from './AnalyticsModal';
 import { SynamonPanel } from './SynamonPanel';
@@ -58,7 +57,6 @@ export function Sidebar() {
   const synamonStarterChosen = useStore((s) => s.synamon.starterChosen);
   const synamonCollection = useStore((s) => s.synamon.collection);
   const setSynamonPanelOpen = useStore((s) => s.setSynamonPanelOpen);
-  const catchSynamon = useStore((s) => s.catchSynamon);
   const hasCompanion = !!synamonActiveUid && synamonStarterChosen && !!synamonCollection[synamonActiveUid];
 
   const sortedBlocks = useMemo(() => {
@@ -477,25 +475,12 @@ export function Sidebar() {
             Restart Tour
           </button>
 
-          {/* Adopt starter — temporary until Synamon app handles induction */}
+          {/* Link to Synamon app for onboarding */}
           {!hasCompanion && (
-            <button
-              onClick={() => {
-                catchSynamon('aquill', 'Aquill');
-                // Push to Supabase after store updates
-                setTimeout(() => {
-                  const state = useStore.getState();
-                  const uid = state.synamon.activeUid;
-                  if (uid) {
-                    const syn = state.synamon.collection[uid];
-                    if (syn) {
-                      upsertCreature(syn);
-                      setActiveCompanion(uid, syn.zoneKey ?? 'aureum-basin');
-                      upsertDexEntry('aquill', true, 1);
-                    }
-                  }
-                }, 100);
-              }}
+            <a
+              href="https://synamon.syncratic.app"
+              target="_blank"
+              rel="noopener noreferrer"
               style={{
                 marginLeft: 'auto',
                 background: 'none',
@@ -506,10 +491,11 @@ export function Sidebar() {
                 padding: '4px 8px',
                 fontSize: 11,
                 transition: 'all 0.2s',
+                textDecoration: 'none',
               }}
             >
-              Adopt Aquill
-            </button>
+              Adopt a Synamon
+            </a>
           )}
 
           {/* Synamon companion button */}
