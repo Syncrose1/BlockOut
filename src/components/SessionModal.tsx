@@ -6,6 +6,9 @@ export function SessionModal() {
   const setShowSessionModal = useStore((s) => s.setShowSessionModal);
   const createSession = useStore((s) => s.createSession);
   const joinSession = useStore((s) => s.joinSession);
+  const lastInviteCode = useStore((s) => s.coFocus.lastInviteCode);
+  const lastSessionEndedNotice = useStore((s) => s.coFocus.lastSessionEndedNotice);
+  const clearLastSessionEndedNotice = useStore((s) => s.clearLastSessionEndedNotice);
 
   const [mode, setMode] = useState<'create' | 'join'>('create');
   const [timerMode, setTimerMode] = useState<'shared' | 'independent'>('shared');
@@ -27,16 +30,18 @@ export function SessionModal() {
     setShowSessionModal(false);
   };
 
-  const handleJoin = async () => {
-    if (!joinCode.trim()) return;
+  const handleJoin = async (codeOverride?: string) => {
+    const code = (codeOverride ?? joinCode).trim();
+    if (!code) return;
     setLoading(true);
     setError(null);
-    const result = await joinSession(joinCode.trim());
+    const result = await joinSession(code);
     setLoading(false);
     if (result.error) {
       setError(result.error);
       return;
     }
+    clearLastSessionEndedNotice();
     setShowSessionModal(false);
   };
 
@@ -152,6 +157,43 @@ export function SessionModal() {
 
           {mode === 'join' && (
             <div>
+              {lastSessionEndedNotice && (
+                <div style={{
+                  background: 'var(--bg-tertiary)',
+                  border: '1px solid var(--border)',
+                  borderRadius: 'var(--radius-sm)',
+                  padding: '10px 12px',
+                  marginBottom: 12,
+                  fontSize: 12,
+                  color: 'var(--text-secondary)',
+                }}>
+                  {lastSessionEndedNotice}
+                </div>
+              )}
+              {lastInviteCode && (
+                <button
+                  onClick={() => handleJoin(lastInviteCode)}
+                  disabled={loading}
+                  style={{
+                    width: '100%', padding: '10px 12px',
+                    background: 'var(--bg-tertiary)',
+                    border: '1px dashed var(--accent)',
+                    borderRadius: 'var(--radius-sm)',
+                    color: 'var(--text-primary)',
+                    fontSize: 13,
+                    cursor: loading ? 'wait' : 'pointer',
+                    marginBottom: 12,
+                    textAlign: 'left',
+                  }}
+                >
+                  <div style={{ fontSize: 11, color: 'var(--text-tertiary)', marginBottom: 2 }}>
+                    Rejoin previous room
+                  </div>
+                  <div style={{ fontFamily: 'monospace', letterSpacing: 1 }}>
+                    {lastInviteCode}
+                  </div>
+                </button>
+              )}
               <div style={{ fontSize: 13, color: 'var(--text-secondary)', marginBottom: 8 }}>
                 Session Invite Code
               </div>
@@ -173,7 +215,7 @@ export function SessionModal() {
                 }}
               />
               <button
-                onClick={handleJoin}
+                onClick={() => handleJoin()}
                 disabled={loading || !joinCode.trim()}
                 style={{
                   width: '100%', padding: '12px',

@@ -85,10 +85,12 @@ export function App() {
         console.warn('[BlockOut] Synamon Supabase load skipped:', e)
       );
 
-      // Initialize Co-Focus profile, online heartbeat, and invite subscription
+      // Initialize Co-Focus profile, online heartbeat, invite subscription,
+      // and re-attach to any active session left over from a previous tab/load.
       useStore.getState().initCoFocusProfile().then(() => {
         useStore.getState().startOnlineHeartbeat();
         useStore.getState().setupInviteSubscription();
+        useStore.getState().rehydrateActiveSession();
       });
 
       // After data loads, check if no view is selected

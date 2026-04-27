@@ -119,6 +119,11 @@ export interface CoFocusState {
   showFriendModal: boolean;
   showSessionModal: boolean;
   taskChainSharing: boolean;
+
+  // Connection / rejoin
+  connectionState: 'connected' | 'reconnecting' | 'disconnected';
+  lastInviteCode: string | null;        // remembered across rejoins for the SessionModal hint
+  lastSessionEndedNotice: string | null; // human-readable note when a rehydrated session is no longer active
 }
 
 export const initialCoFocusState: CoFocusState = {
@@ -158,4 +163,8 @@ export const initialCoFocusState: CoFocusState = {
   showFriendModal: false,
   showSessionModal: false,
   taskChainSharing: localStorage.getItem('cofocus-taskchain-sharing') !== 'false',
+
+  connectionState: 'disconnected',
+  lastInviteCode: localStorage.getItem('cofocus-last-invite-code'),
+  lastSessionEndedNotice: null,
 };

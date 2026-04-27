@@ -13,6 +13,43 @@ import * as rt from '../utils/coFocusRealtime';
 
 export { initialCoFocusState };
 
+// ─── Active-session persistence ───────────────────────────────────────────
+// Survives page reloads so brief network drops or accidental closes don't
+// strand the user with no memory of the room they were in.
+
+const SESSION_STORAGE_KEY = 'cofocus-active-session-v1';
+const LAST_INVITE_KEY = 'cofocus-last-invite-code';
+
+interface PersistedSession {
+  activeSessionId: string;
+  isHost: boolean;
+  sessionHostId: string | null;
+  sessionTimerMode: 'shared' | 'independent';
+  sessionInviteCode: string | null;
+  sessionSceneKey: string;
+}
+
+function persistSession(s: PersistedSession) {
+  try {
+    localStorage.setItem(SESSION_STORAGE_KEY, JSON.stringify(s));
+    if (s.sessionInviteCode) {
+      localStorage.setItem(LAST_INVITE_KEY, s.sessionInviteCode);
+    }
+  } catch { /* localStorage unavailable */ }
+}
+
+function clearPersistedSession() {
+  try { localStorage.removeItem(SESSION_STORAGE_KEY); } catch { /* ignore */ }
+}
+
+function readPersistedSession(): PersistedSession | null {
+  try {
+    const raw = localStorage.getItem(SESSION_STORAGE_KEY);
+    if (!raw) return null;
+    return JSON.parse(raw) as PersistedSession;
+  } catch { return null; }
+}
+
 // Assign slot indices to participants (stable: sorted by join order / userId)
 function assignSlots(participants: Record<string, CoFocusPresence>): Record<string, CoFocusParticipant> {
   const sorted = Object.entries(participants).sort(([a], [b]) => a.localeCompare(b));
@@ -33,6 +70,32 @@ export function makeCoFocusActions(set: (fn: (s: any) => any) => void, get: () =
       },
     }));
   }
+
+  // ─── Connection state handler ──────────────────────────────────────────
+  function handleConnectionChange(state: 'connected' | 'reconnecting' | 'disconnected') {
+    set((s: any) => ({
+      coFocus: { ...s.coFocus, connectionState: state },
+    }));
+  }
+
+  // Triggered by the realtime layer when reconnect attempts are exhausted.
+  rt.setOnTeardown(() => {
+    set((s: any) => ({
+      coFocus: {
+        ...s.coFocus,
+        activeSessionId: null,
+        isHost: false,
+        sessionHostId: null,
+        sessionInviteCode: null,
+        participants: {},
+        chatMessages: [],
+        unreadCount: 0,
+        connectionState: 'disconnected',
+        lastSessionEndedNotice: 'Connection lost — could not rejoin the session',
+      },
+    }));
+    clearPersistedSession();
+  });
 
   // ─── Broadcast handler ─────────────────────────────────────────────────
   function handleBroadcast(event: string, payload: any) {
@@ -67,6 +130,7 @@ export function makeCoFocusActions(set: (fn: (s: any) => any) => void, get: () =
     } else if (event === 'session:end') {
       // Host ended — clean up
       rt.unsubscribeFromSession();
+      clearPersistedSession();
       set((s: any) => ({
         coFocus: {
           ...s.coFocus,
@@ -77,6 +141,8 @@ export function makeCoFocusActions(set: (fn: (s: any) => any) => void, get: () =
           participants: {},
           chatMessages: [],
           unreadCount: 0,
+          connectionState: 'disconnected',
+          lastSessionEndedNotice: payload?.reason || 'Session ended',
         },
       }));
     } else if (event === 'scene:change') {
@@ -104,6 +170,7 @@ export function makeCoFocusActions(set: (fn: (s: any) => any) => void, get: () =
         if (sessionId) sync.endSession(sessionId);
       }
       rt.unsubscribeFromSession();
+      clearPersistedSession();
       set((s: any) => ({
         coFocus: {
           ...s.coFocus,
@@ -114,6 +181,7 @@ export function makeCoFocusActions(set: (fn: (s: any) => any) => void, get: () =
           participants: {},
           chatMessages: [],
           unreadCount: 0,
+          connectionState: 'disconnected',
         },
       }));
     }
@@ -236,11 +304,22 @@ export function makeCoFocusActions(set: (fn: (s: any) => any) => void, get: () =
           chatMessages: [],
           unreadCount: 0,
           coFocusPanelOpen: true,
+          lastInviteCode: session.invite_code,
+          lastSessionEndedNotice: null,
         },
       }));
 
+      persistSession({
+        activeSessionId: session.id,
+        isHost: true,
+        sessionHostId: user.id,
+        sessionTimerMode: timerMode,
+        sessionInviteCode: session.invite_code,
+        sessionSceneKey: session.scene_key,
+      });
+
       // Subscribe to realtime
-      rt.subscribeToSession(session.id, handlePresenceSync, handleBroadcast);
+      rt.subscribeToSession(session.id, handlePresenceSync, handleBroadcast, handleConnectionChange);
       return session;
     },
 
@@ -278,10 +357,21 @@ export function makeCoFocusActions(set: (fn: (s: any) => any) => void, get: () =
           })),
           unreadCount: 0,
           coFocusPanelOpen: true,
+          lastInviteCode: session.invite_code,
+          lastSessionEndedNotice: null,
         },
       }));
 
-      rt.subscribeToSession(session.id, handlePresenceSync, handleBroadcast);
+      persistSession({
+        activeSessionId: session.id,
+        isHost: false,
+        sessionHostId: session.host_id,
+        sessionTimerMode: session.timer_mode,
+        sessionInviteCode: session.invite_code,
+        sessionSceneKey: session.scene_key,
+      });
+
+      rt.subscribeToSession(session.id, handlePresenceSync, handleBroadcast, handleConnectionChange);
       return { error: null };
     },
 
@@ -304,6 +394,7 @@ export function makeCoFocusActions(set: (fn: (s: any) => any) => void, get: () =
       }
 
       rt.unsubscribeFromSession();
+      clearPersistedSession();
       set((s: any) => ({
         coFocus: {
           ...s.coFocus,
@@ -314,7 +405,72 @@ export function makeCoFocusActions(set: (fn: (s: any) => any) => void, get: () =
           participants: {},
           chatMessages: [],
           unreadCount: 0,
+          connectionState: 'disconnected',
         },
+      }));
+    },
+
+    // ─── Boot-time rehydration ──────────────────────────────────────────
+    // If a previous tab/session left a persisted active session, check
+    // whether the room is still alive in Supabase. If so, re-subscribe
+    // transparently. Otherwise clear the persisted state and surface a
+    // notice so the user can rejoin via the SessionModal hint.
+    rehydrateActiveSession: async () => {
+      const persisted = readPersistedSession();
+      if (!persisted) return;
+
+      // Already in a session in this tab — nothing to rehydrate.
+      if (get().coFocus.activeSessionId) return;
+
+      const sessionData = await sync.getSessionById(persisted.activeSessionId);
+      if (!sessionData) {
+        clearPersistedSession();
+        set((s: any) => ({
+          coFocus: {
+            ...s.coFocus,
+            lastSessionEndedNotice: 'Your previous Co-Focus session ended while you were away',
+          },
+        }));
+        return;
+      }
+
+      const messages = await sync.loadRecentMessages(sessionData.id);
+      set((s: any) => ({
+        coFocus: {
+          ...s.coFocus,
+          activeSessionId: sessionData.id,
+          isHost: persisted.isHost && sessionData.host_id === persisted.sessionHostId,
+          sessionHostId: sessionData.host_id,
+          sessionTimerMode: sessionData.timer_mode,
+          sessionInviteCode: sessionData.invite_code,
+          sessionSceneKey: sessionData.scene_key,
+          chatMessages: messages.map((m: any) => ({
+            id: m.id, sessionId: m.session_id, userId: m.user_id,
+            displayName: '', content: m.content, createdAt: m.created_at,
+          })),
+          unreadCount: 0,
+          coFocusPanelOpen: true,
+          lastInviteCode: sessionData.invite_code,
+          lastSessionEndedNotice: null,
+        },
+      }));
+
+      // Refresh persisted snapshot in case host/timer-mode/scene changed.
+      persistSession({
+        activeSessionId: sessionData.id,
+        isHost: sessionData.host_id === persisted.sessionHostId,
+        sessionHostId: sessionData.host_id,
+        sessionTimerMode: sessionData.timer_mode,
+        sessionInviteCode: sessionData.invite_code,
+        sessionSceneKey: sessionData.scene_key,
+      });
+
+      rt.subscribeToSession(sessionData.id, handlePresenceSync, handleBroadcast, handleConnectionChange);
+    },
+
+    clearLastSessionEndedNotice: () => {
+      set((s: any) => ({
+        coFocus: { ...s.coFocus, lastSessionEndedNotice: null },
       }));
     },
 
@@ -548,7 +704,16 @@ export function makeCoFocusActions(set: (fn: (s: any) => any) => void, get: () =
           },
         }));
 
-        rt.subscribeToSession(sessionData.id, handlePresenceSync, handleBroadcast);
+        persistSession({
+          activeSessionId: sessionData.id,
+          isHost: false,
+          sessionHostId: sessionData.host_id,
+          sessionTimerMode: sessionData.timer_mode,
+          sessionInviteCode: sessionData.invite_code,
+          sessionSceneKey: sessionData.scene_key,
+        });
+
+        rt.subscribeToSession(sessionData.id, handlePresenceSync, handleBroadcast, handleConnectionChange);
         return { error: null };
       } else {
         // ── No session — create one for both users ────────────────────────
@@ -577,7 +742,16 @@ export function makeCoFocusActions(set: (fn: (s: any) => any) => void, get: () =
           },
         }));
 
-        rt.subscribeToSession(session.id, handlePresenceSync, handleBroadcast);
+        persistSession({
+          activeSessionId: session.id,
+          isHost: true,
+          sessionHostId: user.id,
+          sessionTimerMode: invite.timerMode,
+          sessionInviteCode: session.invite_code,
+          sessionSceneKey: session.scene_key,
+        });
+
+        rt.subscribeToSession(session.id, handlePresenceSync, handleBroadcast, handleConnectionChange);
         return { error: null };
       }
     },
@@ -663,7 +837,16 @@ export function makeCoFocusActions(set: (fn: (s: any) => any) => void, get: () =
             },
           }));
 
-          rt.subscribeToSession(sessionData.id, handlePresenceSync, handleBroadcast);
+          persistSession({
+            activeSessionId: sessionData.id,
+            isHost: sessionData.host_id === user.id,
+            sessionHostId: sessionData.host_id,
+            sessionTimerMode: sessionData.timer_mode,
+            sessionInviteCode: sessionData.invite_code,
+            sessionSceneKey: sessionData.scene_key,
+          });
+
+          rt.subscribeToSession(sessionData.id, handlePresenceSync, handleBroadcast, handleConnectionChange);
         },
       );
     },

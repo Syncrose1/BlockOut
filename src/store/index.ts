@@ -255,6 +255,8 @@ interface BlockOutState {
   createSession: (timerMode: 'shared' | 'independent') => Promise<any>;
   joinSession: (inviteCode: string) => Promise<{ error: string | null }>;
   leaveSession: () => Promise<void>;
+  rehydrateActiveSession: () => Promise<void>;
+  clearLastSessionEndedNotice: () => void;
   broadcastTimerAction: (action: 'start' | 'pause' | 'reset' | 'skip') => void;
   sendChatMessage: (content: string) => Promise<void>;
   setChatOpen: (open: boolean) => void;
