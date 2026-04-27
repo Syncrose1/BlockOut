@@ -50,6 +50,10 @@ export interface Task {
   createdAt: number;
   dependsOn?: string[]; // task IDs that must be completed before this
   actualDuration?: number; // minutes spent (from completion survey)
+  // Seconds of focus time attributed to this task while it was the active
+  // Pomodoro/timer/stopwatch focus. Drives the Synamon Synapse completion
+  // bonus — only "real" focus on a task counts towards its bonus payout.
+  attributedFocusSeconds?: number;
 }
 
 export interface Subcategory {

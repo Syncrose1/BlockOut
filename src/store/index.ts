@@ -135,6 +135,7 @@ interface BlockOutState {
   addTask: (task: Omit<Task, 'id' | 'createdAt' | 'completed' | 'completedAt'>) => string;
   toggleTask: (id: string) => void;
   updateTask: (id: string, updates: Partial<Task>) => void;
+  attributeFocusSecond: (taskId: string) => void;
   deleteTask: (id: string) => void;
   setTaskActualDuration: (taskId: string, minutes: number | null) => void;
 
@@ -574,6 +575,18 @@ export const useStore = create<BlockOutState>((set, get) => ({
       // Award XP to active Synamon on task completion
       if (committed.completed) {
         get().grantProductivityXp(xpForTaskCompletion(committed.weight), 'blockout');
+
+        // Synapse completion bonus — anti-cheese: short tasks and tasks with
+        // no attributed focus pay 0; otherwise weight by attributed time and
+        // streak. Daily cap is enforced inside creditSynapse.
+        import('../utils/synapseEarn').then(({ computeCompletionBonus, creditSynapse }) => {
+          const bonus = computeCompletionBonus({
+            taskAgeMs: (committed.completedAt ?? Date.now()) - committed.createdAt,
+            attributedFocusSeconds: committed.attributedFocusSeconds ?? 0,
+            streakDays: get().streak.currentStreak,
+          });
+          if (bonus > 0) creditSynapse(bonus).catch(() => { /* swallow */ });
+        }).catch(() => { /* dynamic import failure shouldn't break completion */ });
       }
 
       // Auto-populate / remove from "Completed Today" chain group
@@ -650,6 +663,23 @@ export const useStore = create<BlockOutState>((set, get) => ({
     });
     logActivity(id, 'edited', { newValue: updates });
   },
+
+  // Anti-cheese feed for the Synapse completion bonus: only seconds spent on
+  // a task while it was actively focused count toward its payout. Quiet path —
+  // hot, no logging, no lastModified bump (would churn cloud sync every second).
+  attributeFocusSecond: (taskId) => set((state) => {
+    const task = state.tasks[taskId];
+    if (!task || task.completed) return state;
+    return {
+      tasks: {
+        ...state.tasks,
+        [taskId]: {
+          ...task,
+          attributedFocusSeconds: (task.attributedFocusSeconds ?? 0) + 1,
+        },
+      },
+    };
+  }),
 
   deleteTask: (id) => {
     logActivity(id, 'deleted'); // log before set — task won't exist in store after

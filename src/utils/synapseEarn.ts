@@ -24,6 +24,16 @@ export const TRICKLE_PER_MIN = 2;          // Synapse awarded per credited minut
 export const DAILY_CAP = 800;              // Max Synapse per local day from any source.
 const MIN_CREDIT_INTERVAL_SEC = 60;        // Don't fire more often than this.
 
+// Completion-bonus anti-cheese — one-shot tax at task complete time, weighted
+// by attributed focus. Per the economy design (project_synamon_economy.md):
+// short tasks and tasks the user never actually focused on yield no bonus.
+export const COMPLETION_MIN_TASK_AGE_SEC = 120;       // task age floor for any bonus
+export const COMPLETION_MIN_ATTRIBUTED_SEC = 60;      // attributed-focus floor
+export const COMPLETION_PER_TASK_FOCUS_CAP_SEC = 5400; // 90 min, then diminishing returns
+export const COMPLETION_BASE_PER_60_SEC = 1;          // 1 SYN / attributed minute pre-streak
+export const STREAK_K = 0.02;                         // +2% per streak day, capped 30 days
+export const STREAK_DAYS_CAP = 30;
+
 function todayLocalStr(): string {
   const d = new Date();
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
@@ -85,6 +95,16 @@ export function useSynapseTrickle() {
 
     const interval = setInterval(() => {
       accumulatedRef.current += 1;
+
+      // Per-task focus attribution — feeds the completion bonus. Only the
+      // explicitly-focused task gets credit; un-focused minutes still earn
+      // trickle but don't stack into any task's bonus pile.
+      const state = useStore.getState();
+      const focusedId = state.pomodoro.focusedTaskId;
+      if (focusedId && state.tasks[focusedId] && !state.tasks[focusedId].completed) {
+        state.attributeFocusSecond(focusedId);
+      }
+
       if (accumulatedRef.current >= MIN_CREDIT_INTERVAL_SEC) {
         accumulatedRef.current -= MIN_CREDIT_INTERVAL_SEC;
         creditSynapse(TRICKLE_PER_MIN).catch(e => console.warn('[synapseEarn] credit failed', e));
@@ -93,4 +113,29 @@ export function useSynapseTrickle() {
 
     return () => clearInterval(interval);
   }, [synamonEnabled, isFocusRunning]);
+}
+
+/**
+ * Compute the Synapse payout for completing a task. Returns the raw bonus
+ * value before daily-cap clamping (caller hands it to creditSynapse, which
+ * applies the cap). Returns 0 when the task fails the anti-cheese floors.
+ *
+ * Inputs are deliberate primitives so this stays unit-testable and the call
+ * site doesn't drag the whole store API in.
+ */
+export function computeCompletionBonus(input: {
+  taskAgeMs: number;
+  attributedFocusSeconds: number;
+  streakDays: number;
+}): number {
+  if (input.taskAgeMs < COMPLETION_MIN_TASK_AGE_SEC * 1000) return 0;
+  if (input.attributedFocusSeconds < COMPLETION_MIN_ATTRIBUTED_SEC) return 0;
+
+  const cappedFocus = Math.min(input.attributedFocusSeconds, COMPLETION_PER_TASK_FOCUS_CAP_SEC);
+  const baseBonus = Math.floor(cappedFocus / 60) * COMPLETION_BASE_PER_60_SEC;
+  if (baseBonus <= 0) return 0;
+
+  const streakDays = Math.min(Math.max(0, input.streakDays), STREAK_DAYS_CAP);
+  const multiplier = 1 + streakDays * STREAK_K;
+  return Math.floor(baseBonus * multiplier);
 }
