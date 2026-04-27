@@ -28,6 +28,7 @@ import {
 import { FriendModal } from './components/FriendModal';
 import { SessionModal } from './components/SessionModal';
 import { useCoFocusPresence } from './hooks/useCoFocusPresence';
+import { useSynapseTrickle } from './utils/synapseEarn';
 
 export function App() {
   const viewMode = useStore((s) => s.viewMode);
@@ -131,6 +132,7 @@ export function App() {
 
   // Co-Focus presence sync
   useCoFocusPresence();
+  useSynapseTrickle();
 
   // Close sidebar when navigating on mobile
   useEffect(() => {

@@ -91,6 +91,11 @@ interface BlockOutState {
   // don't want any creature/game stuff can fully ignore it.
   synamonEnabled: boolean;
 
+  // Synapse trickle — tracks how much we credited today (YYYY-MM-DD local).
+  // Mirrored to cloud sync so the daily cap holds across devices on the same
+  // day. Server-side cap enforcement comes later when the economy ships.
+  synapseDaily: { date: string; todayAmount: number };
+
   // Sync
   syncStatus: 'idle' | 'syncing' | 'synced' | 'error';
   syncSettingsOpen: boolean;
@@ -306,6 +311,7 @@ interface BlockOutState {
   clearPendingXp: () => void;
   setSynamonPanelOpen: (open: boolean) => void;
   setSynamonEnabled: (enabled: boolean) => void;
+  recordSynapseCredit: (date: string, amount: number) => void;
   petActiveSynamon: () => void;
   grantProductivityXp: (amount: number, source: 'blockout' | 'synamon') => void;
   computePendingEvents: () => void;
@@ -367,6 +373,7 @@ export const useStore = create<BlockOutState>((set, get) => ({
   dependencyBlockedTaskId: null,
   pomodoroSettingsOpen: false,
   synamonEnabled: true,
+  synapseDaily: { date: '', todayAmount: 0 },
   syncStatus: 'idle',
   syncSettingsOpen: false,
   conflictState: null,
@@ -767,6 +774,16 @@ export const useStore = create<BlockOutState>((set, get) => ({
   setSyncStatus: (status) => set({ syncStatus: status }),
   setSyncSettingsOpen: (open) => set({ syncSettingsOpen: open }),
   setSynamonEnabled: (enabled) => set({ synamonEnabled: enabled, lastModified: Date.now() }),
+  recordSynapseCredit: (date, amount) => set((state) => {
+    const sameDay = state.synapseDaily.date === date;
+    return {
+      synapseDaily: {
+        date,
+        todayAmount: (sameDay ? state.synapseDaily.todayAmount : 0) + amount,
+      },
+      lastModified: Date.now(),
+    };
+  }),
   setConflictState: (state) => set({ conflictState: state }),
 
   // Focus mode
@@ -2103,6 +2120,8 @@ export const useStore = create<BlockOutState>((set, get) => ({
       lastModified: (data as any).lastModified || Date.now(),
       // Synamon opt-out — default true so existing accounts keep Synamon visible.
       ...((data as any).synamonEnabled !== undefined && { synamonEnabled: (data as any).synamonEnabled }),
+      // Synapse daily counter — mirror of how much was credited today.
+      ...((data as any).synapseDaily && { synapseDaily: (data as any).synapseDaily }),
       // Synamon state — restore collection, preserve UI state (not persisted)
       ...((data as any).synamon && {
         synamon: {
@@ -2164,6 +2183,7 @@ export const useStore = create<BlockOutState>((set, get) => ({
       overviewBlocks: s.overviewBlocks,
       lastModified: s.lastModified || Date.now(),
       synamonEnabled: s.synamonEnabled,
+      synapseDaily: s.synapseDaily,
       synamon: {
         collection: s.synamon.collection,
         activeUid: s.synamon.activeUid,
