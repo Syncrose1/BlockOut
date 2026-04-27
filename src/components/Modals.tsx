@@ -1696,6 +1696,8 @@ export function SyncSettingsModal() {
   const setSyncSettingsOpen = useStore((s) => s.setSyncSettingsOpen);
   const syncStatus = useStore((s) => s.syncStatus);
   const setSyncStatus = useStore((s) => s.setSyncStatus);
+  const synamonEnabled = useStore((s) => s.synamonEnabled);
+  const setSynamonEnabled = useStore((s) => s.setSynamonEnabled);
 
   // Auth state
   const [authUser, setAuthUser] = useState<User | null>(null);
@@ -2014,6 +2016,33 @@ export function SyncSettingsModal() {
               {dropboxSection}
             </>
           )}
+
+          {/* ── Preferences ── */}
+          <div style={{ marginTop: 16, paddingTop: 14, borderTop: '1px solid var(--border)' }}>
+            <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-secondary)', marginBottom: 8, letterSpacing: 0.3 }}>
+              Preferences
+            </div>
+            <label style={{
+              display: 'flex', alignItems: 'flex-start', gap: 10,
+              padding: '10px 12px', background: 'var(--bg-tertiary)',
+              borderRadius: 'var(--radius-sm)', cursor: 'pointer',
+            }}>
+              <input
+                type="checkbox"
+                checked={synamonEnabled}
+                onChange={(e) => setSynamonEnabled(e.target.checked)}
+                style={{ marginTop: 2, flexShrink: 0, cursor: 'pointer' }}
+              />
+              <div style={{ minWidth: 0 }}>
+                <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-primary)' }}>
+                  Show Synamon companion
+                </div>
+                <div style={{ fontSize: 11, color: 'var(--text-tertiary)', marginTop: 2, lineHeight: 1.4 }}>
+                  Hide the panel, sidebar button, and adopt prompt if you'd rather use BlockOut without the creature companion. Your data is preserved if you turn it back on.
+                </div>
+              </div>
+            </label>
+          </div>
 
           <div style={{ fontSize: 11, color: 'var(--text-tertiary)', marginTop: 16, paddingTop: 12, borderTop: '1px solid var(--border)', lineHeight: 1.5 }}>
             Syncs automatically every 5 minutes and on page close. Local storage is always the primary data source.

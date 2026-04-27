@@ -86,6 +86,11 @@ interface BlockOutState {
   // Pomodoro
   pomodoro: PomodoroState;
 
+  // Synamon — opt-out switch. When false, the entire Synamon surface
+  // (panel, sidebar button, adopt prompt, widget) is hidden. Players who
+  // don't want any creature/game stuff can fully ignore it.
+  synamonEnabled: boolean;
+
   // Sync
   syncStatus: 'idle' | 'syncing' | 'synced' | 'error';
   syncSettingsOpen: boolean;
@@ -300,6 +305,7 @@ interface BlockOutState {
   setShowBattle: (show: boolean) => void;
   clearPendingXp: () => void;
   setSynamonPanelOpen: (open: boolean) => void;
+  setSynamonEnabled: (enabled: boolean) => void;
   petActiveSynamon: () => void;
   grantProductivityXp: (amount: number, source: 'blockout' | 'synamon') => void;
   computePendingEvents: () => void;
@@ -360,6 +366,7 @@ export const useStore = create<BlockOutState>((set, get) => ({
   chainTaskCompletionSurveyId: null,
   dependencyBlockedTaskId: null,
   pomodoroSettingsOpen: false,
+  synamonEnabled: true,
   syncStatus: 'idle',
   syncSettingsOpen: false,
   conflictState: null,
@@ -759,6 +766,7 @@ export const useStore = create<BlockOutState>((set, get) => ({
   setPomodoroSettingsOpen: (open) => set({ pomodoroSettingsOpen: open }),
   setSyncStatus: (status) => set({ syncStatus: status }),
   setSyncSettingsOpen: (open) => set({ syncSettingsOpen: open }),
+  setSynamonEnabled: (enabled) => set({ synamonEnabled: enabled, lastModified: Date.now() }),
   setConflictState: (state) => set({ conflictState: state }),
 
   // Focus mode
@@ -2093,6 +2101,8 @@ export const useStore = create<BlockOutState>((set, get) => ({
       ...(data as any).overviewBlocks !== undefined && { overviewBlocks: (data as any).overviewBlocks },
       // Track lastModified for cloud sync
       lastModified: (data as any).lastModified || Date.now(),
+      // Synamon opt-out — default true so existing accounts keep Synamon visible.
+      ...((data as any).synamonEnabled !== undefined && { synamonEnabled: (data as any).synamonEnabled }),
       // Synamon state — restore collection, preserve UI state (not persisted)
       ...((data as any).synamon && {
         synamon: {
@@ -2153,6 +2163,7 @@ export const useStore = create<BlockOutState>((set, get) => ({
       chainTasks: s.chainTasks,
       overviewBlocks: s.overviewBlocks,
       lastModified: s.lastModified || Date.now(),
+      synamonEnabled: s.synamonEnabled,
       synamon: {
         collection: s.synamon.collection,
         activeUid: s.synamon.activeUid,

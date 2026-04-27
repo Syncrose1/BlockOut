@@ -57,7 +57,8 @@ export function Sidebar() {
   const synamonStarterChosen = useStore((s) => s.synamon.starterChosen);
   const synamonCollection = useStore((s) => s.synamon.collection);
   const setSynamonPanelOpen = useStore((s) => s.setSynamonPanelOpen);
-  const hasCompanion = !!synamonActiveUid && synamonStarterChosen && !!synamonCollection[synamonActiveUid];
+  const synamonEnabled = useStore((s) => s.synamonEnabled);
+  const hasCompanion = synamonEnabled && !!synamonActiveUid && synamonStarterChosen && !!synamonCollection[synamonActiveUid];
 
   const sortedBlocks = useMemo(() => {
     return Object.values(timeBlocks).sort((a, b) => b.createdAt - a.createdAt);
@@ -475,8 +476,8 @@ export function Sidebar() {
             Restart Tour
           </button>
 
-          {/* Link to Synamon app for onboarding */}
-          {!hasCompanion && (
+          {/* Link to Synamon app for onboarding — hidden when Synamon is disabled. */}
+          {synamonEnabled && !hasCompanion && (
             <a
               href="https://synamon.syncratic.app"
               target="_blank"
@@ -541,8 +542,8 @@ export function Sidebar() {
 
       </div>
 
-      {/* Synamon companion panel */}
-      <SynamonPanel />
+      {/* Synamon companion panel — fully unmounted when the user has opted out. */}
+      {synamonEnabled && <SynamonPanel />}
 
       {categorySettingsId && (
         <CategorySettingsModal
