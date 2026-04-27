@@ -130,6 +130,10 @@ export function CoFocusScene({
   });
 
   const [loaded, setLoaded] = useState(false);
+  // Filter is driven by state (not the ref) so it always matches the plate currently
+  // being drawn. Updated only after the new scene's images finish loading; until
+  // then the previous scene's filter stays applied to its still-rendered pixels.
+  const [activeFilter, setActiveFilter] = useState('');
 
   // Load scene data + plate + hero frames
   useEffect(() => {
@@ -140,33 +144,41 @@ export function CoFocusScene({
       if (!scene || cancelled) return;
 
       const s = stateRef.current;
-      s.scene = scene;
 
-      // Load plate (single or animated)
-      s.plateImg = await loadImage(scene.plate);
-      s.plateFrameImgs = [];
+      // Load plate (single or animated) into local vars first — don't mutate
+      // s.scene / s.plateImg / s.plateFrameImgs until everything is ready, so
+      // the tick keeps drawing the previous scene with its matching filter.
+      const plateImg = await loadImage(scene.plate);
+      const plateFrameImgs = scene.plateFrames?.length
+        ? await Promise.all(scene.plateFrames.map(loadImage))
+        : [];
+
+      const heroFrames = scene.hero?.frames?.length
+        ? await Promise.all(scene.hero.frames.map(loadImage))
+        : [];
+
+      const particleSprite = scene.particles?.sprite
+        ? await loadImage(scene.particles.sprite)
+        : null;
+
+      if (cancelled) return;
+
+      // Atomic swap: scene metadata, images, and filter all flip together.
+      s.scene = scene;
+      s.plateImg = plateImg;
+      s.plateFrameImgs = plateFrameImgs;
       s.plateFrameIdx = 0;
       s.plateFrameAcc = 0;
-      if (scene.plateFrames?.length) {
-        s.plateFrameImgs = await Promise.all(scene.plateFrames.map(loadImage));
-      }
-
-      // Load hero frames
-      s.heroFrames = [];
-      if (scene.hero?.frames?.length) {
-        s.heroFrames = await Promise.all(scene.hero.frames.map(loadImage));
-      }
-
-      // Load particle sprite
-      if (scene.particles?.sprite) {
-        s.particleSprite = await loadImage(scene.particles.sprite);
-      }
-
+      s.heroFrames = heroFrames;
+      s.particleSprite = particleSprite;
       s.livingParticles = [];
       s.spawnAcc = 0;
-      s.heroIdx = 0; s.heroAcc = 0;
+      s.heroIdx = 0;
+      s.heroAcc = 0;
+      s.loaded = true;
 
-      if (!cancelled) { s.loaded = true; setLoaded(true); }
+      setActiveFilter(extractColorFilter(scene.filter));
+      setLoaded(true);
     })();
     return () => { cancelled = true; };
   }, [sceneKey]);
@@ -412,10 +424,8 @@ export function CoFocusScene({
   const canvasW = SCENE_W * cssScale;
   const canvasH = SCENE_H * cssScale;
 
-  const scene = stateRef.current.scene;
-  const colorFilter = extractColorFilter(scene?.filter);
-  const bgFilter = sceneBlur > 0 ? `${colorFilter} blur(${sceneBlur}px)`.trim() : colorFilter;
-  const crFilter = creatureBlurEnabled && sceneBlur > 0 ? `${colorFilter} blur(${sceneBlur}px)`.trim() : colorFilter;
+  const bgFilter = sceneBlur > 0 ? `${activeFilter} blur(${sceneBlur}px)`.trim() : activeFilter;
+  const crFilter = creatureBlurEnabled && sceneBlur > 0 ? `${activeFilter} blur(${sceneBlur}px)`.trim() : activeFilter;
 
   const canvasBase: React.CSSProperties = {
     width: canvasW,
