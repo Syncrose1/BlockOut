@@ -1,8 +1,6 @@
 import { useMemo, useState, useCallback, useEffect, useRef } from 'react';
 import { useStore } from '../store';
 import { AssignTasksModal, ExportImportModal, AITaskGeneratorModal } from './Modals';
-import { exportTreemapAsImage } from './Treemap';
-import { exportToFile } from '../utils/analytics';
 import { saveToCloud } from '../utils/persistence';
 import type { ViewMode } from '../types';
 
@@ -84,14 +82,6 @@ export function Topbar({ isMobile, onMenuToggle }: TopbarProps) {
     }
   }, [exportDropdownOpen]);
 
-  const handleExport = useCallback(async () => {
-    const dataUrl = await exportTreemapAsImage();
-    if (!dataUrl) return;
-    const link = document.createElement('a');
-    link.download = `blockout-${block?.name || 'treemap'}-${new Date().toISOString().slice(0, 10)}.png`;
-    link.href = dataUrl;
-    link.click();
-  }, [block]);
 
   const focusedCategory = focusedCategoryId ? categories[focusedCategoryId] : null;
 
@@ -215,10 +205,6 @@ export function Topbar({ isMobile, onMenuToggle }: TopbarProps) {
                 <button onClick={() => { setShowExportImport(true); setExportDropdownOpen(false); }}
                   style={{ display: 'block', width: '100%', padding: '10px 12px', background: 'none', border: 'none', color: 'var(--text-primary)', fontSize: 13, textAlign: 'left', cursor: 'pointer', borderBottom: '1px solid var(--border)' }}>
                   Export/Import Data
-                </button>
-                <button onClick={() => { exportToFile('full'); setExportDropdownOpen(false); }}
-                  style={{ display: 'block', width: '100%', padding: '10px 12px', background: 'none', border: 'none', color: 'var(--text-primary)', fontSize: 13, textAlign: 'left', cursor: 'pointer', borderBottom: '1px solid var(--border)' }}>
-                  Export JSON
                 </button>
                 <button onClick={() => { setShowAITaskGenerator(true); setExportDropdownOpen(false); }}
                   style={{ display: 'block', width: '100%', padding: '10px 12px', background: 'none', border: 'none', color: 'var(--text-primary)', fontSize: 13, textAlign: 'left', cursor: 'pointer' }}>
@@ -385,59 +371,6 @@ export function Topbar({ isMobile, onMenuToggle }: TopbarProps) {
               >
                 📤 Export/Import Data
               </button>
-
-              <button
-                onClick={() => {
-                  exportToFile('full');
-                  setExportDropdownOpen(false);
-                }}
-                style={{
-                  display: 'block',
-                  width: '100%',
-                  padding: '8px 12px',
-                  background: 'none',
-                  border: 'none',
-                  color: 'var(--text-primary)',
-                  fontSize: 13,
-                  textAlign: 'left',
-                  cursor: 'pointer',
-                  borderBottom: '1px solid var(--border)',
-                }}
-              >
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ marginRight: 6, verticalAlign: 'middle' }}>
-                  <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/>
-                  <polyline points="17 21 17 13 7 13 7 21"/>
-                  <polyline points="7 3 7 8 15 8"/>
-                </svg>
-                Export JSON
-              </button>
-
-              {viewMode === 'treemap' && total > 0 && (
-                <button
-                  onClick={() => {
-                    handleExport();
-                    setExportDropdownOpen(false);
-                  }}
-                  style={{
-                    display: 'block',
-                    width: '100%',
-                    padding: '8px 12px',
-                    background: 'none',
-                    border: 'none',
-                    color: 'var(--text-primary)',
-                    fontSize: 13,
-                    textAlign: 'left',
-                    cursor: 'pointer',
-                  }}
-                >
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ marginRight: 6, verticalAlign: 'middle' }}>
-                    <rect x="3" y="3" width="18" height="18" rx="2" ry="2"/>
-                    <circle cx="8.5" cy="8.5" r="1.5"/>
-                    <polyline points="21 15 16 10 5 21"/>
-                  </svg>
-                  Export PNG
-                </button>
-              )}
             </div>
           )}
         </div>
