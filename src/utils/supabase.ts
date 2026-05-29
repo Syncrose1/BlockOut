@@ -27,6 +27,15 @@ export function isSupabaseConfigured(): boolean {
 
 // ─── Auth helpers ───────────────────────────────────────────────────────────
 
+// Where auth emails (confirm signup, password reset) should return to. Include
+// the base path ('/blockout/' on web) so the link lands back in the app rather
+// than the host root (e.g. syncratic.app). Must be in Supabase's redirect
+// allowlist. The Supabase project is shared across apps, so each must send its
+// own app-scoped URL here.
+function authRedirectTo(): string {
+  return `${window.location.origin}${import.meta.env.BASE_URL}`;
+}
+
 export async function signUp(email: string, password: string): Promise<{ user: User | null; error: string | null }> {
   const client = getSupabaseClient();
   if (!client) return { user: null, error: 'Supabase not configured' };
@@ -34,7 +43,7 @@ export async function signUp(email: string, password: string): Promise<{ user: U
   const { data, error } = await client.auth.signUp({
     email,
     password,
-    options: { emailRedirectTo: window.location.origin },
+    options: { emailRedirectTo: authRedirectTo() },
   });
   if (error) return { user: null, error: error.message };
   return { user: data.user, error: null };
@@ -88,6 +97,8 @@ export async function resetPassword(email: string): Promise<{ error: string | nu
   const client = getSupabaseClient();
   if (!client) return { error: 'Supabase not configured' };
 
-  const { error } = await client.auth.resetPasswordForEmail(email);
+  const { error } = await client.auth.resetPasswordForEmail(email, {
+    redirectTo: authRedirectTo(),
+  });
   return { error: error?.message || null };
 }
