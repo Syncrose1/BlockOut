@@ -1,42 +1,80 @@
+/* ─── Design tokens ──────────────────────────────────────────────────────────
+   Two layers: theme-independent primitives (radii, type, motion, spacing) +
+   theme-dependent colour tokens. The dark theme is the default; a future
+   `[data-theme="light"]` block overrides only the colour tokens. Legacy names
+   (--bg-primary, --text-secondary, etc.) are preserved as the canonical tokens
+   so the whole app + inline styles pick up the refresh with no churn. */
 :root {
-  --bg-primary: #080810;
-  --bg-secondary: #0f0f1a;
-  --bg-tertiary: #181824;
-  --bg-elevated: #1e1e2e;
-  --bg-hover: #252538;
-
-  --text-primary: #eaeaf4;
-  --text-secondary: #8080a0;
-  --text-tertiary: #50506a;
-
-  --border: #252538;
-  --border-light: #303048;
-  --border-glow: #404060;
-
-  --accent: hsl(210, 80%, 65%);
-  --accent-dim: hsl(210, 40%, 18%);
-  --accent-glow: hsl(210, 80%, 65%);
-
-  --amber: hsl(40, 80%, 60%);
-  --amber-dim: hsl(40, 40%, 16%);
-
-  --radius-sm: 6px;
-  --radius-md: 10px;
+  /* radii — slightly tighter, more modern */
+  --radius-sm: 7px;
+  --radius-md: 11px;
   --radius-lg: 16px;
   --radius-xl: 22px;
 
-  --shadow-sm: 0 2px 8px rgba(0, 0, 0, 0.4);
-  --shadow-md: 0 4px 20px rgba(0, 0, 0, 0.5);
-  --shadow-lg: 0 8px 40px rgba(0, 0, 0, 0.6);
-  --shadow-glow: 0 0 20px rgba(100, 150, 255, 0.15);
+  /* spacing scale (4px base) */
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 24px;
+  --space-6: 32px;
 
+  /* typography */
   --font-sans: 'Space Grotesk', 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
   --font-mono: 'JetBrains Mono', monospace;
+  --text-xs: 11px;
+  --text-sm: 13px;
+  --text-base: 14px;
+  --text-lg: 16px;
+  --text-xl: 20px;
+  --text-2xl: 26px;
+  --weight-normal: 400;
+  --weight-medium: 500;
+  --weight-bold: 600;
 
-  --transition-fast: 120ms ease;
-  --transition-med: 220ms ease;
+  /* motion */
+  --transition-fast: 110ms cubic-bezier(0.4, 0, 0.2, 1);
+  --transition-med: 220ms cubic-bezier(0.4, 0, 0.2, 1);
   --transition-slow: 380ms cubic-bezier(0.16, 1, 0.3, 1);
-  --transition-spring: 400ms cubic-bezier(0.34, 1.56, 0.64, 1);
+  --transition-spring: 420ms cubic-bezier(0.34, 1.4, 0.5, 1);
+
+  /* ── Dark theme colour tokens (default) ── */
+  /* surfaces: a cleaner, slightly-lifted cool-neutral ramp with clearer steps */
+  --bg-primary: #0a0a12;
+  --bg-secondary: #111119;
+  --bg-tertiary: #181824;
+  --bg-elevated: #20202e;
+  --bg-hover: #2a2a3b;
+
+  /* text: brighter secondary/tertiary for legibility on the dark ramp */
+  --text-primary: #edeef7;
+  --text-secondary: #a2a4c2;
+  --text-tertiary: #6d6f93;
+
+  --border: #26263a;
+  --border-light: #34344e;
+  --border-glow: #45456a;
+
+  /* accent — the blue brand, a touch more vivid + proper interaction states */
+  --accent: hsl(212, 92%, 66%);
+  --accent-hover: hsl(212, 95%, 72%);
+  --accent-contrast: #07101f;
+  --accent-dim: hsl(212, 45%, 20%);
+  --accent-subtle: hsla(212, 92%, 66%, 0.13);
+  --accent-border: hsla(212, 92%, 66%, 0.32);
+  --accent-glow: hsl(212, 92%, 66%);
+
+  /* status */
+  --success: hsl(150, 62%, 52%);
+  --danger: hsl(0, 75%, 65%);
+  --amber: hsl(40, 92%, 62%);
+  --amber-dim: hsl(40, 45%, 17%);
+
+  /* shadows — softer, layered (modern depth, less heavy black) */
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.3), 0 2px 6px rgba(0, 0, 0, 0.35);
+  --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.4), 0 12px 28px rgba(0, 0, 0, 0.35);
+  --shadow-lg: 0 8px 24px rgba(0, 0, 0, 0.45), 0 24px 56px rgba(0, 0, 0, 0.5);
+  --shadow-glow: 0 0 24px hsla(212, 92%, 66%, 0.18);
 }
 
 * {
@@ -267,18 +305,19 @@ select {
 
 .btn-primary {
   background: var(--accent);
-  color: white;
-  box-shadow: 0 2px 8px hsla(210, 80%, 65%, 0.25);
+  color: var(--accent-contrast);
+  box-shadow: 0 1px 2px hsla(212, 92%, 30%, 0.4), 0 2px 10px hsla(212, 92%, 66%, 0.22);
 }
 
 .btn-primary:hover {
-  filter: brightness(1.12);
-  box-shadow: 0 4px 16px hsla(210, 80%, 65%, 0.4);
+  background: var(--accent-hover);
+  box-shadow: 0 2px 4px hsla(212, 92%, 30%, 0.4), 0 6px 18px hsla(212, 92%, 66%, 0.38);
   transform: translateY(-1px);
 }
 
 .btn-primary:active {
   transform: translateY(0);
+  box-shadow: 0 1px 2px hsla(212, 92%, 30%, 0.4);
 }
 
 .btn-primary:disabled {
@@ -290,12 +329,26 @@ select {
 .btn-ghost {
   color: var(--text-secondary);
   border: 1px solid transparent;
+  background: transparent;
 }
 
 .btn-ghost:hover {
   background: var(--bg-hover);
   color: var(--text-primary);
   border-color: var(--border);
+}
+
+/* Secondary — subtle filled, for actions that aren't the primary CTA */
+.btn-secondary {
+  background: var(--bg-elevated);
+  color: var(--text-primary);
+  border: 1px solid var(--border);
+}
+
+.btn-secondary:hover {
+  background: var(--bg-hover);
+  border-color: var(--border-light);
+  transform: translateY(-1px);
 }
 
 .btn-sm {
