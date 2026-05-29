@@ -21,6 +21,7 @@
 
   /* typography */
   --font-sans: 'Space Grotesk', 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+  --font-display: 'Space Grotesk', 'Inter', -apple-system, sans-serif;
   --font-mono: 'JetBrains Mono', monospace;
   --text-xs: 11px;
   --text-sm: 13px;
@@ -75,6 +76,52 @@
   --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.4), 0 12px 28px rgba(0, 0, 0, 0.35);
   --shadow-lg: 0 8px 24px rgba(0, 0, 0, 0.45), 0 24px 56px rgba(0, 0, 0, 0.5);
   --shadow-glow: 0 0 24px hsla(212, 92%, 66%, 0.18);
+}
+
+/* ── "Printed Matter" — editorial light theme ────────────────────────────────
+   Warm ivory paper + ink text + a claret/oxblood accent, with a Fraunces serif
+   display over a Hanken Grotesk body. A distinct identity, not an inverted dark. */
+[data-theme="light"] {
+  /* Editorial type pairing */
+  --font-sans: 'Hanken Grotesk', -apple-system, BlinkMacSystemFont, sans-serif;
+  --font-display: 'Fraunces', Georgia, 'Times New Roman', serif;
+
+  /* Paper surfaces — warm ivory ramp */
+  --bg-primary: #efe9dc;     /* the page / canvas field */
+  --bg-secondary: #f5f1e7;   /* chrome panels (sidebar / topbar) — the margin */
+  --bg-tertiary: #e8e0cf;    /* cards / inputs */
+  --bg-elevated: #fcfaf4;    /* lifted: modals, pomodoro */
+  --bg-hover: #e3dac6;
+
+  /* Ink */
+  --text-primary: #2a2620;
+  --text-secondary: #6d6555;
+  --text-tertiary: #9a917e;
+
+  --border: #ddd3bf;
+  --border-light: #cec3a9;
+  --border-glow: #c1b598;
+
+  /* Accent — claret / oxblood */
+  --accent: hsl(348, 56%, 42%);
+  --accent-hover: hsl(348, 60%, 35%);
+  --accent-contrast: #fdf6f3;
+  --accent-dim: hsl(348, 38%, 88%);
+  --accent-subtle: hsla(348, 56%, 42%, 0.10);
+  --accent-border: hsla(348, 56%, 42%, 0.28);
+  --accent-glow: hsl(348, 56%, 42%);
+
+  /* Status — darkened for contrast on paper */
+  --success: hsl(150, 52%, 34%);
+  --danger: hsl(0, 62%, 47%);
+  --amber: hsl(34, 78%, 44%);
+  --amber-dim: hsl(34, 60%, 85%);
+
+  /* Shadows — soft warm-grey, not heavy black */
+  --shadow-sm: 0 1px 2px rgba(64, 52, 30, 0.06), 0 2px 6px rgba(64, 52, 30, 0.05);
+  --shadow-md: 0 4px 12px rgba(64, 52, 30, 0.08), 0 12px 28px rgba(64, 52, 30, 0.07);
+  --shadow-lg: 0 8px 24px rgba(64, 52, 30, 0.10), 0 24px 56px rgba(64, 52, 30, 0.10);
+  --shadow-glow: 0 0 24px hsla(348, 56%, 42%, 0.14);
 }
 
 * {
@@ -190,6 +237,7 @@ select {
 }
 
 .sidebar-logo {
+  font-family: var(--font-display);
   font-size: 23px;
   font-weight: 700;
   letter-spacing: -0.5px;
@@ -414,6 +462,7 @@ select {
 }
 
 .topbar-title {
+  font-family: var(--font-display);
   font-size: 16px;
   font-weight: 600;
   letter-spacing: -0.2px;
@@ -762,6 +811,7 @@ select {
 }
 
 .modal h2 {
+  font-family: var(--font-display);
   font-size: 18px;
   font-weight: 600;
   margin-bottom: 18px;
@@ -1237,12 +1287,25 @@ select {
   min-width: 270px;
 }
 
+[data-theme="light"] .pomodoro-widget {
+  /* Light frosted paper panel — token-based internals adapt to ink text. */
+  background: linear-gradient(155deg, rgba(252, 250, 244, 0.80), rgba(240, 234, 222, 0.82));
+  border: 1px solid rgba(120, 100, 60, 0.16);
+  box-shadow: var(--shadow-lg), inset 0 1px 0 rgba(255, 255, 255, 0.55);
+}
+
 .pomodoro-timer {
   font-family: var(--font-mono);
   font-size: 26px;
   font-weight: 600;
   letter-spacing: 2px;
   line-height: 1;
+}
+
+[data-theme="light"] .pomodoro-timer {
+  font-family: var(--font-display);
+  font-weight: 600;
+  letter-spacing: 0.5px;
 }
 
 .pomodoro-mode {

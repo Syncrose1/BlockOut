@@ -1,7 +1,7 @@
 import { useRef, useEffect, useState, useCallback, useMemo, useLayoutEffect } from 'react';
 import { useStore } from '../store';
 import { layoutTreemap, nodeHeaderHeight } from '../utils/treemap';
-import { incompleteTint, incompleteTintHover, incompleteBorder } from '../utils/colors';
+import { incompleteTint, incompleteTintHover, incompleteBorder, categoryFill, categoryBorder, subcatFill, subcatBorder, categoryInk, taskLabelInk } from '../utils/colors';
 import { debouncedSave } from '../utils/persistence';
 import { ArchivedTaskWarningModal, UnifiedTaskContextMenu } from './Modals';
 import type { TreemapNode, Task, Category } from '../types';
@@ -473,9 +473,7 @@ export function Treemap() {
         ctx.textBaseline = 'middle';
         ctx.fillStyle = isLocked
           ? 'rgba(180, 120, 40, 0.6)'
-          : isActive
-          ? 'rgba(255,255,255,0.94)'
-          : 'rgba(255,255,255,0.82)';
+          : taskLabelInk(isActive);
 
         // Center the text in the tile, account for lock icon if present
         const centerX = tx + tw / 2;
@@ -668,13 +666,13 @@ export function Treemap() {
 
       if (dimmed) ctx.globalAlpha = 0.15;
 
-      ctx.fillStyle = catNode.color.replace('62%)', '12%)');
+      ctx.fillStyle = categoryFill(catNode.color);
       ctx.beginPath();
       roundRect(ctx, x, y, w, h, 8);
       ctx.fill();
 
       if (focused) { ctx.shadowColor = catNode.color; ctx.shadowBlur = 12; }
-      ctx.strokeStyle = focused ? catNode.color : catNode.color.replace('62%)', '25%)');
+      ctx.strokeStyle = focused ? catNode.color : categoryBorder(catNode.color);
       ctx.lineWidth = focused ? 2 : hasSubcats ? 1 : 2;
       ctx.beginPath();
       roundRect(ctx, x, y, w, h, 8);
@@ -682,7 +680,7 @@ export function Treemap() {
       ctx.shadowBlur = 0;
 
       const headerH = Math.min(24, h * 0.25);
-      ctx.fillStyle = catNode.color;
+      ctx.fillStyle = categoryInk(catNode.color);
       ctx.font = '700 12.5px Inter, sans-serif';
       ctx.textBaseline = 'middle';
       if (w > 40 && h > 20) ctx.fillText(catNode.name.toUpperCase(), x + 9, y + headerH / 2 + 2, w - 18);
@@ -711,17 +709,17 @@ export function Treemap() {
         catNode.children.forEach((child) => {
           if (child.children && child.children.length > 0 && child.depth) {
             if (child.x !== undefined && child.w! > 30 && child.h! > 20) {
-              ctx.fillStyle = catNode.color.replace('62%)', '16%)');
+              ctx.fillStyle = subcatFill(catNode.color);
               ctx.beginPath();
               roundRect(ctx, child.x!, child.y!, child.w!, child.h!, 0);
               ctx.fill();
-              ctx.strokeStyle = catNode.color.replace('62%)', '20%)');
+              ctx.strokeStyle = subcatBorder(catNode.color);
               ctx.lineWidth = 0.5;
               ctx.beginPath();
               roundRect(ctx, child.x!, child.y!, child.w!, child.h!, 0);
               ctx.stroke();
               if (child.w! > 50 && child.h! > 25) {
-                ctx.fillStyle = catNode.color.replace('72%', '50%').replace('62%)', '50%)');
+                ctx.fillStyle = categoryInk(catNode.color);
                 ctx.font = '600 9.5px Inter, sans-serif';
                 // Vertically centre the label within the (tight) subcategory
                 // header — matches the layout's reserved header so tiles sit

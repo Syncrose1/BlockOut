@@ -46,18 +46,58 @@ function hueOf(color: string): string {
   return m ? m[1] : '220';
 }
 
+function light(): boolean {
+  return typeof document !== 'undefined' && document.documentElement.dataset.theme === 'light';
+}
+
 /**
- * Incomplete tasks are rendered as a DARK, MUTED tint of their category hue
- * rather than neutral grey — so a tile's category is legible at a glance and
- * the board doesn't read as dead grey, while completed tiles (full saturated
- * colour) stay dramatically more vivid (the "fills with colour" reward).
+ * Incomplete tasks render as a MUTED tint of their category hue (dark in the
+ * dark theme, a light paper-tint in the light theme) — so a tile's category is
+ * legible while completed tiles (full saturated colour) stay dramatically more
+ * vivid (the "fills with colour" reward).
  */
 export function incompleteTint(color: string): string {
-  return `hsl(${hueOf(color)}, 20%, 16%)`;
+  const h = hueOf(color);
+  return light() ? `hsl(${h}, 42%, 90%)` : `hsl(${h}, 20%, 16%)`;
 }
 export function incompleteTintHover(color: string): string {
-  return `hsl(${hueOf(color)}, 22%, 21%)`;
+  const h = hueOf(color);
+  return light() ? `hsl(${h}, 48%, 85%)` : `hsl(${h}, 22%, 21%)`;
 }
 export function incompleteBorder(color: string): string {
-  return `hsl(${hueOf(color)}, 22%, 27%)`;
+  const h = hueOf(color);
+  return light() ? `hsl(${h}, 34%, 76%)` : `hsl(${h}, 22%, 27%)`;
+}
+
+// ── Category-container transforms (canvas), theme-aware ──
+/** Category frame fill. */
+export function categoryFill(color: string): string {
+  const h = hueOf(color);
+  return light() ? `hsl(${h}, 40%, 93%)` : color.replace('62%)', '12%)');
+}
+/** Category frame border. */
+export function categoryBorder(color: string): string {
+  const h = hueOf(color);
+  return light() ? `hsl(${h}, 34%, 72%)` : color.replace('62%)', '25%)');
+}
+/** Subcategory box fill. */
+export function subcatFill(color: string): string {
+  const h = hueOf(color);
+  return light() ? `hsl(${h}, 38%, 88%)` : color.replace('62%)', '16%)');
+}
+/** Subcategory box border. */
+export function subcatBorder(color: string): string {
+  const h = hueOf(color);
+  return light() ? `hsl(${h}, 32%, 74%)` : color.replace('62%)', '20%)');
+}
+/** Header / label text drawn in the category hue — darken for paper contrast. */
+export function categoryInk(color: string): string {
+  const h = hueOf(color);
+  return light() ? `hsl(${h}, 55%, 38%)` : color;
+}
+/** Task-label ink: white-on-dark vs ink-on-paper. `active` = completed (always
+ *  sits on a saturated tile, so light text reads in both themes). */
+export function taskLabelInk(activeOrCompleted: boolean): string {
+  if (activeOrCompleted) return 'rgba(255,255,255,0.95)';
+  return light() ? 'rgba(36,34,28,0.78)' : 'rgba(255,255,255,0.82)';
 }

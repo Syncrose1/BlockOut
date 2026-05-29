@@ -1,6 +1,7 @@
 import { useStore } from '../store';
 import { useMemo, useState } from 'react';
 import { debouncedSave } from '../utils/persistence';
+import { getTheme, toggleTheme, type Theme } from '../utils/theme';
 import { CategorySettingsModal, BlockSettingsModal } from './Modals';
 import { AnalyticsModal } from './AnalyticsModal';
 import { SynamonPanel } from './SynamonPanel';
@@ -24,6 +25,7 @@ export function Sidebar() {
   const [categorySettingsId, setCategorySettingsId] = useState<string | null>(null);
   const [blockSettingsId, setBlockSettingsId] = useState<string | null>(null);
   const [showAnalyticsModal, setShowAnalyticsModal] = useState(false);
+  const [theme, setThemeState] = useState<Theme>(getTheme());
 
   const timeBlocks = useStore((s) => s.timeBlocks);
   const activeBlockId = useStore((s) => s.activeBlockId);
@@ -474,6 +476,28 @@ export function Sidebar() {
           >
             <span>?</span>
             Restart Tour
+          </button>
+
+          {/* Theme toggle */}
+          <button
+            onClick={() => setThemeState(toggleTheme())}
+            title={theme === 'dark' ? 'Switch to light theme' : 'Switch to dark theme'}
+            style={{
+              background: 'none', border: 'none', color: 'var(--text-tertiary)',
+              cursor: 'pointer', fontSize: 12, padding: 0,
+              display: 'flex', alignItems: 'center', gap: 6,
+            }}
+          >
+            {theme === 'dark' ? (
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8Z" />
+              </svg>
+            ) : (
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                <circle cx="12" cy="12" r="4.5" /><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4" />
+              </svg>
+            )}
+            {theme === 'dark' ? 'Light' : 'Dark'}
           </button>
 
           {/* Link to Synamon app for onboarding — hidden when Synamon is disabled. */}
