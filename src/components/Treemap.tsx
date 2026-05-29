@@ -655,6 +655,10 @@ export function Treemap() {
 
       const dimmed = isFocusing && catNode.id !== focusedCatRef.current;
       const focused = isFocusing && catNode.id === focusedCatRef.current;
+      // Categories WITH subcategories get a visually thick wall from the frame
+      // border + the inner subcategory-box borders stacked. Subcategoryless
+      // categories have only the frame border, so double it to match.
+      const hasSubcats = !!catNode.children?.some((c) => c.children && c.children.length > 0 && c.depth);
 
       if (dimmed) ctx.globalAlpha = 0.15;
 
@@ -665,7 +669,7 @@ export function Treemap() {
 
       if (focused) { ctx.shadowColor = catNode.color; ctx.shadowBlur = 12; }
       ctx.strokeStyle = focused ? catNode.color : catNode.color.replace('62%)', '25%)');
-      ctx.lineWidth = focused ? 2 : 1;
+      ctx.lineWidth = focused ? 2 : hasSubcats ? 1 : 2;
       ctx.beginPath();
       roundRect(ctx, x, y, w, h, 8);
       ctx.stroke();
