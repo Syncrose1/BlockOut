@@ -353,7 +353,7 @@ export function Treemap() {
 
       ctx.fillStyle = fillColor;
       ctx.beginPath();
-      roundRect(ctx, tx, ty, tw, th, 4);
+      roundRect(ctx, tx, ty, tw, th, 0);
       ctx.fill();
 
       // ── Border ──────────────────────────────────────────────────────────────
@@ -365,32 +365,32 @@ export function Treemap() {
         ctx.strokeStyle = 'hsl(210, 100%, 65%)';
         ctx.lineWidth = 3;
         ctx.beginPath();
-        roundRect(ctx, tx, ty, tw, th, 4);
+        roundRect(ctx, tx, ty, tw, th, 0);
         ctx.stroke();
         // Add glow effect
         ctx.shadowColor = 'hsl(210, 100%, 65%)';
         ctx.shadowBlur = 8;
         ctx.beginPath();
-        roundRect(ctx, tx, ty, tw, th, 4);
+        roundRect(ctx, tx, ty, tw, th, 0);
         ctx.stroke();
         ctx.shadowBlur = 0;
       } else if (isLocked) {
         ctx.strokeStyle = 'hsl(30, 40%, 28%)';
         ctx.lineWidth = 1.5;
         ctx.beginPath();
-        roundRect(ctx, tx, ty, tw, th, 4);
+        roundRect(ctx, tx, ty, tw, th, 0);
         ctx.stroke();
       } else if (taskNode.completed || dissolve) {
         ctx.strokeStyle = taskNode.color.replace('62%)', '45%)');
         ctx.lineWidth = 1;
         ctx.beginPath();
-        roundRect(ctx, tx, ty, tw, th, 4);
+        roundRect(ctx, tx, ty, tw, th, 0);
         ctx.stroke();
       } else {
         ctx.strokeStyle = incompleteBorder(taskNode.color);
         ctx.lineWidth = 1;
         ctx.beginPath();
-        roundRect(ctx, tx, ty, tw, th, 4);
+        roundRect(ctx, tx, ty, tw, th, 0);
         ctx.stroke();
       }
 
@@ -398,7 +398,7 @@ export function Treemap() {
       if (isLocked && tw > 8 && th > 8) {
         ctx.save();
         ctx.beginPath();
-        roundRect(ctx, tx, ty, tw, th, 4);
+        roundRect(ctx, tx, ty, tw, th, 0);
         ctx.clip();
         ctx.strokeStyle = 'rgba(180, 120, 40, 0.15)';
         ctx.lineWidth = 1;
@@ -641,12 +641,12 @@ export function Treemap() {
             if (child.x !== undefined && child.w! > 30 && child.h! > 20) {
               ctx.fillStyle = catNode.color.replace('62%)', '16%)');
               ctx.beginPath();
-              roundRect(ctx, child.x!, child.y!, child.w!, child.h!, 5);
+              roundRect(ctx, child.x!, child.y!, child.w!, child.h!, 0);
               ctx.fill();
               ctx.strokeStyle = catNode.color.replace('62%)', '20%)');
               ctx.lineWidth = 0.5;
               ctx.beginPath();
-              roundRect(ctx, child.x!, child.y!, child.w!, child.h!, 5);
+              roundRect(ctx, child.x!, child.y!, child.w!, child.h!, 0);
               ctx.stroke();
               if (child.w! > 50 && child.h! > 25) {
                 ctx.fillStyle = catNode.color.replace('72%', '50%').replace('62%)', '50%)');
@@ -676,7 +676,7 @@ export function Treemap() {
 
       ctx.save();
       ctx.beginPath();
-      roundRect(ctx, p.tx, p.ty, p.tw, p.th, 4);
+      roundRect(ctx, p.tx, p.ty, p.tw, p.th, 0);
       ctx.clip();
 
       const count = 10;
