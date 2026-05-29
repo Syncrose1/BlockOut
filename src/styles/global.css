@@ -145,14 +145,18 @@ input, textarea, select {
   transition: border-color var(--transition-fast), box-shadow var(--transition-fast);
 }
 
+input::placeholder, textarea::placeholder {
+  color: var(--text-tertiary);
+}
+
 input:focus, textarea:focus, select:focus {
   border-color: var(--accent);
-  box-shadow: 0 0 0 2px hsla(210, 80%, 65%, 0.12);
+  box-shadow: 0 0 0 3px var(--accent-subtle);
 }
 
 select {
   appearance: none;
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath d='M6 8L1 3h10z' fill='%238080a0'/%3E%3C/svg%3E");
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath d='M6 8L1 3h10z' fill='%23a2a4c2'/%3E%3C/svg%3E");
   background-repeat: no-repeat;
   background-position: right 10px center;
   padding-right: 30px;
@@ -732,8 +736,9 @@ select {
 .modal-overlay {
   position: fixed;
   inset: 0;
-  background: rgba(0, 0, 0, 0.7);
-  backdrop-filter: blur(6px);
+  background: rgba(6, 7, 12, 0.62);
+  -webkit-backdrop-filter: blur(8px);
+  backdrop-filter: blur(8px);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -743,11 +748,11 @@ select {
 .modal {
   background: var(--bg-secondary);
   border: 1px solid var(--border-light);
-  border-radius: var(--radius-xl);
-  padding: 26px;
+  border-radius: var(--radius-lg);
+  padding: 24px;
   min-width: 400px;
   max-width: 480px;
-  box-shadow: var(--shadow-lg), 0 0 40px rgba(0,0,0,0.4);
+  box-shadow: var(--shadow-lg), inset 0 1px 0 rgba(255, 255, 255, 0.04);
   position: relative;
 }
 
@@ -757,10 +762,11 @@ select {
 }
 
 .modal h2 {
-  font-size: 17px;
-  font-weight: 700;
+  font-size: 18px;
+  font-weight: 600;
   margin-bottom: 18px;
-  letter-spacing: -0.3px;
+  letter-spacing: -0.2px;
+  color: var(--text-primary);
 }
 
 .modal-field {
@@ -770,10 +776,10 @@ select {
 .modal-field label {
   display: block;
   font-size: 11px;
-  font-weight: 700;
+  font-weight: 600;
   color: var(--text-tertiary);
   text-transform: uppercase;
-  letter-spacing: 0.8px;
+  letter-spacing: 1px;
   margin-bottom: 6px;
 }
 
