@@ -1,48 +1,22 @@
-const CACHE_NAME = 'blockout-v1';
-
-self.addEventListener('install', (event) => {
-  event.waitUntil(
-    caches.open(CACHE_NAME).then((cache) => {
-      return cache.addAll([
-        '/',
-        '/index.html',
-      ]);
-    })
-  );
-  self.skipWaiting();
-});
+// Retired service worker (kill-switch).
+//
+// The previous SW precached '/' and '/index.html'. That's unsafe now that
+// BlockOut is served under the /blockout sub-path and proxied on the
+// syncratic.app origin, where caching '/' would capture the wrong shell.
+//
+// Existing installs will pick this up on their next update check: it clears all
+// caches, unregisters itself, and reloads controlled clients. Offline use is
+// covered by the Electron desktop build.
+self.addEventListener('install', () => self.skipWaiting());
 
 self.addEventListener('activate', (event) => {
   event.waitUntil(
-    caches.keys().then((names) => {
-      return Promise.all(
-        names.filter((name) => name !== CACHE_NAME).map((name) => caches.delete(name))
-      );
-    })
+    (async () => {
+      const keys = await caches.keys();
+      await Promise.all(keys.map((k) => caches.delete(k)));
+      await self.registration.unregister();
+      const clients = await self.clients.matchAll({ type: 'window' });
+      clients.forEach((c) => c.navigate(c.url));
+    })()
   );
-  self.clients.claim();
-});
-
-self.addEventListener('fetch', (event) => {
-  // Network first for API calls, cache first for static assets
-  if (event.request.url.includes('/api/')) {
-    event.respondWith(
-      fetch(event.request).catch(() => {
-        return new Response(JSON.stringify({ error: 'offline' }), {
-          headers: { 'Content-Type': 'application/json' },
-        });
-      })
-    );
-  } else {
-    event.respondWith(
-      caches.match(event.request).then((cached) => {
-        const fetchPromise = fetch(event.request).then((response) => {
-          const clone = response.clone();
-          caches.open(CACHE_NAME).then((cache) => cache.put(event.request, clone));
-          return response;
-        });
-        return cached || fetchPromise;
-      })
-    );
-  }
 });

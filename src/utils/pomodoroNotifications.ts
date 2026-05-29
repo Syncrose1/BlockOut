@@ -1,4 +1,5 @@
 // Pomodoro notification and sound utilities
+import { asset } from './asset';
 
 export async function requestNotificationPermission(): Promise<boolean> {
   if (!('Notification' in window)) {
@@ -30,8 +31,8 @@ export function sendPomodoroNotification(mode: 'work' | 'break' | 'longBreak'): 
   
   new Notification(title, {
     body,
-    icon: '/bo-logo-v3.png',
-    badge: '/bo-logo-v3.png',
+    icon: asset('/bo-logo-v3.png'),
+    badge: asset('/bo-logo-v3.png'),
     tag: 'pomodoro-complete',
     requireInteraction: false,
   });

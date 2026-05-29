@@ -3,6 +3,8 @@
  * Fetches once on first call, then returns cached data.
  */
 
+import { asset } from './asset';
+
 export interface WorldZone {
   key: string;
   label: string;
@@ -43,21 +45,21 @@ let particlesCache: ParticlesData | null = null;
 
 export async function loadWorldData(): Promise<WorldData> {
   if (worldCache) return worldCache;
-  const res = await fetch('/synamon/world.json');
+  const res = await fetch(asset('/synamon/world.json'));
   worldCache = await res.json();
   return worldCache!;
 }
 
 export async function loadSpeciesData(): Promise<any[]> {
   if (speciesCache) return speciesCache;
-  const res = await fetch('/synamon/species.json');
+  const res = await fetch(asset('/synamon/species.json'));
   speciesCache = await res.json();
   return speciesCache!;
 }
 
 export async function loadParticlesData(): Promise<ParticlesData> {
   if (particlesCache) return particlesCache;
-  const res = await fetch('/synamon/_world/particles.json');
+  const res = await fetch(asset('/synamon/_world/particles.json'));
   particlesCache = await res.json();
   return particlesCache!;
 }

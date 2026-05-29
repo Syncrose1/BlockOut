@@ -252,8 +252,11 @@ export async function startDropboxAuth(): Promise<void> {
     return;
   }
   
-  // For web builds, use standard redirect flow
-  const redirectUri = `${window.location.origin}/`;
+  // For web builds, use standard redirect flow. Must match the app's base path
+  // (/blockout/) so Dropbox returns the ?code to the running app, not the host
+  // root. Register both https://syncratic.app/blockout/ and
+  // https://blockout.syncratic.app/blockout/ in the Dropbox app console.
+  const redirectUri = `${window.location.origin}${import.meta.env.BASE_URL}`;
   
   const params = new URLSearchParams({
     client_id: DROPBOX_APP_KEY,

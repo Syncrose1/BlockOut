@@ -19,10 +19,18 @@
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
     <script>
+      // Service worker retired — it precached '/' and '/index.html', which is
+      // unsafe now that BlockOut is served under the /blockout sub-path (and
+      // proxied on the syncratic.app origin). Proactively unregister any legacy
+      // SW and clear its caches so stale shells don't linger. Offline use is
+      // covered by the Electron desktop app.
       if ('serviceWorker' in navigator) {
-        window.addEventListener('load', () => {
-          navigator.serviceWorker.register('/sw.js').catch(() => {});
-        });
+        navigator.serviceWorker.getRegistrations()
+          .then((regs) => regs.forEach((r) => r.unregister()))
+          .catch(() => {});
+        if (window.caches) {
+          caches.keys().then((keys) => keys.forEach((k) => caches.delete(k))).catch(() => {});
+        }
       }
     </script>
   </body>

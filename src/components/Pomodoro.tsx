@@ -4,6 +4,7 @@ import { motion, AnimatePresence, useMotionValue } from 'framer-motion';
 import { PomodoroModal } from './PomodoroModal';
 import { SynamonSprite } from './SynamonSprite';
 import { getSpecies } from '../store/synamonSlice';
+import { asset } from '../utils/asset';
 import type { ActiveTimerMode } from '../types';
 import type { OwnedSynamon } from '../types/synamon';
 
@@ -377,7 +378,7 @@ export function Pomodoro() {
         >
           {hasCompanion ? (
             <img
-              src="/synamon/Synamon-Logo-cropped.svg"
+              src={asset('/synamon/Synamon-Logo-cropped.svg')}
               alt="Synamon"
               style={{ width: 18, height: 18, filter: 'brightness(0) invert(1)' }}
             />

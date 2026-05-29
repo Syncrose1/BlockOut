@@ -4,15 +4,18 @@
   "buildCommand": "npm run build",
   "outputDirectory": "dist",
   "framework": "vite",
+  "redirects": [
+    { "source": "/", "destination": "/blockout", "permanent": false }
+  ],
   "rewrites": [
-    {
-      "source": "/api/:path*",
-      "destination": "/api/:path*"
-    },
-    {
-      "source": "/(.*)",
-      "destination": "/index.html"
-    }
+    { "source": "/blockout/api/:path*", "destination": "/api/:path*" },
+    { "source": "/api/:path*", "destination": "/api/:path*" },
+    { "source": "/blockout/assets/(.*)", "destination": "/assets/$1" },
+    { "source": "/blockout/synamon/(.*)", "destination": "/synamon/$1" },
+    { "source": "/blockout/cofocus/(.*)", "destination": "/cofocus/$1" },
+    { "source": "/blockout/([^/]+\\.[a-zA-Z0-9]+)", "destination": "/$1" },
+    { "source": "/blockout", "destination": "/index.html" },
+    { "source": "/blockout/(.*)", "destination": "/index.html" }
   ],
   "headers": [
     {

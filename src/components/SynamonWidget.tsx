@@ -5,6 +5,7 @@ import { getSpecies } from '../store/synamonSlice';
 import { getSynamonMood, getMoodLabel, xpForLevel } from '../utils/synamonMath';
 import { SynamonSprite } from './SynamonSprite';
 import { SynamonCollection } from './SynamonCollection';
+import { asset } from '../utils/asset';
 import { BattleModal } from './BattleModal';
 
 function StatBar({ value, max = 100, color }: { value: number; max?: number; color: string }) {
@@ -162,7 +163,7 @@ export function SynamonWidget() {
       }}
     >
       <img
-        src="/synamon/Synamon-Logo-cropped.svg"
+        src={asset('/synamon/Synamon-Logo-cropped.svg')}
         alt="Synamon"
         style={{ width: 24, height: 24, filter: 'brightness(0) invert(1)' }}
       />

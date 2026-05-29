@@ -8,6 +8,7 @@ import { CoFocusInviteModal } from './CoFocusInviteModal';
 import { useIsMobile } from '../hooks/useIsMobile';
 import * as audio from '../utils/coFocusAudio';
 import { broadcastSceneChange } from '../utils/coFocusRealtime';
+import { asset } from '../utils/asset';
 import type { AmbientLayerConfig, AmbientVariant } from '../utils/coFocusAudio';
 
 // ─── Scene data type ────────────────────────────────────────────────────────
@@ -21,7 +22,7 @@ interface SceneOption {
 let scenesListCache: SceneOption[] | null = null;
 async function loadScenesList(): Promise<SceneOption[]> {
   if (scenesListCache) return scenesListCache;
-  const res = await fetch('/cofocus/scenes.json');
+  const res = await fetch(asset('/cofocus/scenes.json'));
   const json = await res.json();
   scenesListCache = (json.scenes as any[]).map(s => ({
     key: s.key, name: s.name, plate: s.plate, audio: s.audio,

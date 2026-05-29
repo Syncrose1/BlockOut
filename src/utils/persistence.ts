@@ -3,6 +3,7 @@ import { syncToDropbox, syncFromDropbox, isDropboxConfigured, syncToDropboxWithR
 import { saveToR2, loadFromR2, isR2SyncAvailable } from './r2sync';
 import { getAccessToken } from './supabase';
 import { registerSpecies } from '../store/synamonSlice';
+import { asset } from './asset';
 import type { SynamonSpecies } from '../types/synamon';
 
 const DEBUG = import.meta.env.DEV;
@@ -193,7 +194,7 @@ export async function loadData(): Promise<void> {
 
   // Load Synamon species registry
   try {
-    const res = await fetch('/synamon/species.json');
+    const res = await fetch(asset('/synamon/species.json'));
     if (res.ok) {
       const species: SynamonSpecies[] = await res.json();
       registerSpecies(species);

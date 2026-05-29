@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState, useCallback } from 'react';
+import { asset } from '../utils/asset';
 
 // ─── Constants ──────────────────────────────────────────────────────────────
 const SCENE_W = 400;
@@ -80,7 +81,7 @@ interface LiveParticle {
 let scenesCache: SceneData[] | null = null;
 async function loadScenes(): Promise<SceneData[]> {
   if (scenesCache) return scenesCache;
-  const res = await fetch('/cofocus/scenes.json');
+  const res = await fetch(asset('/cofocus/scenes.json'));
   const json = await res.json();
   scenesCache = json.scenes;
   return scenesCache!;
