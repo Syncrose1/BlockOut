@@ -300,7 +300,10 @@ export async function handleDropboxCallback(code: string): Promise<{ success: bo
     // Check if running in Electron
     const isElectron = (window as Window & { electronAPI?: { isElectron?: boolean } }).electronAPI?.isElectron === true;
     
-    const redirectUri = isElectron ? 'http://localhost:8765/' : `${window.location.origin}/`;
+    // MUST exactly match the redirect_uri used in the authorize step above
+    // (PKCE requirement). Web: origin + base path (/blockout/). Electron: the
+    // local OAuth server origin.
+    const redirectUri = isElectron ? 'http://localhost:8765/' : `${window.location.origin}${import.meta.env.BASE_URL}`;
     if (DEBUG) console.log('[BlockOut] Exchanging code for token with redirect:', redirectUri);
     if (DEBUG) console.log('[BlockOut] Is Electron app:', isElectron);
     

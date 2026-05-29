@@ -49,13 +49,23 @@ export function App() {
 
       const url = new URL(window.location.href);
       const code = url.searchParams.get('code');
-      const isCallbackRoute = window.location.pathname === '/' || window.location.pathname === '/dropbox-callback';
+      // Dropbox returns to the app's base root (origin + BASE_URL, e.g.
+      // /blockout/ under the proxy; / in dev). Match the base with or without a
+      // trailing slash so the ?code is actually picked up.
+      const base = import.meta.env.BASE_URL;
+      const path = window.location.pathname;
+      const isCallbackRoute =
+        path === base ||
+        path === base.replace(/\/$/, '') ||
+        path === '/' ||
+        path.endsWith('/dropbox-callback');
 
       if (isCallbackRoute && code) {
         oauthProcessed.current = true;
 
-        // Clear the code from URL immediately to prevent reuse
-        window.history.replaceState({}, '', '/');
+        // Clear the code from URL immediately to prevent reuse — preserve the
+        // base path so we don't bounce to the host root.
+        window.history.replaceState({}, '', base);
 
         const result = await handleDropboxCallback(code);
         if (result.success) {
