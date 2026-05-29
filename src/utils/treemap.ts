@@ -123,11 +123,20 @@ export function squarify(
 }
 
 // Build treemap layout for a list of nodes
+/** Header height reserved above a node's children. Depth 0 = top-level category
+ *  (roomy, capped 24px); deeper = subcategory (tight, capped 16px) since its
+ *  label is small and shouldn't reserve a tall empty band. Kept in sync with the
+ *  label rendering in Treemap.tsx (SUBCAT_HEADER). */
+export function nodeHeaderHeight(h: number, depth: number): number {
+  return depth === 0 ? Math.min(24, h * 0.25) : Math.min(16, h * 0.2);
+}
+
 export function layoutTreemap(
   nodes: TreemapNode[],
   width: number,
   height: number,
-  padding: number = 4
+  padding: number = 4,
+  depth: number = 0
 ): TreemapNode[] {
   if (nodes.length === 0) return [];
 
@@ -148,16 +157,19 @@ export function layoutTreemap(
     // Recursively layout children within this tile
     if (node.children && node.children.length > 0) {
       const innerPad = 2;
-      const headerHeight = Math.min(24, result.h! * 0.25);
+      const headerHeight = nodeHeaderHeight(result.h!, depth);
       const availableWidth = Math.max(20, result.w! - innerPad * 2);
       const availableHeight = Math.max(20, result.h! - headerHeight - innerPad * 2);
-      
-      // Layout children in the available space
+
+      // Layout children edge-to-edge (padding 0) so task tiles touch and their
+      // 1px borders overlap into a single shared hairline — no double border /
+      // background gap between adjacent tiles.
       const childrenWithCoords = layoutTreemap(
         node.children,
         availableWidth,
         availableHeight,
-        3
+        0,
+        depth + 1
       );
       
       // Convert children's coordinates to be absolute (relative to the canvas)

@@ -1,6 +1,6 @@
 import { useRef, useEffect, useState, useCallback, useMemo, useLayoutEffect } from 'react';
 import { useStore } from '../store';
-import { layoutTreemap } from '../utils/treemap';
+import { layoutTreemap, nodeHeaderHeight } from '../utils/treemap';
 import { incompleteTint, incompleteTintHover, incompleteBorder } from '../utils/colors';
 import { debouncedSave } from '../utils/persistence';
 import { ArchivedTaskWarningModal, UnifiedTaskContextMenu } from './Modals';
@@ -61,6 +61,12 @@ export function Treemap() {
   const containerRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [size, setSize] = useState({ w: 0, h: 0 });
+
+  // Cursor-following hover label (legible regardless of tile size). Driven by
+  // direct DOM writes in the mousemove handler — no React re-render per move.
+  const tooltipRef = useRef<HTMLDivElement>(null);
+  const tipNameRef = useRef<HTMLDivElement>(null);
+  const tipTagRef = useRef<HTMLDivElement>(null);
 
   // Animation state in plain refs — zero React re-renders during animation
   const hoveredIdRef = useRef<string | null>(null);
@@ -650,9 +656,13 @@ export function Treemap() {
               ctx.stroke();
               if (child.w! > 50 && child.h! > 25) {
                 ctx.fillStyle = catNode.color.replace('72%', '50%').replace('62%)', '50%)');
-                ctx.font = '500 9px Inter, sans-serif';
-                ctx.textBaseline = 'top';
-                ctx.fillText(child.name.toUpperCase(), child.x! + 4, child.y! + 3, child.w! - 8);
+                ctx.font = '600 9.5px Inter, sans-serif';
+                // Vertically centre the label within the (tight) subcategory
+                // header — matches the layout's reserved header so tiles sit
+                // right below with no wasted band.
+                const subHeaderH = nodeHeaderHeight(child.h!, 1);
+                ctx.textBaseline = 'middle';
+                ctx.fillText(child.name.toUpperCase(), child.x! + 6, child.y! + subHeaderH / 2 + 0.5, child.w! - 12);
               }
             }
             child.children.forEach(drawLeafTile);
@@ -766,7 +776,39 @@ export function Treemap() {
     if (containerRef.current) {
       containerRef.current.style.cursor = node ? 'pointer' : 'default';
     }
-  }, [findNodeAt]);
+
+    // ── Cursor-following hover label ──
+    const tip = tooltipRef.current;
+    if (tip && containerRef.current) {
+      if (node) {
+        const cat = node.categoryId ? categories[node.categoryId] : undefined;
+        let tagline = cat?.name ?? '';
+        if (node.subcategoryId && cat?.subcategories) {
+          const sub = cat.subcategories.find((s: { id: string; name: string }) => s.id === node.subcategoryId);
+          if (sub) tagline += ` · ${sub.name}`;
+        }
+        if (tipNameRef.current) tipNameRef.current.textContent = node.name;
+        if (tipTagRef.current) {
+          tipTagRef.current.textContent = tagline;
+          tipTagRef.current.style.display = tagline ? '' : 'none';
+        }
+        // Position near the cursor, relative to the container; flip away from
+        // the right/bottom edges so it never clips.
+        const cr = containerRef.current.getBoundingClientRect();
+        const px = e.clientX - cr.left;
+        const py = e.clientY - cr.top;
+        const flipX = px > cr.width - 260;
+        const flipY = py > cr.height - 90;
+        tip.style.left = `${px}px`;
+        tip.style.top = `${py}px`;
+        tip.style.transform =
+          `translate(${flipX ? 'calc(-100% - 16px)' : '16px'}, ${flipY ? 'calc(-100% - 16px)' : '16px'})`;
+        tip.style.opacity = '1';
+      } else {
+        tip.style.opacity = '0';
+      }
+    }
+  }, [findNodeAt, categories]);
 
   const handleDoubleClick = useCallback((e: React.MouseEvent) => {
     const rect = canvasRef.current?.getBoundingClientRect();
@@ -991,7 +1033,10 @@ export function Treemap() {
       container.__pendingDragTaskIds = null;
     }
   }, [setDraggedTask, setDraggedTasks, setIsDragging]);
-  const handleMouseLeave = useCallback(() => { hoveredIdRef.current = null; }, []);
+  const handleMouseLeave = useCallback(() => {
+    hoveredIdRef.current = null;
+    if (tooltipRef.current) tooltipRef.current.style.opacity = '0';
+  }, []);
 
   return (
     <div
@@ -1026,6 +1071,12 @@ export function Treemap() {
       ) : (
         <canvas ref={canvasRef} style={{ width: size.w, height: size.h }} />
       )}
+
+      {/* Cursor-following hover label */}
+      <div ref={tooltipRef} className="treemap-tooltip" aria-hidden>
+        <div ref={tipNameRef} className="tt-name" />
+        <div ref={tipTagRef} className="tt-tag" />
+      </div>
 
       {archivedWarningTaskId && (
         <ArchivedTaskWarningModal
