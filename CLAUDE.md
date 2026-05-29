@@ -99,3 +99,23 @@ ends with all connected backends holding the same resolved state.
 
 `api/data.js` (Vercel KV/memory self-hosted store) is legacy/secondary; its
 memory store resets on cold start — don't rely on it.
+
+### Sync modal + "Sync now" + Dropbox rolling backups
+- The Cloud Sync modal (`Modals.tsx` `SyncSettingsModal`) presents two method
+  cards: "Save to Syncratic Account" (R2) and "Dropbox Backup", plus an
+  independent **Sync now** button driven by `syncAllBackends()` in
+  persistence.ts. That runner syncs every connected backend in sequence and
+  emits `SyncEvent`s (`{backend, phase, message}`) the modal narrates per card.
+- Export (JSON + PNG via `exportTreemapAsImage`) + import live in the modal's
+  "Download a copy" section — NOT the topbar (the topbar overflow keeps only
+  Export/Import-Data + Smart Create).
+- **Dropbox rolling backups** (`dropbox.ts`): the live `/blockout-data.json`
+  stays the version-managed authoritative file; separately, dated snapshots go
+  to `/backups/blockout-<ISO>.json`, written at most once/day, pruned to
+  `getBackupKeep()` (user setting, default 10). The "restore an older backup"
+  picker lists them. Lowering retention below the current count prompts
+  delete-vs-archive; archived snapshots move to `/backups/archive` and are
+  excluded from rotation (never silently culled).
+- A ~150-line legacy "Dropbox → BlockOut Account Sync" confirm modal in
+  Modals.tsx is now unreachable (superseded by the restore picker) — safe to
+  delete in a future cleanup.
