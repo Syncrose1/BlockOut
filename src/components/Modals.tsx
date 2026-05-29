@@ -6,6 +6,7 @@ import {
   getCloudConfig,
   setCloudConfig,
   saveToCloud,
+  saveLocal,
   loadData,
   triggerCloudSync,
   getLastSyncedTime,
@@ -2115,8 +2116,16 @@ export function SyncSettingsModal() {
                   const f = e.target.files?.[0]; if (!f) return;
                   setExportMsg(null);
                   const r = await importFromFile(f);
-                  setExportMsg(r.success ? 'Imported data from file.' : (r.error || 'Import failed.'));
-                  if (r.success) { await loadData(); }
+                  if (r.success) {
+                    // importFromFile loads the file into the store. Persist it to
+                    // IndexedDB and push to connected cloud(s) — do NOT loadData()
+                    // (that re-reads the OLD IDB and clobbers the fresh import).
+                    await saveLocal();
+                    try { await saveToCloud(); } catch { /* offline — local saved */ }
+                    setExportMsg('Imported data from file.');
+                  } else {
+                    setExportMsg(r.error || 'Import failed.');
+                  }
                   e.target.value = '';
                 }}
               />
