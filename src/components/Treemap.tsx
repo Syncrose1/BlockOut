@@ -55,6 +55,26 @@ function roundRect(
   ctx.closePath();
 }
 
+/** roundRect with independent per-corner radii (tl, tr, br, bl). */
+function roundRectCorners(
+  ctx: CanvasRenderingContext2D,
+  x: number, y: number, w: number, h: number,
+  tl: number, tr: number, br: number, bl: number,
+) {
+  const max = Math.min(w / 2, h / 2);
+  tl = Math.min(tl, max); tr = Math.min(tr, max); br = Math.min(br, max); bl = Math.min(bl, max);
+  ctx.moveTo(x + tl, y);
+  ctx.lineTo(x + w - tr, y);
+  ctx.quadraticCurveTo(x + w, y, x + w, y + tr);
+  ctx.lineTo(x + w, y + h - br);
+  ctx.quadraticCurveTo(x + w, y + h, x + w - br, y + h);
+  ctx.lineTo(x + bl, y + h);
+  ctx.quadraticCurveTo(x, y + h, x, y + h - bl);
+  ctx.lineTo(x, y + tl);
+  ctx.quadraticCurveTo(x, y, x + tl, y);
+  ctx.closePath();
+}
+
 // ─── Component ────────────────────────────────────────────────────────────────
 
 export function Treemap() {
@@ -332,12 +352,28 @@ export function Treemap() {
     const dissolving = dissolvingRef.current;
     const currTasks = tasksRef.current;
 
-    const drawLeafTile = (taskNode: TreemapNode) => {
+    const drawLeafTile = (taskNode: TreemapNode, catBounds?: { l: number; t: number; r: number; b: number }) => {
       const tx = taskNode.x!;
       const ty = taskNode.y!;
       const tw = taskNode.w!;
       const th = taskNode.h!;
       if (tw < 2 || th < 2) return;
+
+      // Round only the one corner that faces the category frame's corner, so the
+      // square tiles don't poke harshly into the rounded category frame. Tiles
+      // not at a content corner stay fully square (contiguous).
+      const CR = 6, tol = 3;
+      let tl = 0, tr = 0, br = 0, bl = 0;
+      if (catBounds) {
+        const atL = tx <= catBounds.l + tol;
+        const atR = tx + tw >= catBounds.r - tol;
+        const atT = ty <= catBounds.t + tol;
+        const atB = ty + th >= catBounds.b - tol;
+        if (atL && atT) tl = CR;
+        if (atR && atT) tr = CR;
+        if (atR && atB) br = CR;
+        if (atL && atB) bl = CR;
+      }
 
       const isHovered = hoveredId === taskNode.id;
       const isLocked = taskNode.locked;
@@ -359,7 +395,7 @@ export function Treemap() {
 
       ctx.fillStyle = fillColor;
       ctx.beginPath();
-      roundRect(ctx, tx, ty, tw, th, 0);
+      roundRectCorners(ctx, tx, ty, tw, th, tl, tr, br, bl);
       ctx.fill();
 
       // ── Border ──────────────────────────────────────────────────────────────
@@ -371,32 +407,32 @@ export function Treemap() {
         ctx.strokeStyle = 'hsl(210, 100%, 65%)';
         ctx.lineWidth = 3;
         ctx.beginPath();
-        roundRect(ctx, tx, ty, tw, th, 0);
+        roundRectCorners(ctx, tx, ty, tw, th, tl, tr, br, bl);
         ctx.stroke();
         // Add glow effect
         ctx.shadowColor = 'hsl(210, 100%, 65%)';
         ctx.shadowBlur = 8;
         ctx.beginPath();
-        roundRect(ctx, tx, ty, tw, th, 0);
+        roundRectCorners(ctx, tx, ty, tw, th, tl, tr, br, bl);
         ctx.stroke();
         ctx.shadowBlur = 0;
       } else if (isLocked) {
         ctx.strokeStyle = 'hsl(30, 40%, 28%)';
         ctx.lineWidth = 1.5;
         ctx.beginPath();
-        roundRect(ctx, tx, ty, tw, th, 0);
+        roundRectCorners(ctx, tx, ty, tw, th, tl, tr, br, bl);
         ctx.stroke();
       } else if (taskNode.completed || dissolve) {
         ctx.strokeStyle = taskNode.color.replace('62%)', '45%)');
         ctx.lineWidth = 1;
         ctx.beginPath();
-        roundRect(ctx, tx, ty, tw, th, 0);
+        roundRectCorners(ctx, tx, ty, tw, th, tl, tr, br, bl);
         ctx.stroke();
       } else {
         ctx.strokeStyle = incompleteBorder(taskNode.color);
         ctx.lineWidth = 1;
         ctx.beginPath();
-        roundRect(ctx, tx, ty, tw, th, 0);
+        roundRectCorners(ctx, tx, ty, tw, th, tl, tr, br, bl);
         ctx.stroke();
       }
 
@@ -404,7 +440,7 @@ export function Treemap() {
       if (isLocked && tw > 8 && th > 8) {
         ctx.save();
         ctx.beginPath();
-        roundRect(ctx, tx, ty, tw, th, 0);
+        roundRectCorners(ctx, tx, ty, tw, th, tl, tr, br, bl);
         ctx.clip();
         ctx.strokeStyle = 'rgba(180, 120, 40, 0.15)';
         ctx.lineWidth = 1;
@@ -641,6 +677,10 @@ export function Treemap() {
       ctx.textBaseline = 'middle';
       if (w > 40 && h > 20) ctx.fillText(catNode.name.toUpperCase(), x + 9, y + headerH / 2 + 2, w - 18);
 
+      // Content bounds of this category — tiles at these corners round the one
+      // corner facing the category frame's rounded corner.
+      const catBounds = { l: x + 2, t: y + headerH + 2, r: x + w - 2, b: y + h - 2 };
+
       if (catNode.children) {
         catNode.children.forEach((child) => {
           if (child.children && child.children.length > 0 && child.depth) {
@@ -665,9 +705,9 @@ export function Treemap() {
                 ctx.fillText(child.name.toUpperCase(), child.x! + 6, child.y! + subHeaderH / 2 + 0.5, child.w! - 12);
               }
             }
-            child.children.forEach(drawLeafTile);
+            child.children.forEach((t) => drawLeafTile(t, catBounds));
           } else {
-            drawLeafTile(child);
+            drawLeafTile(child, catBounds);
           }
         });
       }
