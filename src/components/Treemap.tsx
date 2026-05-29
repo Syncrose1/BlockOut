@@ -352,27 +352,33 @@ export function Treemap() {
     const dissolving = dissolvingRef.current;
     const currTasks = tasksRef.current;
 
-    const drawLeafTile = (taskNode: TreemapNode, catBounds?: { l: number; t: number; r: number; b: number }) => {
+    const drawLeafTile = (
+      taskNode: TreemapNode,
+      catBounds?: { l: number; t: number; r: number; b: number; fx: number; fy: number; fw: number; fh: number; fr: number },
+    ) => {
       const tx = taskNode.x!;
       const ty = taskNode.y!;
       const tw = taskNode.w!;
       const th = taskNode.h!;
       if (tw < 2 || th < 2) return;
 
-      // Round only the one corner that faces the category frame's corner, so the
-      // square tiles don't poke harshly into the rounded category frame. Tiles
-      // not at a content corner stay fully square (contiguous).
-      const CR = 4, tol = 3;
+      // Round the BOTTOM corner tiles so they nest into the frame's rounded
+      // bottom corners — concentrically: inner radius = frame radius − gap, so
+      // the tile's arc runs parallel to the frame's. (Top corners sit below the
+      // category header, not against a frame corner, so they stay square.)
+      const tol = 3;
       let tl = 0, tr = 0, br = 0, bl = 0;
       if (catBounds) {
         const atL = tx <= catBounds.l + tol;
         const atR = tx + tw >= catBounds.r - tol;
-        const atT = ty <= catBounds.t + tol;
         const atB = ty + th >= catBounds.b - tol;
-        if (atL && atT) tl = CR;
-        if (atR && atT) tr = CR;
-        if (atR && atB) br = CR;
-        if (atL && atB) bl = CR;
+        const leftGap = catBounds.l - catBounds.fx;
+        const rightGap = (catBounds.fx + catBounds.fw) - catBounds.r;
+        const bottomGap = (catBounds.fy + catBounds.fh) - catBounds.b;
+        const concentric = (sideGap: number) =>
+          Math.max(0, Math.round(catBounds.fr - Math.max(sideGap, bottomGap)));
+        if (atL && atB) bl = concentric(leftGap);
+        if (atR && atB) br = concentric(rightGap);
       }
 
       const isHovered = hoveredId === taskNode.id;
@@ -697,7 +703,9 @@ export function Treemap() {
         cbr = Math.max(cbr, lf.x! + lf.w!);
         cbb = Math.max(cbb, lf.y! + lf.h!);
       }
-      const catBounds = { l: cbl, t: cbt, r: cbr, b: cbb };
+      // Carry the frame rect + radius so corner tiles can round CONCENTRICALLY
+      // with the frame (inner radius = frame radius − gap), sharing its arc.
+      const catBounds = { l: cbl, t: cbt, r: cbr, b: cbb, fx: x, fy: y, fw: w, fh: h, fr: 8 };
 
       if (catNode.children) {
         catNode.children.forEach((child) => {
