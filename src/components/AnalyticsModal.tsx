@@ -154,7 +154,7 @@ export function AnalyticsModal({ open, onClose }: { open: boolean; onClose: () =
                     style={{
                       fontSize: 24,
                       fontWeight: 700,
-                      color: 'hsl(210, 80%, 60%)',
+                      color: 'var(--accent)',
                       marginBottom: 4,
                     }}
                   >
@@ -175,7 +175,7 @@ export function AnalyticsModal({ open, onClose }: { open: boolean; onClose: () =
                     style={{
                       fontSize: 24,
                       fontWeight: 700,
-                      color: 'hsl(210, 80%, 60%)',
+                      color: 'var(--accent)',
                       marginBottom: 4,
                     }}
                   >
@@ -196,7 +196,7 @@ export function AnalyticsModal({ open, onClose }: { open: boolean; onClose: () =
                     style={{
                       fontSize: 24,
                       fontWeight: 700,
-                      color: 'hsl(210, 80%, 60%)',
+                      color: 'var(--accent)',
                       marginBottom: 4,
                     }}
                   >
@@ -217,7 +217,7 @@ export function AnalyticsModal({ open, onClose }: { open: boolean; onClose: () =
                     style={{
                       fontSize: 24,
                       fontWeight: 700,
-                      color: 'hsl(210, 80%, 60%)',
+                      color: 'var(--accent)',
                       marginBottom: 4,
                     }}
                   >
