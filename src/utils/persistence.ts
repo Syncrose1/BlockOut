@@ -93,6 +93,26 @@ export function getLastSyncedTime(): number | null {
   return v ? parseInt(v, 10) : null;
 }
 
+// R2 keeps its OWN monotonic version sequence + sync bookmarks, independent of
+// Dropbox's (the two cloud files are separate sequences; sharing keys would let
+// one's version number corrupt the other's conflict detection). This mirrors
+// the proven Dropbox version-vector scheme for R2-authoritative (no-Dropbox) use.
+const R2_LAST_SYNCED_VERSION_KEY = 'blockout-r2-last-synced-version';
+const R2_LAST_SYNCED_AT_KEY = 'blockout-r2-last-synced-at';
+
+function getR2LastSyncedVersion(): number {
+  return parseInt(localStorage.getItem(R2_LAST_SYNCED_VERSION_KEY) ?? '0', 10);
+}
+
+function getR2LastSyncedAt(): number {
+  return parseInt(localStorage.getItem(R2_LAST_SYNCED_AT_KEY) ?? '0', 10);
+}
+
+function recordR2Sync(version: number): void {
+  localStorage.setItem(R2_LAST_SYNCED_VERSION_KEY, String(version));
+  localStorage.setItem(R2_LAST_SYNCED_AT_KEY, String(Date.now()));
+}
+
 // ─── Save ─────────────────────────────────────────────────────────────────────
 
 export async function saveLocal(): Promise<void> {
@@ -148,6 +168,93 @@ async function mirrorToR2Backup(): Promise<void> {
   }
 }
 
+// ── R2 version-vector reconciliation (mirrors the Dropbox scheme) ──
+// Used when R2 is the AUTHORITATIVE store (no Dropbox connected). R2 carries its
+// own monotonic `version` in the stored blob; this client tracks the last R2
+// version it synced. Conflict detection is by version counter (clock-skew-proof),
+// not raw timestamps. Same four cases as syncToDropboxWithResolution.
+interface R2SyncResult {
+  success: boolean;
+  action: 'uploaded' | 'downloaded' | 'merged' | 'unchanged' | 'error';
+  data?: AnyRecord;
+  mergeInfo?: ReturnType<typeof mergeSnapshots>['info'];
+  error?: string;
+}
+
+function r2HasContent(d: AnyRecord): boolean {
+  return Object.keys((d.tasks as object) ?? {}).length > 0 ||
+    Object.keys((d.categories as object) ?? {}).length > 0;
+}
+
+async function syncToR2WithResolution(
+  localData: AnyRecord,
+  prefetchedRemote?: AnyRecord | null,
+): Promise<R2SyncResult> {
+  let remote = prefetchedRemote;
+  if (remote === undefined) {
+    const r = await loadFromR2();
+    remote = r.data;
+  }
+
+  const lastSyncedVersion = getR2LastSyncedVersion();
+  const lastSyncedAt = getR2LastSyncedAt();
+  const localLastModified = (localData.lastModified as number) ?? 0;
+
+  // No remote yet — initial upload.
+  if (!remote) {
+    const payload = { ...localData, version: 1 };
+    const res = await saveToR2(payload);
+    if (!res.success) return { success: false, action: 'error', error: res.error };
+    recordR2Sync(1);
+    return { success: true, action: 'uploaded' };
+  }
+
+  const remoteVersion = (remote.version as number) ?? 0;
+  const remoteLastModified = (remote.lastModified as number) ?? 0;
+
+  // Never let an empty/evicted local clobber a populated remote — adopt remote.
+  if (isEmptySnapshot(localData) && r2HasContent(remote)) {
+    recordR2Sync(remoteVersion);
+    return { success: true, action: 'downloaded', data: remote };
+  }
+
+  const remoteHasNewWrites = remoteVersion > lastSyncedVersion;
+  const localHasUnpushedChanges = localLastModified > lastSyncedAt && lastSyncedAt > 0;
+
+  // First-time connect with existing remote content — adopt remote.
+  if (lastSyncedVersion === 0 && remoteVersion > 0 && r2HasContent(remote)) {
+    recordR2Sync(remoteVersion);
+    return { success: true, action: 'downloaded', data: remote };
+  }
+
+  // Both diverged — merge, upload as a new version.
+  if (remoteHasNewWrites && localHasUnpushedChanges) {
+    const { merged, info } = mergeSnapshots(localData, remote, lastSyncedAt);
+    const newVersion = Math.max(remoteVersion, lastSyncedVersion) + 1;
+    const res = await saveToR2({ ...merged, version: newVersion });
+    if (!res.success) return { success: false, action: 'error', error: res.error };
+    recordR2Sync(newVersion);
+    return { success: true, action: 'merged', data: { ...merged, version: newVersion }, mergeInfo: info };
+  }
+
+  // Only remote moved — download.
+  if (remoteHasNewWrites) {
+    recordR2Sync(remoteVersion);
+    return { success: true, action: 'downloaded', data: remote };
+  }
+
+  // Remote unchanged — upload local if it's at least as new (else nothing to do).
+  if (localLastModified >= remoteLastModified) {
+    const newVersion = Math.max(remoteVersion, lastSyncedVersion) + 1;
+    const res = await saveToR2({ ...localData, version: newVersion });
+    if (!res.success) return { success: false, action: 'error', error: res.error };
+    recordR2Sync(newVersion);
+    return { success: true, action: 'uploaded' };
+  }
+
+  return { success: true, action: 'unchanged' };
+}
+
 export async function saveToCloud(): Promise<void> {
   // ── Authoritative store precedence: Dropbox > R2 > self-hosted ──
   // Dropbox is the real source of truth (full version/conflict logic). R2 is
@@ -189,16 +296,26 @@ export async function saveToCloud(): Promise<void> {
     return;
   }
 
-  // R2 cloud sync — authoritative only when Dropbox is NOT connected
+  // R2 cloud sync — authoritative only when Dropbox is NOT connected.
+  // Version-vector reconciliation (same scheme as Dropbox), so R2-only
+  // multi-device users get clock-skew-proof conflict detection.
   if (await isR2Active()) {
-    const data = useStore.getState().getSerializableState();
-    const result = await saveToR2(data);
-    if (result.success) {
-      useStore.getState().setSyncStatus('synced');
-      return;
+    const data = useStore.getState().getSerializableState() as AnyRecord;
+    const result = await syncToR2WithResolution(data);
+    if (!result.success) {
+      // No Dropbox to fall back to — surface the error.
+      throw new Error(result.error || 'R2 sync failed');
     }
-    // R2 failed and there's no Dropbox to fall back to — surface the error.
-    throw new Error(result.error || 'R2 sync failed');
+    if (result.action === 'downloaded' && result.data) {
+      applyData(result.data, 'saveToCloud-r2-downloaded');
+    } else if (result.action === 'merged' && result.data) {
+      applyData(result.data, 'saveToCloud-r2-merged');
+      if (result.mergeInfo) {
+        useStore.getState().setConflictState({ local: data, remote: result.data, merged: result.data, mergeInfo: result.mergeInfo });
+      }
+    }
+    useStore.getState().setSyncStatus('synced');
+    return;
   }
 
   const { url, token } = getCloudConfig();
@@ -364,42 +481,41 @@ export async function loadData(): Promise<void> {
     }
   }
   // ── R2 — authoritative only when Dropbox is NOT connected ──
+  // Version-vector reconciliation (same scheme as Dropbox), clock-skew-proof.
   else if (r2Active) {
-    if (r2Data) {
-      remote = r2Data;
-      // Guard: reject suspiciously empty remote when local has content.
-      if (isEmptySnapshot(remote) && taskCount(local) > 0) {
-        console.warn('[BlockOut] R2 empty but local has data — keeping local, pushing it up');
-        applyData(local!, 'r2-empty-rejected');
-        saveToR2(useStore.getState().getSerializableState()).catch(() => {});
-        useStore.getState().setSyncStatus('synced');
-        return;
-      }
-      if (!local) {
-        applyData(remote, 'r2-remote');
-        await idbWrite({ ...remote, lastModified: Date.now() });
-        useStore.getState().setSyncStatus('synced');
-        return;
-      }
-      const localMod = (local.lastModified as number) ?? 0;
-      const remoteMod = (remote.lastModified as number) ?? 0;
-      if (remoteMod > localMod) {
-        applyData(remote, 'r2-remote-newer');
-        await idbWrite({ ...remote, lastModified: Date.now() });
-      } else {
-        applyData(local, 'r2-local-newer');
-        saveToR2(useStore.getState().getSerializableState()).catch((e) => console.warn('[BlockOut] R2 push failed', e));
+    if (!local && !r2Data) {
+      markDataLoaded(); // nothing anywhere yet — allow fresh start
+      useStore.getState().setSyncStatus('synced');
+      return;
+    }
+    const result = await syncToR2WithResolution((local ?? {}) as AnyRecord, r2Data);
+    if (result.success) {
+      switch (result.action) {
+        case 'downloaded':
+          if (result.data) {
+            applyData(result.data, 'r2-downloaded');
+            await idbWrite({ ...result.data, lastModified: Date.now() });
+          }
+          break;
+        case 'merged':
+          if (result.data) {
+            applyData(result.data, 'r2-merged');
+            await idbWrite({ ...result.data, lastModified: Date.now() });
+            if (result.mergeInfo && local) {
+              useStore.getState().setConflictState({ local, remote: result.data, merged: result.data, mergeInfo: result.mergeInfo });
+            }
+          }
+          break;
+        case 'uploaded':
+        case 'unchanged':
+          if (local) applyData(local, 'r2-local-authoritative');
+          break;
       }
       useStore.getState().setSyncStatus('synced');
       return;
     }
-    // No remote data yet — use local, push it up as the initial backup.
-    if (local) {
-      applyData(local, 'r2-no-remote');
-      saveToR2(useStore.getState().getSerializableState()).catch((e) => console.warn('[BlockOut] R2 initial push failed', e));
-      useStore.getState().setSyncStatus('synced');
-      return;
-    }
+    // R2 failed — fall through to apply local below.
+    console.warn('[BlockOut] R2 sync failed:', result.error);
   }
   // ── Self-hosted ──
   else if (url) {
