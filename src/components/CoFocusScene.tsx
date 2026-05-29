@@ -66,7 +66,10 @@ function loadImage(src: string): Promise<HTMLImageElement> {
     const img = new Image();
     img.onload = () => { imageCache.set(src, img); resolve(img); };
     img.onerror = () => resolve(img);
-    img.src = src;
+    // Scene/creature paths from data are root-absolute ('/cofocus/...',
+    // '/synamon/...') — resolve against the app base path so they load under
+    // the /blockout proxy.
+    img.src = src.startsWith('/') ? asset(src) : src;
   });
 }
 

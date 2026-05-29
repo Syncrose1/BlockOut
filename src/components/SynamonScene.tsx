@@ -3,6 +3,7 @@ import {
   loadWorldData, loadParticlesData,
   type WorldData, type WorldZone, type ParticlesData, type ParticleDef,
 } from '../utils/synamonAssets';
+import { asset } from '../utils/asset';
 
 // ─── Constants ──────────────────────────────────────────────────────────────
 const SCENE_W = 256;
@@ -35,7 +36,10 @@ function loadImage(src: string): Promise<HTMLImageElement> {
     const img = new Image();
     img.onload = () => { imageCache.set(src, img); resolve(img); };
     img.onerror = () => resolve(img);
-    img.src = src;
+    // Sprite/plate/frame paths are baked into the synamon data as root-absolute
+    // '/synamon/...' — resolve against the app base path (/blockout/) so they
+    // don't 404 against the host root under the proxy.
+    img.src = src.startsWith('/') ? asset(src) : src;
   });
 }
 

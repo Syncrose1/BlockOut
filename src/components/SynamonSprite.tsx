@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
+import { asset } from '../utils/asset';
 
 interface SynamonSpriteProps {
   frames: string[];
@@ -59,7 +60,7 @@ export function SynamonSprite({
 
   return (
     <img
-      src={displaySrc}
+      src={displaySrc?.startsWith('/') ? asset(displaySrc) : (displaySrc ?? undefined)}
       alt="synamon"
       style={imgStyle}
       draggable={false}
