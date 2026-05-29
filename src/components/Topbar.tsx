@@ -295,26 +295,24 @@ export function Topbar({ isMobile, onMenuToggle }: TopbarProps) {
             className="btn btn-ghost btn-sm"
             onClick={() => setShowAssign(true)}
           >
-            Assign Tasks
+            Assign
           </button>
         )}
 
         {/* Sync status */}
         <div style={{ display: 'flex', alignItems: 'center', gap: 2 }}>
           <button
+            className="btn btn-ghost btn-sm"
             title={syncTitle[syncStatus]}
             onClick={() => setSyncSettingsOpen(true)}
-            style={{
-              background: 'none', border: 'none', cursor: 'pointer',
-              display: 'flex', alignItems: 'center', gap: 5,
-              color: 'var(--text-tertiary)', fontSize: 12, padding: '4px 6px',
-            }}
+            style={{ gap: 7 }}
           >
             <span style={{
               width: 7, height: 7, borderRadius: '50%',
               background: syncDotColor[syncStatus],
               display: 'inline-block',
               transition: 'background 0.3s',
+              boxShadow: syncStatus === 'synced' ? '0 0 6px var(--success)' : 'none',
             }} />
             Sync
           </button>
