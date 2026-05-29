@@ -10,8 +10,12 @@ import {
   triggerCloudSync,
   getLastSyncedTime,
   resolveConflict,
+  syncAllBackends,
+  type SyncEvent,
+  type SyncBackend,
 } from '../utils/persistence';
 import { exportToFile, importFromFile } from '../utils/analytics';
+import { exportTreemapAsImage } from './Treemap';
 import {
   syncToDropbox,
   syncFromDropbox,
@@ -19,6 +23,13 @@ import {
   clearDropboxConfig,
   startDropboxAuth,
   forceReauth,
+  listDropboxBackups,
+  restoreDropboxBackup,
+  getBackupKeep,
+  setBackupKeep,
+  countActiveBackups,
+  applyLoweredRetention,
+  type DropboxBackup,
 } from '../utils/dropbox';
 import {
   isSupabaseConfigured, signIn, signUp, signOut,
@@ -1712,10 +1723,24 @@ export function SyncSettingsModal() {
 
   // Sync feedback
   const [syncing, setSyncing] = useState(false);
-  const [syncResult, setSyncResult] = useState<'ok' | 'fail' | null>(null);
   const [lastSynced, setLastSynced] = useState<number | null>(null);
+  // Live per-backend narrative from the last/ongoing Sync now.
+  const [syncEvents, setSyncEvents] = useState<Partial<Record<SyncBackend, SyncEvent>>>({});
 
-  // Dropbox → BlockOut sync modal
+  // Restore-an-older-backup picker
+  const [showRestore, setShowRestore] = useState(false);
+  const [backups, setBackups] = useState<DropboxBackup[] | null>(null);
+  const [restoreTarget, setRestoreTarget] = useState<DropboxBackup | null>(null);
+
+  // Backup retention setting + lower-confirmation
+  const [keepValue, setKeepValue] = useState<number>(getBackupKeep());
+  const [lowerConfirm, setLowerConfirm] = useState<{ newKeep: number; excess: number } | null>(null);
+
+  // Export feedback
+  const [exportMsg, setExportMsg] = useState<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Dropbox → BlockOut sync modal (legacy whole-file restore confirm)
   const [showDropboxSync, setShowDropboxSync] = useState(false);
   const [dropboxSyncState, setDropboxSyncState] = useState<'idle' | 'pulling' | 'pushing' | 'done' | 'error'>('idle');
   const [dropboxSyncError, setDropboxSyncError] = useState<string | null>(null);
@@ -1724,7 +1749,9 @@ export function SyncSettingsModal() {
   useEffect(() => {
     if (!open) return;
     setLastSynced(getLastSyncedTime());
-    setSyncResult(null);
+    setSyncEvents({});
+    setExportMsg(null);
+    setKeepValue(getBackupKeep());
     if (isSupabaseConfigured()) {
       setAuthChecked(false);
       getSession().then(({ user }) => { setAuthUser(user); setAuthChecked(true); });
@@ -1791,14 +1818,67 @@ export function SyncSettingsModal() {
     setSyncStatus('idle');
   };
 
+  // Independent "Sync now" — runs every connected backend with live narrative.
   const handleSyncNow = async () => {
-    setSyncing(true); setSyncResult(null);
+    setSyncing(true);
+    setSyncEvents({});
+    const { ok } = await syncAllBackends((e) => {
+      setSyncEvents((prev) => ({ ...prev, [e.backend]: e }));
+    });
+    if (ok) setLastSynced(Date.now());
+    setSyncing(false);
+  };
+
+  const openRestore = async () => {
+    setShowRestore(true); setBackups(null);
+    try { setBackups(await listDropboxBackups()); } catch { setBackups([]); }
+  };
+
+  const doRestore = async (b: DropboxBackup) => {
+    setRestoreTarget(b);
     try {
-      // Route through the orchestrator: Dropbox is authoritative (version-
-      // managed) when connected, with R2 mirrored as backup; R2 alone otherwise.
-      await saveToCloud();
-      setSyncResult('ok'); setSyncStatus('synced'); setLastSynced(Date.now());
-    } catch { setSyncResult('fail'); setSyncStatus('error'); } finally { setSyncing(false); }
+      const data = await restoreDropboxBackup(b.path);
+      if (!data) throw new Error('Backup could not be read.');
+      useStore.getState().loadData(data as any);
+      await saveToCloud(); // propagate the restored state to connected backends
+      setSyncStatus('synced'); setLastSynced(Date.now());
+      setShowRestore(false); setRestoreTarget(null);
+    } catch {
+      setSyncStatus('error'); setRestoreTarget(null);
+    }
+  };
+
+  // Commit a retention change; if lowering below current backup count, ask first.
+  const commitKeep = async (n: number) => {
+    const next = Math.max(1, Math.floor(n || 1));
+    setKeepValue(next);
+    if (next >= getBackupKeep()) { setBackupKeep(next); return; }
+    let active = 0;
+    try { active = await countActiveBackups(); } catch { /* offline — just set */ }
+    if (active > next) setLowerConfirm({ newKeep: next, excess: active - next });
+    else setBackupKeep(next);
+  };
+
+  const resolveLower = async (mode: 'delete' | 'archive') => {
+    if (!lowerConfirm) return;
+    try { await applyLoweredRetention(lowerConfirm.newKeep, mode); } catch { /* best-effort */ }
+    setLowerConfirm(null);
+  };
+
+  const handleExportJSON = async () => {
+    setExportMsg(null);
+    try { await exportToFile('full'); setExportMsg('Downloaded a JSON copy of your data.'); }
+    catch { setExportMsg('Export failed.'); }
+  };
+
+  const handleExportPNG = async () => {
+    setExportMsg(null);
+    const dataUrl = await exportTreemapAsImage();
+    if (!dataUrl) { setExportMsg('Open the Treemap view to export an image.'); return; }
+    const link = document.createElement('a');
+    link.download = `blockout-${new Date().toISOString().slice(0, 10)}.png`;
+    link.href = dataUrl; link.click();
+    setExportMsg('Downloaded a PNG of your treemap.');
   };
 
   // Small status pill (green "Connected" / neutral "Optional" etc.)
@@ -1820,33 +1900,44 @@ export function SyncSettingsModal() {
     borderRadius: 'var(--radius-sm)', border: '1px solid var(--border)', marginBottom: 12,
   };
 
-  // ── Dropbox backup card (self-contained: connected / not-connected states) ──
+  // Live per-backend narrative line (shown inside each card during/after Sync now).
+  const narrative = (backend: SyncBackend) => {
+    const e = syncEvents[backend];
+    if (!e) return null;
+    const color = e.phase === 'error' ? 'hsl(0,72%,62%)' : e.phase === 'done' ? 'hsl(140,60%,50%)' : 'var(--text-secondary)';
+    const spinning = e.phase === 'start' || e.phase === 'working';
+    return (
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 10, fontSize: 12, color }}>
+        {spinning ? (
+          <span style={{ width: 12, height: 12, flexShrink: 0, border: '2px solid var(--border)', borderTopColor: 'var(--accent)', borderRadius: '50%', animation: 'spin 0.8s linear infinite' }} />
+        ) : (
+          <span style={{ flexShrink: 0 }}>{e.phase === 'done' ? '✓' : e.phase === 'error' ? '✗' : '·'}</span>
+        )}
+        <span style={{ lineHeight: 1.4 }}>{e.message}</span>
+      </div>
+    );
+  };
+
+  // ── Dropbox backup card (rename: "Dropbox Backup"; status + narrative + connect) ──
   const dropboxCard = (
     <section style={cardStyle}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 6 }}>
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="hsl(210,90%,60%)" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }}>
           <path d="M20 16.58A5 5 0 0 0 18 7h-1.26A8 8 0 1 0 4 15.25" /><path d="M8 17l4 4 4-4M12 12v9" />
         </svg>
-        <span style={{ fontSize: 14, fontWeight: 600, color: 'var(--text-primary)', flex: 1 }}>Dropbox backup</span>
+        <span style={{ fontSize: 14, fontWeight: 600, color: 'var(--text-primary)', flex: 1 }}>Dropbox Backup</span>
         {isDropboxConfigured() ? pill('Connected', 'on') : pill('Optional', 'off')}
       </div>
       <p style={{ fontSize: 12, color: 'var(--text-tertiary)', margin: '0 0 12px', lineHeight: 1.5 }}>
         A second cloud backup with full version history and conflict resolution. No account required — saves to /Apps/BlockOut in your own Dropbox.
       </p>
       {isDropboxConfigured() ? (
-        <div style={{ display: 'flex', gap: 8 }}>
-          <button
-            className="btn btn-ghost btn-sm"
-            style={{ flex: 1 }}
-            onClick={() => { setShowDropboxSync(true); setDropboxSyncState('idle'); setDropboxSyncError(null); }}
-            title="Replace your current data with the copy saved in Dropbox"
-          >
-            Restore from Dropbox
-          </button>
-          <button className="btn btn-ghost btn-sm" onClick={() => { clearDropboxConfig(); setSyncSettingsOpen(false); }}>
+        <>
+          <button className="btn btn-ghost btn-sm" onClick={() => { clearDropboxConfig(); setSyncSettingsOpen(false); }} style={{ width: '100%' }}>
             Disconnect
           </button>
-        </div>
+          {narrative('dropbox')}
+        </>
       ) : (
         <button className="btn btn-ghost btn-sm" onClick={startDropboxAuth} style={{ width: '100%' }}>
           Connect Dropbox
@@ -1879,9 +1970,21 @@ export function SyncSettingsModal() {
         >
           <h2>Cloud Sync</h2>
 
-          <p style={{ fontSize: 12, color: 'var(--text-tertiary)', margin: '0 0 16px', lineHeight: 1.5 }}>
+          <p style={{ fontSize: 12, color: 'var(--text-tertiary)', margin: '0 0 14px', lineHeight: 1.5 }}>
             Your tasks are always saved on this device. Add a cloud method to sync across devices and protect against data loss.
           </p>
+
+          {/* Independent Sync now — runs every connected method, narrated per card below */}
+          {(isDropboxConfigured() || (supabaseReady && authUser)) && (
+            <button
+              className="btn btn-primary btn-full"
+              onClick={handleSyncNow}
+              disabled={syncing}
+              style={{ marginBottom: 16 }}
+            >
+              {syncing ? 'Syncing…' : 'Sync now'}
+            </button>
+          )}
 
           {supabaseReady && (
             /* ── Account sync card (recommended) ── */
@@ -1890,7 +1993,7 @@ export function SyncSettingsModal() {
                 <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="hsl(140,60%,50%)" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }}>
                   <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79Z" /><path d="M3 12h6m-3-3 3 3-3 3" />
                 </svg>
-                <span style={{ fontSize: 14, fontWeight: 600, color: 'var(--text-primary)', flex: 1 }}>Account sync</span>
+                <span style={{ fontSize: 14, fontWeight: 600, color: 'var(--text-primary)', flex: 1 }}>Save to Syncratic Account</span>
                 {pill('Recommended', 'accent')}
               </div>
 
@@ -1904,17 +2007,8 @@ export function SyncSettingsModal() {
                       Signed in as <strong style={{ color: 'var(--text-primary)' }}>{authUser.email}</strong>
                     </span>
                   </div>
-                  <div style={{ fontSize: 12, color: 'var(--text-tertiary)', marginBottom: 12 }}>
-                    {syncResult === 'fail'
-                      ? <span style={{ color: 'hsl(0,72%,62%)' }}>Last sync failed — try again.</span>
-                      : lastSynced ? `Last synced ${formatRelativeTime(lastSynced)}` : 'Saves automatically as you work.'}
-                  </div>
-                  <div style={{ display: 'flex', gap: 8 }}>
-                    <button className="btn btn-primary btn-sm" onClick={handleSyncNow} disabled={syncing} style={{ flex: 1 }}>
-                      {syncing ? 'Syncing…' : 'Sync now'}
-                    </button>
-                    <button className="btn btn-ghost btn-sm" onClick={handleSignOut}>Sign out</button>
-                  </div>
+                  <button className="btn btn-ghost btn-sm" onClick={handleSignOut} style={{ width: '100%' }}>Sign out</button>
+                  {narrative('account')}
                 </>
               ) : (
                 <form onSubmit={handleAuthSubmit}>
@@ -1978,6 +2072,58 @@ export function SyncSettingsModal() {
           {/* ── Dropbox backup card (parallel sibling, always visible) ── */}
           {dropboxCard}
 
+          {/* ── Restore an older backup (Dropbox keeps a rolling history) ── */}
+          {isDropboxConfigured() && (
+            <section style={cardStyle}>
+              <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-primary)', marginBottom: 4 }}>
+                Want to restore an older backup?
+              </div>
+              <p style={{ fontSize: 12, color: 'var(--text-tertiary)', margin: '0 0 10px', lineHeight: 1.5 }}>
+                Dropbox keeps a rolling history of dated snapshots. Roll back to any of them.
+              </p>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+                <button className="btn btn-ghost btn-sm" onClick={openRestore}>Browse backups</button>
+                <label style={{ fontSize: 12, color: 'var(--text-tertiary)', display: 'flex', alignItems: 'center', gap: 6 }}>
+                  Keep
+                  <input
+                    type="number" min={1} max={100} value={keepValue}
+                    onChange={(e) => setKeepValue(parseInt(e.target.value || '1', 10))}
+                    onBlur={(e) => commitKeep(parseInt(e.target.value || '1', 10))}
+                    style={{ width: 56, padding: '4px 6px', background: 'var(--bg-secondary)', border: '1px solid var(--border)', borderRadius: 4, color: 'var(--text-primary)', fontSize: 12 }}
+                  />
+                  backups
+                </label>
+              </div>
+            </section>
+          )}
+
+          {/* ── Download a copy (export) ── */}
+          <section style={cardStyle}>
+            <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-primary)', marginBottom: 4 }}>
+              Download a copy
+            </div>
+            <p style={{ fontSize: 12, color: 'var(--text-tertiary)', margin: '0 0 10px', lineHeight: 1.5 }}>
+              Save your data to a file, or export the current treemap as an image.
+            </p>
+            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+              <button className="btn btn-ghost btn-sm" onClick={handleExportJSON}>Export JSON</button>
+              <button className="btn btn-ghost btn-sm" onClick={handleExportPNG}>Export PNG</button>
+              <button className="btn btn-ghost btn-sm" onClick={() => fileInputRef.current?.click()}>Import from file</button>
+              <input
+                ref={fileInputRef} type="file" accept="application/json" style={{ display: 'none' }}
+                onChange={async (e) => {
+                  const f = e.target.files?.[0]; if (!f) return;
+                  setExportMsg(null);
+                  const r = await importFromFile(f);
+                  setExportMsg(r.success ? 'Imported data from file.' : (r.error || 'Import failed.'));
+                  if (r.success) { await loadData(); }
+                  e.target.value = '';
+                }}
+              />
+            </div>
+            {exportMsg && <div style={{ fontSize: 12, color: 'var(--text-secondary)', marginTop: 10 }}>{exportMsg}</div>}
+          </section>
+
           {/* ── Preferences ── */}
           <div style={{ marginTop: 16, paddingTop: 14, borderTop: '1px solid var(--border)' }}>
             <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-secondary)', marginBottom: 8, letterSpacing: 0.3 }}>
@@ -2014,6 +2160,78 @@ export function SyncSettingsModal() {
           </div>
         </motion.div>
       </motion.div>
+    </AnimatePresence>
+
+    {/* ── Restore-an-older-backup picker ── */}
+    <AnimatePresence>
+      {showRestore && (
+        <>
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+            onClick={() => !restoreTarget && setShowRestore(false)}
+            style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(4px)', zIndex: 10001 }} />
+          <div style={{ position: 'fixed', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 10002, pointerEvents: 'none' }}>
+            <motion.div initial={{ scale: 0.92, opacity: 0, y: 20 }} animate={{ scale: 1, opacity: 1, y: 0 }} exit={{ scale: 0.92, opacity: 0, y: 20 }}
+              transition={{ type: 'spring', damping: 28, stiffness: 380 }}
+              style={{ width: 460, maxWidth: '90vw', maxHeight: '80vh', background: 'var(--bg-secondary)', borderRadius: 'var(--radius-lg)', border: '1px solid var(--border)', boxShadow: '0 25px 50px rgba(0,0,0,0.4)', padding: 24, pointerEvents: 'auto', display: 'flex', flexDirection: 'column' }}>
+              <h3 style={{ margin: '0 0 4px', fontSize: 18, fontWeight: 700, color: 'var(--text-primary)' }}>Restore a backup</h3>
+              <p style={{ fontSize: 12, color: 'var(--text-tertiary)', margin: '0 0 14px', lineHeight: 1.5 }}>
+                Picking one replaces the data on this device and your connected cloud with that snapshot.
+              </p>
+              <div style={{ overflowY: 'auto', flex: 1, marginBottom: 14 }}>
+                {backups === null ? (
+                  <div style={{ fontSize: 13, color: 'var(--text-tertiary)', padding: '16px 0', textAlign: 'center' }}>Loading backups…</div>
+                ) : backups.length === 0 ? (
+                  <div style={{ fontSize: 13, color: 'var(--text-tertiary)', padding: '16px 0', textAlign: 'center' }}>No backups yet — they're created automatically once a day.</div>
+                ) : backups.map((b) => (
+                  <div key={b.path} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 12px', marginBottom: 6, background: 'var(--bg-tertiary)', border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)' }}>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ fontSize: 13, color: 'var(--text-primary)', fontWeight: 600 }}>
+                        {new Date(b.modified).toLocaleString()} {b.archived && <span style={{ fontSize: 10, color: 'var(--text-tertiary)' }}>· archived</span>}
+                      </div>
+                      <div style={{ fontSize: 11, color: 'var(--text-tertiary)' }}>{b.date}</div>
+                    </div>
+                    <button className="btn btn-ghost btn-sm" disabled={!!restoreTarget} onClick={() => doRestore(b)}>
+                      {restoreTarget?.path === b.path ? 'Restoring…' : 'Restore'}
+                    </button>
+                  </div>
+                ))}
+              </div>
+              <button className="btn btn-ghost" disabled={!!restoreTarget} onClick={() => setShowRestore(false)}>Close</button>
+            </motion.div>
+          </div>
+        </>
+      )}
+    </AnimatePresence>
+
+    {/* ── Lower-retention confirmation (delete vs archive the excess) ── */}
+    <AnimatePresence>
+      {lowerConfirm && (
+        <>
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+            style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(4px)', zIndex: 10003 }} />
+          <div style={{ position: 'fixed', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 10004, pointerEvents: 'none' }}>
+            <motion.div initial={{ scale: 0.92, opacity: 0, y: 20 }} animate={{ scale: 1, opacity: 1, y: 0 }} exit={{ scale: 0.92, opacity: 0, y: 20 }}
+              transition={{ type: 'spring', damping: 28, stiffness: 380 }}
+              style={{ width: 420, maxWidth: '90vw', background: 'var(--bg-secondary)', borderRadius: 'var(--radius-lg)', border: '1px solid var(--border)', boxShadow: '0 25px 50px rgba(0,0,0,0.4)', padding: 24, pointerEvents: 'auto' }}>
+              <h3 style={{ margin: '0 0 6px', fontSize: 18, fontWeight: 700, color: 'var(--text-primary)' }}>Keep fewer backups?</h3>
+              <p style={{ fontSize: 13, color: 'var(--text-secondary)', margin: '0 0 16px', lineHeight: 1.6 }}>
+                You have <strong style={{ color: 'var(--text-primary)' }}>{lowerConfirm.excess}</strong> backup{lowerConfirm.excess === 1 ? '' : 's'} beyond your new limit of {lowerConfirm.newKeep}. What should happen to the older ones?
+              </p>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                <button className="btn btn-ghost" onClick={() => resolveLower('archive')}>
+                  Keep them — move to an archive folder
+                </button>
+                <button className="btn btn-danger" onClick={() => resolveLower('delete')}>
+                  Delete the {lowerConfirm.excess} oldest now
+                </button>
+                <button className="btn btn-ghost btn-sm" onClick={() => { setLowerConfirm(null); setKeepValue(getBackupKeep()); }}>
+                  Cancel
+                </button>
+              </div>
+            </motion.div>
+          </div>
+        </>
+      )}
     </AnimatePresence>
 
     {/* ── Dropbox → BlockOut Account Sync Modal ── */}

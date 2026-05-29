@@ -15,6 +15,9 @@ interface DropboxToken {
 interface DropboxFileMetadata {
   rev: string;
   server_modified: string;
+  name?: string;
+  path_lower?: string;
+  path_display?: string;
 }
 
 // Domain-specific storage to prevent localhost vs production conflicts
@@ -475,6 +478,47 @@ class DropboxAPI {
       throw error;
     }
   }
+
+  /** List entries in a folder (non-recursive). Returns [] if the folder doesn't exist. */
+  async listFolder(path: string): Promise<DropboxFileMetadata[]> {
+    try {
+      const response = await this.request('/files/list_folder', {
+        method: 'POST',
+        body: JSON.stringify({ path, recursive: false }),
+      });
+      const json = await response.json();
+      return (json.entries ?? []) as DropboxFileMetadata[];
+    } catch (error) {
+      if (error instanceof Error && error.message.includes('not_found')) return [];
+      throw error;
+    }
+  }
+
+  /** Delete a file/folder path. Swallows not_found. */
+  async deleteFile(path: string): Promise<void> {
+    try {
+      await this.request('/files/delete_v2', {
+        method: 'POST',
+        body: JSON.stringify({ path }),
+      });
+    } catch (error) {
+      if (error instanceof Error && error.message.includes('not_found')) return;
+      throw error;
+    }
+  }
+
+  /** Move a file (autorenames on conflict). Swallows not_found. */
+  async moveFile(from: string, to: string): Promise<void> {
+    try {
+      await this.request('/files/move_v2', {
+        method: 'POST',
+        body: JSON.stringify({ from_path: from, to_path: to, autorename: true }),
+      });
+    } catch (error) {
+      if (error instanceof Error && error.message.includes('not_found')) return;
+      throw error;
+    }
+  }
 }
 
 // Sync result types
@@ -920,6 +964,131 @@ export function getDropboxConfig(): { isConfigured: boolean } {
   return {
     isConfigured: isDropboxConfigured(),
   };
+}
+
+// ─── Dropbox rolling backups ──────────────────────────────────────────────────
+// The live sync file (/blockout-data.json) is the authoritative, version-managed
+// store. Separately we keep up to BACKUP_KEEP dated snapshots in /backups/, cut
+// at most once per day. These power the "restore an older backup" picker. It's
+// the user's own Dropbox storage, so retention is generous and free.
+
+const BACKUP_DIR = '/backups';
+const BACKUP_ARCHIVE_DIR = '/backups/archive';
+const BACKUP_KEEP_DEFAULT = 10;
+const BACKUP_LAST_DATE_KEY = getStorageKey('dropbox-last-backup-date');
+const BACKUP_KEEP_KEY = getStorageKey('dropbox-backup-keep');
+
+export interface DropboxBackup {
+  path: string;       // full Dropbox path (path_lower)
+  name: string;       // file name
+  date: string;       // YYYY-MM-DD parsed from the name
+  modified: string;   // server_modified ISO
+  archived?: boolean; // preserved out of rotation
+}
+
+/** How many rolling backups to retain (user-configurable; default 10). */
+export function getBackupKeep(): number {
+  const v = parseInt(localStorage.getItem(BACKUP_KEEP_KEY) ?? '', 10);
+  return Number.isFinite(v) && v >= 1 ? v : BACKUP_KEEP_DEFAULT;
+}
+export function setBackupKeep(n: number): void {
+  localStorage.setItem(BACKUP_KEEP_KEY, String(Math.max(1, Math.floor(n))));
+}
+
+function isBackupFile(name: string): boolean {
+  return name.startsWith('blockout-') && name.endsWith('.json');
+}
+
+async function listActiveBackupEntries(dropbox: DropboxAPI): Promise<DropboxFileMetadata[]> {
+  return (await dropbox.listFolder(BACKUP_DIR))
+    .filter((e) => isBackupFile(e.name ?? ''))
+    .sort((a, b) => (b.name ?? '').localeCompare(a.name ?? '')); // newest first (ISO names sort lexically)
+}
+
+function todayStr(): string {
+  return new Date().toISOString().slice(0, 10); // YYYY-MM-DD
+}
+
+/**
+ * Write a dated snapshot of `data` into /backups, at most once per calendar day,
+ * then prune to the most recent getBackupKeep(). Best-effort: never throws into
+ * the sync path. Pass force=true to bypass the once-per-day guard (manual backup).
+ */
+export async function maybeWriteDailyBackup(data: AnyRecord, force = false): Promise<void> {
+  const token = getDropboxToken();
+  if (!token) return;
+  const today = todayStr();
+  if (!force && localStorage.getItem(BACKUP_LAST_DATE_KEY) === today) return;
+
+  try {
+    const dropbox = new DropboxAPI(token);
+    const stamp = new Date().toISOString().replace(/[:.]/g, '-');
+    await dropbox.uploadFile(`${BACKUP_DIR}/blockout-${stamp}.json`, JSON.stringify(data, null, 2));
+    localStorage.setItem(BACKUP_LAST_DATE_KEY, today);
+
+    // Prune active set to the newest getBackupKeep(). (Archived backups live in a
+    // subfolder and are excluded by the non-recursive list, so never auto-culled.)
+    const entries = await listActiveBackupEntries(dropbox);
+    for (const old of entries.slice(getBackupKeep())) {
+      if (old.path_lower) await dropbox.deleteFile(old.path_lower);
+    }
+  } catch (e) {
+    logAuthDebug('Backup write/prune failed', { error: e instanceof Error ? e.message : 'unknown' });
+  }
+}
+
+/** Count active (rotating) backups — used to detect over-limit on a lower. */
+export async function countActiveBackups(): Promise<number> {
+  const token = getDropboxToken();
+  if (!token) return 0;
+  return (await listActiveBackupEntries(new DropboxAPI(token))).length;
+}
+
+/**
+ * Apply a lowered retention: the caller decides what happens to the excess
+ * (oldest active backups beyond `keep`). mode='delete' removes them; mode=
+ * 'archive' moves them to /backups/archive so they're preserved out of rotation.
+ */
+export async function applyLoweredRetention(keep: number, mode: 'delete' | 'archive'): Promise<void> {
+  const token = getDropboxToken();
+  if (!token) { setBackupKeep(keep); return; }
+  const dropbox = new DropboxAPI(token);
+  const entries = await listActiveBackupEntries(dropbox);
+  const excess = entries.slice(keep); // oldest beyond the new limit
+  for (const e of excess) {
+    if (!e.path_lower) continue;
+    if (mode === 'delete') await dropbox.deleteFile(e.path_lower);
+    else await dropbox.moveFile(e.path_lower, `${BACKUP_ARCHIVE_DIR}/${e.name}`);
+  }
+  setBackupKeep(keep);
+}
+
+/** List available backups, newest first. Includes archived ones (labelled). */
+export async function listDropboxBackups(): Promise<DropboxBackup[]> {
+  const token = getDropboxToken();
+  if (!token) return [];
+  const dropbox = new DropboxAPI(token);
+  const toBackup = (e: DropboxFileMetadata, archived: boolean): DropboxBackup => {
+    const name = e.name ?? '';
+    return {
+      path: e.path_lower ?? `${archived ? BACKUP_ARCHIVE_DIR : BACKUP_DIR}/${name}`,
+      name, date: name.slice('blockout-'.length, 'blockout-'.length + 10),
+      modified: e.server_modified, archived,
+    };
+  };
+  const active = (await dropbox.listFolder(BACKUP_DIR)).filter((e) => isBackupFile(e.name ?? '')).map((e) => toBackup(e, false));
+  const archived = (await dropbox.listFolder(BACKUP_ARCHIVE_DIR)).filter((e) => isBackupFile(e.name ?? '')).map((e) => toBackup(e, true));
+  return [...active, ...archived].sort((a, b) => b.name.localeCompare(a.name));
+}
+
+/** Download and parse a specific backup snapshot. */
+export async function restoreDropboxBackup(path: string): Promise<AnyRecord | null> {
+  const token = getDropboxToken();
+  if (!token) return null;
+  const dropbox = new DropboxAPI(token);
+  const result = await dropbox.downloadFile(path);
+  if (!result) return null;
+  return JSON.parse(result.content) as AnyRecord;
 }
 
 // Export types for persistence.ts

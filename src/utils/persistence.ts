@@ -1,5 +1,5 @@
 import { useStore } from '../store';
-import { syncToDropbox, syncFromDropbox, isDropboxConfigured, syncToDropboxWithResolution, getDropboxAuthInfo, forceUploadToDropbox, mergeSnapshots, type AnyRecord } from './dropbox';
+import { syncToDropbox, syncFromDropbox, isDropboxConfigured, syncToDropboxWithResolution, getDropboxAuthInfo, forceUploadToDropbox, mergeSnapshots, maybeWriteDailyBackup, type AnyRecord } from './dropbox';
 import { saveToR2, loadFromR2, isR2SyncAvailable } from './r2sync';
 import { getAccessToken } from './supabase';
 import { registerSpecies } from '../store/synamonSlice';
@@ -338,6 +338,102 @@ export async function saveToCloud(): Promise<void> {
   const newVersion = json.version ?? getLastSyncedVersion() + 1;
   recordSuccessfulSync(newVersion);
   useStore.getState().setSyncStatus('synced');
+}
+
+// ─── Explicit "Sync now" — independent, multi-backend, with live narrative ────
+//
+// Runs every connected backend in sequence and reports structured progress so
+// the UI can narrate what each one did. Honours the architecture: Dropbox is
+// authoritative (version/conflict-managed) and the account (R2) receives the
+// resolved state as a mirror; if only the account is connected it reconciles on
+// its own version vector. Backends are independent — one failing doesn't abort
+// the other.
+
+export type SyncBackend = 'account' | 'dropbox';
+export type SyncPhase = 'start' | 'working' | 'done' | 'error' | 'skipped';
+export interface SyncEvent {
+  backend: SyncBackend;
+  phase: SyncPhase;
+  /** Human-readable line describing the current step / outcome. */
+  message: string;
+}
+type SyncReporter = (e: SyncEvent) => void;
+
+// Map a resolver action → plain-language outcome line.
+function narrateAction(action: string): string {
+  switch (action) {
+    case 'uploaded': return 'Local version uncontested — uploaded to cloud.';
+    case 'downloaded': return 'Cloud had newer changes — downloaded them.';
+    case 'merged': return 'Local and cloud diverged — merged changes, then uploaded.';
+    case 'unchanged': return 'Already up to date.';
+    default: return 'Synced.';
+  }
+}
+
+/** Run an explicit sync across all connected backends with progress reporting. */
+export async function syncAllBackends(report: SyncReporter = () => {}): Promise<{ ok: boolean }> {
+  const hasDropbox = isDropboxConfigured();
+  const hasR2 = await isR2Active();
+
+  if (!hasDropbox && !hasR2) {
+    report({ backend: 'account', phase: 'skipped', message: 'No cloud method connected.' });
+    return { ok: false };
+  }
+
+  let ok = true;
+  useStore.getState().setSyncStatus('syncing');
+
+  // ── Dropbox first (authoritative) ──
+  if (hasDropbox) {
+    report({ backend: 'dropbox', phase: 'start', message: 'Checking Dropbox…' });
+    try {
+      const data = useStore.getState().getSerializableState() as AnyRecord;
+      report({ backend: 'dropbox', phase: 'working', message: 'Comparing local and cloud versions…' });
+      const result = await syncToDropboxWithResolution(data, 'sync-now');
+      if (!result.success) throw new Error(result.error || 'Sync failed');
+      if ((result.action === 'downloaded' || result.action === 'merged') && result.data) {
+        applyData(result.data, `dropbox-${result.action}`);
+        await idbWrite({ ...result.data, lastModified: Date.now() });
+      }
+      report({ backend: 'dropbox', phase: 'done', message: narrateAction(result.action) });
+      // Roll a dated backup (once/day) from the resolved state.
+      maybeWriteDailyBackup(useStore.getState().getSerializableState() as AnyRecord).catch(() => {});
+    } catch (e) {
+      ok = false;
+      report({ backend: 'dropbox', phase: 'error', message: e instanceof Error ? e.message : 'Dropbox sync failed.' });
+    }
+  }
+
+  // ── Account (R2) ──
+  if (hasR2) {
+    report({ backend: 'account', phase: 'start', message: 'Checking your account…' });
+    try {
+      const data = useStore.getState().getSerializableState() as AnyRecord;
+      if (hasDropbox) {
+        // Dropbox already resolved the authoritative state — mirror it up.
+        report({ backend: 'account', phase: 'working', message: 'Saving the resolved version to your account…' });
+        const r = await saveToR2(data);
+        if (!r.success) throw new Error(r.error || 'Account save failed');
+        report({ backend: 'account', phase: 'done', message: 'Backed up to your account.' });
+      } else {
+        report({ backend: 'account', phase: 'working', message: 'Comparing local and account versions…' });
+        const result = await syncToR2WithResolution(data);
+        if (!result.success) throw new Error(result.error || 'Account sync failed');
+        if ((result.action === 'downloaded' || result.action === 'merged') && result.data) {
+          applyData(result.data, `account-${result.action}`);
+          await idbWrite({ ...result.data, lastModified: Date.now() });
+        }
+        report({ backend: 'account', phase: 'done', message: narrateAction(result.action) });
+      }
+    } catch (e) {
+      ok = false;
+      report({ backend: 'account', phase: 'error', message: e instanceof Error ? e.message : 'Account sync failed.' });
+    }
+  }
+
+  useStore.getState().setSyncStatus(ok ? 'synced' : 'error');
+  if (ok) recordSuccessfulSync(getLastSyncedVersion());
+  return { ok };
 }
 
 // ─── Load — version-aware with auto-merge for diverged state ─────────────────
