@@ -362,7 +362,7 @@ export function Treemap() {
       // Round only the one corner that faces the category frame's corner, so the
       // square tiles don't poke harshly into the rounded category frame. Tiles
       // not at a content corner stay fully square (contiguous).
-      const CR = 6, tol = 3;
+      const CR = 4, tol = 3;
       let tl = 0, tr = 0, br = 0, bl = 0;
       if (catBounds) {
         const atL = tx <= catBounds.l + tol;
@@ -677,9 +677,23 @@ export function Treemap() {
       ctx.textBaseline = 'middle';
       if (w > 40 && h > 20) ctx.fillText(catNode.name.toUpperCase(), x + 9, y + headerH / 2 + 2, w - 18);
 
-      // Content bounds of this category — tiles at these corners round the one
-      // corner facing the category frame's rounded corner.
-      const catBounds = { l: x + 2, t: y + headerH + 2, r: x + w - 2, b: y + h - 2 };
+      // Real bounding box of this category's actual leaf tiles (robust to
+      // subcategory nesting). Tiles at these extremes round the one corner
+      // facing the category frame's rounded corner.
+      const catLeaves: TreemapNode[] = [];
+      const collectLeaves = (n: TreemapNode) => {
+        if (n.children && n.children.length > 0) n.children.forEach(collectLeaves);
+        else if (n.x !== undefined) catLeaves.push(n);
+      };
+      catNode.children?.forEach(collectLeaves);
+      let cbl = Infinity, cbt = Infinity, cbr = -Infinity, cbb = -Infinity;
+      for (const lf of catLeaves) {
+        cbl = Math.min(cbl, lf.x!);
+        cbt = Math.min(cbt, lf.y!);
+        cbr = Math.max(cbr, lf.x! + lf.w!);
+        cbb = Math.max(cbb, lf.y! + lf.h!);
+      }
+      const catBounds = { l: cbl, t: cbt, r: cbr, b: cbb };
 
       if (catNode.children) {
         catNode.children.forEach((child) => {
