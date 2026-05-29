@@ -1,6 +1,6 @@
-import { useMemo, useState, useCallback, useEffect, useRef } from 'react';
+import { useMemo, useState, useCallback } from 'react';
 import { useStore } from '../store';
-import { AssignTasksModal, ExportImportModal, AITaskGeneratorModal } from './Modals';
+import { AssignTasksModal, AITaskGeneratorModal } from './Modals';
 import { saveToCloud } from '../utils/persistence';
 import type { ViewMode } from '../types';
 
@@ -42,10 +42,7 @@ export function Topbar({ isMobile, onMenuToggle }: TopbarProps) {
   const categories = useStore((s) => s.categories);
 
   const [showAssign, setShowAssign] = useState(false);
-  const [showExportImport, setShowExportImport] = useState(false);
-  const [exportDropdownOpen, setExportDropdownOpen] = useState(false);
   const [showAITaskGenerator, setShowAITaskGenerator] = useState(false);
-  const dropdownRef = useRef<HTMLDivElement>(null);
 
   const block = activeBlockId ? timeBlocks[activeBlockId] : null;
 
@@ -69,18 +66,6 @@ export function Topbar({ isMobile, onMenuToggle }: TopbarProps) {
     { id: 'taskchain', label: 'Task Chain' },
   ];
 
-  // Close dropdown when clicking outside
-  useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
-      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
-        setExportDropdownOpen(false);
-      }
-    };
-    if (exportDropdownOpen) {
-      document.addEventListener('mousedown', handleClickOutside);
-      return () => document.removeEventListener('mousedown', handleClickOutside);
-    }
-  }, [exportDropdownOpen]);
 
 
   const focusedCategory = focusedCategoryId ? categories[focusedCategoryId] : null;
@@ -185,34 +170,14 @@ export function Topbar({ isMobile, onMenuToggle }: TopbarProps) {
             ))}
           </div>
 
-          {/* Export dropdown */}
-          <div ref={dropdownRef} style={{ position: 'relative' }}>
-            <button
-              className="btn btn-ghost btn-sm"
-              onClick={() => setExportDropdownOpen(!exportDropdownOpen)}
-              style={{ fontSize: 11, padding: '4px 8px' }}
-            >
-              ...
-            </button>
-
-            {exportDropdownOpen && (
-              <div style={{
-                position: 'absolute', top: '100%', right: 0, marginTop: 4,
-                background: 'var(--bg-secondary)', border: '1px solid var(--border)',
-                borderRadius: 'var(--radius-sm)', boxShadow: 'var(--shadow-lg)',
-                zIndex: 100, minWidth: 160,
-              }}>
-                <button onClick={() => { setShowExportImport(true); setExportDropdownOpen(false); }}
-                  style={{ display: 'block', width: '100%', padding: '10px 12px', background: 'none', border: 'none', color: 'var(--text-primary)', fontSize: 13, textAlign: 'left', cursor: 'pointer', borderBottom: '1px solid var(--border)' }}>
-                  Export/Import Data
-                </button>
-                <button onClick={() => { setShowAITaskGenerator(true); setExportDropdownOpen(false); }}
-                  style={{ display: 'block', width: '100%', padding: '10px 12px', background: 'none', border: 'none', color: 'var(--text-primary)', fontSize: 13, textAlign: 'left', cursor: 'pointer' }}>
-                  Smart Create
-                </button>
-              </div>
-            )}
-          </div>
+          {/* Smart Create (export moved to Cloud Sync → "Download a copy") */}
+          <button
+            className="btn btn-ghost btn-sm"
+            onClick={() => setShowAITaskGenerator(true)}
+            style={{ fontSize: 11, padding: '4px 8px' }}
+          >
+            Smart Create
+          </button>
         </div>
 
         {/* Focus mode indicator on mobile */}
@@ -241,7 +206,6 @@ export function Topbar({ isMobile, onMenuToggle }: TopbarProps) {
         {showAssign && block && (
           <AssignTasksModal blockId={block.id} onClose={() => setShowAssign(false)} />
         )}
-        <ExportImportModal open={showExportImport} onClose={() => setShowExportImport(false)} />
         <AITaskGeneratorModal open={showAITaskGenerator} onClose={() => setShowAITaskGenerator(false)} />
       </>
     );
@@ -326,55 +290,6 @@ export function Topbar({ isMobile, onMenuToggle }: TopbarProps) {
           ))}
         </div>
 
-        {/* Export dropdown - always show import, conditionally show PNG export */}
-        <div ref={dropdownRef} style={{ position: 'relative' }}>
-          <button
-            className="btn btn-ghost btn-sm"
-            onClick={() => setExportDropdownOpen(!exportDropdownOpen)}
-            title="Export/Import"
-          >
-            Export
-          </button>
-
-          {exportDropdownOpen && (
-            <div
-              style={{
-                position: 'absolute',
-                top: '100%',
-                right: 0,
-                marginTop: 4,
-                background: 'var(--bg-secondary)',
-                border: '1px solid var(--border)',
-                borderRadius: 'var(--radius-sm)',
-                boxShadow: 'var(--shadow-lg)',
-                zIndex: 100,
-                minWidth: 160,
-              }}
-            >
-              <button
-                onClick={() => {
-                  setShowExportImport(true);
-                  setExportDropdownOpen(false);
-                }}
-                style={{
-                  display: 'block',
-                  width: '100%',
-                  padding: '8px 12px',
-                  background: 'none',
-                  border: 'none',
-                  color: 'var(--text-primary)',
-                  fontSize: 13,
-                  textAlign: 'left',
-                  cursor: 'pointer',
-                  borderBottom: '1px solid var(--border)',
-                }}
-              >
-                📤 Export/Import Data
-              </button>
-            </div>
-          )}
-        </div>
-
         {block && !showTimelessPool && (
           <button
             className="btn btn-ghost btn-sm"
@@ -448,7 +363,6 @@ export function Topbar({ isMobile, onMenuToggle }: TopbarProps) {
         <AssignTasksModal blockId={block.id} onClose={() => setShowAssign(false)} />
       )}
 
-      <ExportImportModal open={showExportImport} onClose={() => setShowExportImport(false)} />
       <AITaskGeneratorModal open={showAITaskGenerator} onClose={() => setShowAITaskGenerator(false)} />
     </>
   );
