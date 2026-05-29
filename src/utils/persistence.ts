@@ -292,6 +292,11 @@ export async function saveToCloud(): Promise<void> {
     // Mirror the resolved state to R2 as a secondary backup (best-effort).
     await mirrorToR2Backup();
 
+    // Cut the day's Dropbox snapshot on the FIRST successful sync of the day —
+    // automatic or manual (once-per-day guarded, so this is idempotent with the
+    // explicit Sync-now path). Best-effort: never blocks the save.
+    maybeWriteDailyBackup(useStore.getState().getSerializableState() as AnyRecord).catch(() => {});
+
     useStore.getState().setSyncStatus('synced');
     return;
   }
