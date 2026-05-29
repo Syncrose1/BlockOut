@@ -68,9 +68,34 @@ root-absolute data paths, leave http/data URLs alone). If you add a new consumer
 of synamon data paths, route it through `asset()` too. Audio is synthesised in
 `coFocusAudio.ts` (no `.mp3` loads), so it's unaffected.
 
-## ⚠️ Known issue (separate from routing)
+## Persistence / sync architecture (`src/utils/persistence.ts`)
 
-BlockOut has **severe save/persistence bugs** still to be diagnosed — multiple
-competing layers (IndexedDB + Dropbox + R2 + Vercel KV in `api/data.js`, whose
-memory store resets on cold start). If sync misbehaves *after* a successful
-Dropbox reconnect, it's this, not the OAuth wiring.
+Reworked 2026-05-29 (was badly broken — R2 had been bolted in front of the
+proven Dropbox sync and short-circuited it). Current model:
+
+- **Local IndexedDB** is the working store + common intermediary;
+  `navigator.storage.persist()` is requested on startup to resist eviction.
+- **Dropbox = authoritative source of truth** (version-managed): a monotonic
+  `version` counter in the stored file + client `lastSynced` bookmarks
+  (`blockout-last-synced-version/-at`) → clock-skew-proof conflict detection,
+  with field-level `mergeSnapshots` on divergence. `syncToDropboxWithResolution`
+  is the original, well-tested design — **don't rewrite it casually.**
+- **R2/Supabase = backup AND a first-class load source**, with its OWN parallel
+  version vector (`syncToR2WithResolution`, keys `blockout-r2-last-synced-*` —
+  separate so the two sequences never corrupt each other). Authoritative only
+  when Dropbox isn't connected; otherwise a mirror that converges to Dropbox's
+  resolved state.
+- **Presentation inverts reality on purpose:** the UI shows the Supabase account
+  (R2) as the primary "Cloud Sync" and Dropbox as a "Hardened backup". So the
+  thing labelled *backup* (Dropbox) is actually the robust source of truth.
+- **`saveToCloud`/`loadData` precedence:** Dropbox → R2 → self-hosted → local.
+  `loadData` gathers local+R2, picks the freshest (empty-guarded), reconciles
+  against Dropbox, then mirrors the result to R2 so backends converge. Login
+  reconciles (load-before-push) — never blind-push local→R2.
+
+Key invariants to preserve: an **empty/evicted snapshot must never win** over a
+populated remote (guarded in `pickFresher` + both resolvers); every load/save
+ends with all connected backends holding the same resolved state.
+
+`api/data.js` (Vercel KV/memory self-hosted store) is legacy/secondary; its
+memory store resets on cold start — don't rely on it.
