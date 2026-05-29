@@ -49,6 +49,25 @@ prefix for assets / `synamon` / `cofocus` / top-level files; SPA-fallback rest.
   redirect. Supabase is a SHARED project across Syncratic apps — new redirect
   URLs must be added to its allowlist.
 
+## Synamon integration (nested repo)
+
+Synamon is a **nested git repo** at `./synamon/` (its own repo, like DataMedic
+inside BinderPages). It's both a standalone monster-collector/battler at
+`synamon.syncratic.app` AND the source of the tamagotchi-companion assets/data
+used here. Its assets/data live in `public/synamon/` (sprites per creature,
+`world.json`, `species.json`, particle/fx data, procedurally-played audio).
+
+**Base-path gotcha (this bit us):** the data files bake in **root-absolute**
+asset paths (`"sprite": "/synamon/cindrel/stage1.png"`, plates, idle frames).
+Those bypass `asset()` and 404 under the `/blockout` proxy. Every consumer that
+turns a data path into an image MUST resolve it through `asset()`:
+- `SynamonScene.tsx` / `CoFocusScene.tsx` — the local `loadImage()` chokepoints.
+- `SynamonSprite.tsx` — the UI `<img>`.
+The guard used everywhere: `path.startsWith('/') ? asset(path) : path` (prefix
+root-absolute data paths, leave http/data URLs alone). If you add a new consumer
+of synamon data paths, route it through `asset()` too. Audio is synthesised in
+`coFocusAudio.ts` (no `.mp3` loads), so it's unaffected.
+
 ## ⚠️ Known issue (separate from routing)
 
 BlockOut has **severe save/persistence bugs** still to be diagnosed — multiple
