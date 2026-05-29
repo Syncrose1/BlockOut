@@ -6,6 +6,7 @@ import {
   getCloudConfig,
   setCloudConfig,
   saveToCloud,
+  loadData,
   triggerCloudSync,
   getLastSyncedTime,
   resolveConflict,
@@ -1775,8 +1776,11 @@ export function SyncSettingsModal() {
         } else {
           setAuthUser(r.user);
           setSyncStatus('syncing');
-          saveToR2(useStore.getState().getSerializableState())
-            .then((res) => setSyncStatus(res.success ? 'synced' : 'error'))
+          // Reconcile rather than blind-push: pull existing account/cloud data
+          // and merge with local (load-before-push) so signing in on a device
+          // with empty/evicted local data can't clobber a good backup.
+          loadData()
+            .then(() => setSyncStatus('synced'))
             .catch(() => setSyncStatus('error'));
         }
       }
@@ -1794,19 +1798,20 @@ export function SyncSettingsModal() {
   const handleSyncNow = async () => {
     setSyncing(true); setSyncResult(null);
     try {
-      const result = await saveToR2(useStore.getState().getSerializableState());
-      setSyncResult(result.success ? 'ok' : 'fail');
-      if (result.success) { setSyncStatus('synced'); setLastSynced(Date.now()); }
-    } catch { setSyncResult('fail'); } finally { setSyncing(false); }
+      // Route through the orchestrator: Dropbox is authoritative (version-
+      // managed) when connected, with R2 mirrored as backup; R2 alone otherwise.
+      await saveToCloud();
+      setSyncResult('ok'); setSyncStatus('synced'); setLastSynced(Date.now());
+    } catch { setSyncResult('fail'); setSyncStatus('error'); } finally { setSyncing(false); }
   };
 
   const dropboxSection = (
     <div style={{ marginTop: 4, padding: 12, background: 'var(--bg-tertiary)', borderRadius: 'var(--radius-sm)' }}>
       <div style={{
         display: 'inline-block', fontSize: 10, fontWeight: 700, textTransform: 'uppercase',
-        letterSpacing: 0.8, color: 'hsl(40,80%,60%)', background: 'hsla(40,80%,60%,0.12)',
-        border: '1px solid hsla(40,80%,60%,0.25)', borderRadius: 4, padding: '2px 6px', marginBottom: 10,
-      }}>Experimental — may have bugs</div>
+        letterSpacing: 0.8, color: 'hsl(140,60%,50%)', background: 'hsla(140,60%,50%,0.12)',
+        border: '1px solid hsla(140,60%,50%,0.25)', borderRadius: 4, padding: '2px 6px', marginBottom: 10,
+      }}>Hardened backup · recommended for extra safety</div>
       {isDropboxConfigured() ? (
         <div>
           <div style={{ fontSize: 13, color: 'hsl(140,60%,50%)', marginBottom: 10 }}>✓ Connected to Dropbox</div>
@@ -1824,7 +1829,8 @@ export function SyncSettingsModal() {
       ) : (
         <div>
           <p style={{ fontSize: 12, color: 'var(--text-secondary)', marginBottom: 12, lineHeight: 1.5 }}>
-            No account needed. Your data syncs to /Apps/BlockOut in your Dropbox.
+            Connect Dropbox for an extra hardened backup with version history and
+            conflict resolution. Your data syncs to /Apps/BlockOut in your Dropbox.
           </p>
           <button className="btn btn-ghost btn-sm" onClick={startDropboxAuth} style={{ width: '100%' }}>
             Connect to Dropbox

@@ -81,6 +81,18 @@ export function App() {
     handleCallback();
   }, []);
 
+  // Request persistent storage so the browser doesn't evict IndexedDB/
+  // localStorage under storage pressure or after inactivity (esp. Firefox).
+  // Best-effort: granted silently when the origin is "important" (installed,
+  // bookmarked, high engagement); harmless otherwise.
+  useEffect(() => {
+    if (navigator.storage?.persist) {
+      navigator.storage.persisted().then((already) => {
+        if (!already) navigator.storage.persist().catch(() => {});
+      }).catch(() => {});
+    }
+  }, []);
+
   // Load data on mount (IndexedDB first, then merge from cloud if configured)
   useEffect(() => {
     const initializeApp = async () => {

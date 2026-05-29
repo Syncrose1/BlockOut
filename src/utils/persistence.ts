@@ -107,23 +107,58 @@ async function isR2Active(): Promise<boolean> {
   return !!token;
 }
 
-export async function saveToCloud(): Promise<void> {
-  // Check R2 cloud sync (Supabase auth + R2 storage)
-  if (await isR2Active()) {
+/** Task count of a snapshot (0 if none). */
+function taskCount(x: AnyRecord | null): number {
+  return x?.tasks ? Object.keys(x.tasks as object).length : 0;
+}
+
+/** A snapshot is "empty" if it has no tasks and no categories. */
+function isEmptySnapshot(x: AnyRecord | null): boolean {
+  if (!x) return true;
+  return taskCount(x) === 0 && (!x.categories || Object.keys(x.categories as object).length === 0);
+}
+
+/**
+ * Pick the fresher of two candidate snapshots by lastModified, but never let an
+ * EMPTY snapshot win over one with content (guards against an evicted/blank
+ * client wiping a good backup). Returns null only if both are null.
+ */
+function pickFresher(a: AnyRecord | null, b: AnyRecord | null): AnyRecord | null {
+  if (!a) return b;
+  if (!b) return a;
+  if (isEmptySnapshot(a) && !isEmptySnapshot(b)) return b;
+  if (isEmptySnapshot(b) && !isEmptySnapshot(a)) return a;
+  const am = (a.lastModified as number) ?? 0;
+  const bm = (b.lastModified as number) ?? 0;
+  return am >= bm ? a : b;
+}
+
+/**
+ * Mirror the current resolved state to R2 as a best-effort backup. Used when
+ * Dropbox is the authoritative store — R2 is a secondary copy, never blocks.
+ */
+async function mirrorToR2Backup(): Promise<void> {
+  if (!(await isR2Active())) return;
+  try {
     const data = useStore.getState().getSerializableState();
     const result = await saveToR2(data);
-    if (result.success) {
-      useStore.getState().setSyncStatus('synced');
-      return;
-    }
-    // If R2 fails, fall through to other methods
-    if (DEBUG) console.warn('[BlockOut] R2 sync failed, trying other methods:', result.error);
+    if (!result.success && DEBUG) console.warn('[BlockOut] R2 backup mirror failed:', result.error);
+  } catch (e) {
+    if (DEBUG) console.warn('[BlockOut] R2 backup mirror threw:', e);
   }
+}
 
-  // Check if Dropbox is configured
+export async function saveToCloud(): Promise<void> {
+  // ── Authoritative store precedence: Dropbox > R2 > self-hosted ──
+  // Dropbox is the real source of truth (full version/conflict logic). R2 is
+  // presented as the primary "account sync" in the UI but is mechanically a
+  // backup mirror when Dropbox is connected. If only R2 is connected, R2 is
+  // authoritative. Nothing short-circuits before Dropbox.
+
+  // Dropbox — authoritative when configured (version-managed + conflict resolution)
   if (isDropboxConfigured()) {
     const data = useStore.getState().getSerializableState() as any;
-    if (DEBUG) console.log('[BlockOut] Syncing to Dropbox:', {
+    if (DEBUG) console.log('[BlockOut] Syncing to Dropbox (authoritative):', {
       hasTaskChains: !!data.taskChains,
       taskChainCount: Object.keys(data.taskChains || {}).length,
       hasChainTemplates: !!data.chainTemplates,
@@ -131,13 +166,13 @@ export async function saveToCloud(): Promise<void> {
       hasOverviewBlocks: !!(data.overviewBlocks && data.overviewBlocks.length > 0),
       overviewBlocksCount: (data.overviewBlocks || []).length,
     });
-    
+
     const result = await syncToDropboxWithResolution(data, 'saveToCloud');
-    
+
     if (!result.success) {
       throw new Error(result.error || 'Sync failed');
     }
-    
+
     // If remote was downloaded, apply it to the store
     if (result.action === 'downloaded' && result.data) {
       if (DEBUG) console.log('[BlockOut] Remote is newer, applying downloaded data');
@@ -146,9 +181,24 @@ export async function saveToCloud(): Promise<void> {
       if (DEBUG) console.log('[BlockOut] Merge complete, applying merged data');
       applyData(result.data, 'saveToCloud-merged');
     }
-    
+
+    // Mirror the resolved state to R2 as a secondary backup (best-effort).
+    await mirrorToR2Backup();
+
     useStore.getState().setSyncStatus('synced');
     return;
+  }
+
+  // R2 cloud sync — authoritative only when Dropbox is NOT connected
+  if (await isR2Active()) {
+    const data = useStore.getState().getSerializableState();
+    const result = await saveToR2(data);
+    if (result.success) {
+      useStore.getState().setSyncStatus('synced');
+      return;
+    }
+    // R2 failed and there's no Dropbox to fall back to — surface the error.
+    throw new Error(result.error || 'R2 sync failed');
   }
 
   const { url, token } = getCloudConfig();
@@ -210,144 +260,149 @@ export async function loadData(): Promise<void> {
     console.warn('[BlockOut] IndexedDB read failed', e);
   }
 
-  // Try R2 cloud sync first (if user is signed in)
-  if (await isR2Active()) {
+  // ── Cross-backend source gathering ──
+  // R2 may legitimately hold NEWER data than Dropbox (e.g. written from an
+  // account-only device that has no Dropbox connected). So R2 is a first-class
+  // load source, never just a mirror target. We gather it up front and let the
+  // freshest client-side snapshot (local vs R2) feed the authoritative
+  // reconciliation, then converge every connected backend onto the result.
+  const r2Active = await isR2Active();
+  let r2Data: AnyRecord | null = null;
+  if (r2Active) {
     try {
-      const result = await loadFromR2();
-      if (result.data) {
-        remote = result.data;
-        if (DEBUG) console.log('[BlockOut] Loaded remote data from R2');
-
-        // Guard: reject suspiciously empty remote data when local has content
-        const remoteTaskCount = remote.tasks ? Object.keys(remote.tasks).length : 0;
-        const localTaskCount = local?.tasks ? Object.keys(local.tasks).length : 0;
-        const remoteIsEmpty = remoteTaskCount === 0 && (!remote.categories || Object.keys(remote.categories).length === 0);
-        const localHasData = localTaskCount > 0;
-
-        if (remoteIsEmpty && localHasData) {
-          console.warn(`[BlockOut] R2 returned empty data (0 tasks) but local has ${localTaskCount} tasks — ignoring remote, pushing local`);
-          applyData(local!, 'r2-empty-rejected');
-          const data = useStore.getState().getSerializableState();
-          saveToR2(data).catch((e) => console.warn('[BlockOut] R2 push failed', e));
-          useStore.getState().setSyncStatus('synced');
-          return;
-        }
-
-        if (!local) {
-          applyData(remote, 'r2-remote');
-          useStore.getState().setSyncStatus('synced');
-          return;
-        }
-
-        // Simple strategy: use whichever has newer lastModified
-        const localMod = (local.lastModified as number) ?? 0;
-        const remoteMod = (remote.lastModified as number) ?? 0;
-
-        if (remoteMod > localMod) {
-          applyData(remote, 'r2-remote-newer');
-          // Also save locally
-          await idbWrite({ ...remote, lastModified: Date.now() });
-        } else {
-          applyData(local, 'r2-local-newer');
-          // Push local to R2
-          const data = useStore.getState().getSerializableState();
-          saveToR2(data).catch((e) => console.warn('[BlockOut] R2 push failed', e));
-        }
-        useStore.getState().setSyncStatus('synced');
-        return;
-      }
-      // No remote data — use local, push if available
-      if (local) {
-        applyData(local, 'r2-no-remote');
-        const data = useStore.getState().getSerializableState();
-        saveToR2(data).catch((e) => console.warn('[BlockOut] R2 initial push failed', e));
-        useStore.getState().setSyncStatus('synced');
-        return;
-      }
+      const r = await loadFromR2();
+      r2Data = r.data ?? null;
+      if (DEBUG && r2Data) console.log('[BlockOut] Loaded R2 candidate');
     } catch (e) {
-      console.warn('[BlockOut] R2 load failed, trying other methods', e);
+      console.warn('[BlockOut] R2 load failed', e);
     }
   }
 
+  // Freshest client-side candidate across local + R2 (empty-guarded).
+  const base = pickFresher(local, r2Data);
+
   const { url, token } = getCloudConfig();
 
-  // Try Dropbox if configured
+  // ── Dropbox — authoritative when configured (version-managed + conflict resolution) ──
+  // R2 is presented as the primary "account sync" in the UI, but mechanically
+  // Dropbox is the source of truth; R2 is mirrored to converge.
   if (isDropboxConfigured()) {
     try {
-      if (local) {
-        // Use smart sync with conflict resolution
-        const result = await syncToDropboxWithResolution(local, 'loadData');
-        
+      if (base && !isEmptySnapshot(base)) {
+        // Reconcile the freshest client state (which may have come from R2)
+        // against Dropbox using the proven version/conflict logic.
+        // NB: an EMPTY base is deliberately excluded here — when local + R2 are
+        // both blank (e.g. evicted storage), we must DOWNLOAD Dropbox rather
+        // than risk uploading nothing over a good remote save.
+        const result = await syncToDropboxWithResolution(base, 'loadData');
+
         if (result.success) {
           switch (result.action) {
             case 'uploaded':
-              // Local was newer, uploaded successfully
+              applyData(base, 'dropbox-uploaded');
+              await idbWrite({ ...base, lastModified: Date.now() });
+              await mirrorToR2Backup();
               useStore.getState().setSyncStatus('synced');
-              applyData(local, 'dropbox-uploaded');
-              // Back up to R2 if available
-              if (isR2SyncAvailable()) saveToR2(useStore.getState().getSerializableState() as Record<string, unknown>).catch(() => {});
               break;
 
             case 'downloaded':
-              // Remote was newer, use the data that was already downloaded
               if (DEBUG) console.log('[BlockOut] Downloaded case, has data:', !!result.data);
               if (result.data) {
                 applyData(result.data, 'dropbox-downloaded');
+                await idbWrite({ ...result.data, lastModified: Date.now() });
+                await mirrorToR2Backup();
                 useStore.getState().setSyncStatus('synced');
-                // Back up to R2 if available
-                if (isR2SyncAvailable()) saveToR2(useStore.getState().getSerializableState() as Record<string, unknown>).catch(() => {});
               } else {
-                console.warn('[BlockOut] No data in download result, using local');
-                applyData(local, 'dropbox-download-fallback');
+                console.warn('[BlockOut] No data in download result, using base');
+                applyData(base, 'dropbox-download-fallback');
               }
               break;
 
             case 'merged':
-              // Conflict resolved by merging, use the merged data
               if (result.data) {
                 applyData(result.data, 'dropbox-merged');
                 await idbWrite({ ...result.data, lastModified: Date.now() });
                 if (result.mergeInfo) {
                   useStore.getState().setConflictState({
-                    local,
+                    local: base,
                     remote: result.data,
                     merged: result.data,
                     mergeInfo: result.mergeInfo
                   });
                 }
-                // Back up to R2 if available
-                if (isR2SyncAvailable()) saveToR2(useStore.getState().getSerializableState() as Record<string, unknown>).catch(() => {});
+                await mirrorToR2Backup();
               }
               useStore.getState().setSyncStatus('synced');
               break;
 
             case 'unchanged':
-              applyData(local, 'dropbox-unchanged');
+              applyData(base, 'dropbox-unchanged');
+              await idbWrite({ ...base, lastModified: Date.now() });
+              await mirrorToR2Backup();
               useStore.getState().setSyncStatus('synced');
-              // Local is already most up-to-date — back up to R2 if available
-              if (isR2SyncAvailable()) saveToR2(useStore.getState().getSerializableState() as Record<string, unknown>).catch(() => {});
               break;
           }
           return;
         } else {
           console.warn('[BlockOut] Dropbox sync failed:', result.error);
-          // Fall through to use local data
+          // Fall through to local/base.
         }
       } else {
-        // No local data, just download
+        // No usable client-side data (missing or empty) — download Dropbox as
+        // the source of truth, then mirror it down to R2 so they converge.
         remote = await syncFromDropbox();
         if (remote) {
           applyData(remote);
+          await idbWrite({ ...remote, lastModified: Date.now() });
+          await mirrorToR2Backup();
           useStore.getState().setSyncStatus('synced');
-          // Back up to R2 if available
-          if (isR2SyncAvailable()) saveToR2(useStore.getState().getSerializableState() as Record<string, unknown>).catch(() => {});
         }
         return;
       }
     } catch (e) {
       console.warn('[BlockOut] Dropbox load failed, using local', e);
     }
-  } else if (url) {
+  }
+  // ── R2 — authoritative only when Dropbox is NOT connected ──
+  else if (r2Active) {
+    if (r2Data) {
+      remote = r2Data;
+      // Guard: reject suspiciously empty remote when local has content.
+      if (isEmptySnapshot(remote) && taskCount(local) > 0) {
+        console.warn('[BlockOut] R2 empty but local has data — keeping local, pushing it up');
+        applyData(local!, 'r2-empty-rejected');
+        saveToR2(useStore.getState().getSerializableState()).catch(() => {});
+        useStore.getState().setSyncStatus('synced');
+        return;
+      }
+      if (!local) {
+        applyData(remote, 'r2-remote');
+        await idbWrite({ ...remote, lastModified: Date.now() });
+        useStore.getState().setSyncStatus('synced');
+        return;
+      }
+      const localMod = (local.lastModified as number) ?? 0;
+      const remoteMod = (remote.lastModified as number) ?? 0;
+      if (remoteMod > localMod) {
+        applyData(remote, 'r2-remote-newer');
+        await idbWrite({ ...remote, lastModified: Date.now() });
+      } else {
+        applyData(local, 'r2-local-newer');
+        saveToR2(useStore.getState().getSerializableState()).catch((e) => console.warn('[BlockOut] R2 push failed', e));
+      }
+      useStore.getState().setSyncStatus('synced');
+      return;
+    }
+    // No remote data yet — use local, push it up as the initial backup.
+    if (local) {
+      applyData(local, 'r2-no-remote');
+      saveToR2(useStore.getState().getSerializableState()).catch((e) => console.warn('[BlockOut] R2 initial push failed', e));
+      useStore.getState().setSyncStatus('synced');
+      return;
+    }
+  }
+  // ── Self-hosted ──
+  else if (url) {
     try {
       const headers: Record<string, string> = {};
       if (token) headers['Authorization'] = `Bearer ${token}`;
@@ -362,8 +417,8 @@ export async function loadData(): Promise<void> {
   }
 
   if (!remote) {
-    if (local) {
-      applyData(local, 'local-only');
+    if (base) {
+      applyData(base, 'local-only');
     } else {
       markDataLoaded(); // Allow saving even when starting fresh
     }
