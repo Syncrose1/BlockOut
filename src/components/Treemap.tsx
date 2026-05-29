@@ -1,7 +1,7 @@
 import { useRef, useEffect, useState, useCallback, useMemo, useLayoutEffect } from 'react';
 import { useStore } from '../store';
 import { layoutTreemap } from '../utils/treemap';
-import { TASK_GRAY } from '../utils/colors';
+import { incompleteTint, incompleteTintHover, incompleteBorder } from '../utils/colors';
 import { debouncedSave } from '../utils/persistence';
 import { ArchivedTaskWarningModal, UnifiedTaskContextMenu } from './Modals';
 import type { TreemapNode, Task, Category } from '../types';
@@ -347,7 +347,8 @@ export function Treemap() {
       } else if (taskNode.completed) {
         fillColor = isHovered ? taskNode.color.replace('62%)', '70%)') : taskNode.color;
       } else {
-        fillColor = isHovered ? 'hsl(220, 10%, 28%)' : TASK_GRAY;
+        // Incomplete: dark muted tint of the category hue (not neutral grey).
+        fillColor = isHovered ? incompleteTintHover(taskNode.color) : incompleteTint(taskNode.color);
       }
 
       ctx.fillStyle = fillColor;
@@ -386,7 +387,7 @@ export function Treemap() {
         roundRect(ctx, tx, ty, tw, th, 4);
         ctx.stroke();
       } else {
-        ctx.strokeStyle = isHovered ? 'hsl(220, 10%, 35%)' : 'hsl(220, 10%, 28%)';
+        ctx.strokeStyle = incompleteBorder(taskNode.color);
         ctx.lineWidth = 1;
         ctx.beginPath();
         roundRect(ctx, tx, ty, tw, th, 4);
@@ -425,8 +426,8 @@ export function Treemap() {
         ctx.fillStyle = isLocked
           ? 'rgba(180, 120, 40, 0.6)'
           : isActive
-          ? 'rgba(255,255,255,0.92)'
-          : 'rgba(255,255,255,0.65)';
+          ? 'rgba(255,255,255,0.94)'
+          : 'rgba(255,255,255,0.82)';
 
         // Center the text in the tile, account for lock icon if present
         const centerX = tx + tw / 2;
@@ -628,11 +629,11 @@ export function Treemap() {
       ctx.stroke();
       ctx.shadowBlur = 0;
 
-      const headerH = Math.min(22, h * 0.25);
+      const headerH = Math.min(24, h * 0.25);
       ctx.fillStyle = catNode.color;
-      ctx.font = '600 11px Inter, sans-serif';
+      ctx.font = '700 12.5px Inter, sans-serif';
       ctx.textBaseline = 'middle';
-      if (w > 40 && h > 20) ctx.fillText(catNode.name.toUpperCase(), x + 8, y + headerH / 2 + 2, w - 16);
+      if (w > 40 && h > 20) ctx.fillText(catNode.name.toUpperCase(), x + 9, y + headerH / 2 + 2, w - 18);
 
       if (catNode.children) {
         catNode.children.forEach((child) => {
@@ -795,7 +796,7 @@ export function Treemap() {
       // Start dissolve: tile color transitions from gray → category color
       dissolvingRef.current.set(node.id, {
         startTime: now,
-        fromColor: TASK_GRAY,
+        fromColor: incompleteTint(node.color),
         toColor: node.color,
       });
       // Contained particle burst clipped to the tile
@@ -1038,7 +1039,7 @@ export function Treemap() {
                 const now = Date.now();
                 dissolvingRef.current.set(archivedWarningTaskId, {
                   startTime: now,
-                  fromColor: TASK_GRAY,
+                  fromColor: incompleteTint(node.color),
                   toColor: node.color,
                 });
                 particlesRef.current.push({
