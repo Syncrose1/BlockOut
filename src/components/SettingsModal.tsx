@@ -1,9 +1,12 @@
 import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { useStore } from '../store';
 import { getTheme, setTheme, type Theme } from '../utils/theme';
 
 export function SettingsModal({ open, onClose }: { open: boolean; onClose: () => void }) {
   const [theme, setThemeState] = useState<Theme>(getTheme());
+  const synamonEnabled = useStore((s) => s.synamonEnabled);
+  const setSynamonEnabled = useStore((s) => s.setSynamonEnabled);
 
   if (!open) return null;
 
@@ -55,6 +58,32 @@ export function SettingsModal({ open, onClose }: { open: boolean; onClose: () =>
                 <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8Z" /></svg>,
               )}
             </div>
+          </div>
+
+          {/* Companion */}
+          <div className="modal-field" style={{ marginTop: 18 }}>
+            <label>Companion</label>
+            <label style={{
+              display: 'flex', alignItems: 'flex-start', gap: 10,
+              padding: '10px 12px', background: 'var(--bg-tertiary)',
+              border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)', cursor: 'pointer',
+              textTransform: 'none', letterSpacing: 'normal', fontWeight: 400,
+            }}>
+              <input
+                type="checkbox"
+                checked={synamonEnabled}
+                onChange={(e) => setSynamonEnabled(e.target.checked)}
+                style={{ marginTop: 2, flexShrink: 0, cursor: 'pointer', width: 'auto' }}
+              />
+              <div style={{ minWidth: 0 }}>
+                <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-primary)' }}>
+                  Show Synamon companion
+                </div>
+                <div style={{ fontSize: 11, color: 'var(--text-tertiary)', marginTop: 2, lineHeight: 1.4 }}>
+                  Hide the panel, sidebar button, and adopt prompt if you'd rather use BlockOut without the creature companion. Your data is preserved if you turn it back on.
+                </div>
+              </div>
+            </label>
           </div>
 
           {/* Onboarding */}
