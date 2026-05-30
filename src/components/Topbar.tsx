@@ -93,10 +93,10 @@ export function Topbar({ isMobile, onMenuToggle }: TopbarProps) {
     error: 'hsl(0, 72%, 62%)',
   };
   const syncTitle: Record<string, string> = {
-    idle: 'Cloud sync (not configured)',
-    syncing: 'Syncing…',
-    synced: 'Synced',
-    error: 'Sync error — click to configure',
+    idle: 'Save & sync (not configured)',
+    syncing: 'Saving…',
+    synced: 'Saved',
+    error: 'Save error — click to configure',
   };
 
   // Mobile topbar: hamburger + title + add task
@@ -314,7 +314,7 @@ export function Topbar({ isMobile, onMenuToggle }: TopbarProps) {
               transition: 'background 0.3s',
               boxShadow: syncStatus === 'synced' ? '0 0 6px var(--success)' : 'none',
             }} />
-            Sync
+            Save
           </button>
           {syncStatus === 'error' && (
             <button

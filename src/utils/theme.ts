@@ -8,7 +8,8 @@ const THEME_KEY = 'blockout-theme';
 const listeners = new Set<(t: Theme) => void>();
 
 export function getTheme(): Theme {
-  return (localStorage.getItem(THEME_KEY) as Theme) === 'light' ? 'light' : 'dark';
+  // Light ("Printed Matter") is the default; only an explicit 'dark' opts out.
+  return (localStorage.getItem(THEME_KEY) as Theme) === 'dark' ? 'dark' : 'light';
 }
 
 /** Apply to <html> (no persistence). Call as early as possible to avoid a flash. */

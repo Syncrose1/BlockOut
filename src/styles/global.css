@@ -1288,11 +1288,15 @@ select {
 }
 
 [data-theme="light"] .pomodoro-widget {
-  /* Light frosted paper panel — token-based internals adapt to ink text. */
-  background: linear-gradient(155deg, rgba(252, 250, 244, 0.80), rgba(240, 234, 222, 0.82));
+  /* Light frosted paper panel — more translucent so the blur reads as glass. */
+  background: linear-gradient(155deg, rgba(252, 250, 244, 0.58), rgba(240, 234, 222, 0.60));
   border: 1px solid rgba(120, 100, 60, 0.16);
   box-shadow: var(--shadow-lg), inset 0 1px 0 rgba(255, 255, 255, 0.55);
 }
+
+/* Synamon grip logo: white on the dark panel, ink on the light panel. */
+.pomodoro-grip-logo { filter: brightness(0) invert(1); }
+[data-theme="light"] .pomodoro-grip-logo { filter: brightness(0) opacity(0.7); }
 
 .pomodoro-timer {
   font-family: var(--font-mono);

@@ -380,7 +380,8 @@ export function Pomodoro() {
             <img
               src={asset('/synamon/Synamon-Logo-cropped.svg')}
               alt="Synamon"
-              style={{ width: 18, height: 18, filter: 'brightness(0) invert(1)' }}
+              className="pomodoro-grip-logo"
+              style={{ width: 18, height: 18 }}
             />
           ) : (
             [0, 1, 2].map((i) => (
