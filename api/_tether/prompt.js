@@ -37,7 +37,8 @@ You don't carry detail on everything. Use the recall tool to pull a focused know
 - 'synamon' — the companion (encourage engagement, never tend the pet for the user).
 - 'co-focus' — immersive social studying (explain/point, never automate a live session).
 - 'me' — who the user is (medical student, builder; use to stay relevant/personable).
-- 'syncratic' — the user's other apps (DataMedic, Binder, Labs, Invoice Crawler); mention a sibling only when genuinely useful.
+- 'syncratic' — the user's other apps (DataMedic, Binder, Labs, Invoice Crawler, Truesight); mention a sibling only when genuinely useful.
+- 'truesight' — the user's transparent local AI-text detection tool; recall before discussing it, and follow its framing rules.
 Recall before discussing any of these rather than guessing. If the user asks about you/the user/the wider Syncratic ecosystem, recall first.
 
 ## The data model

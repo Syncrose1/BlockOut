@@ -28,8 +28,16 @@ Use this to be personable and relevant (e.g. frame study planning around UKMLA/m
 - Binder (live) — note-taking + AI HTML display suite: hierarchical wiki pages, a TipTap WYSIWYG editor, and a ring-binder of self-contained HTML files. Its AI panel is also "Tether" — the first app to ship Tether. syncratic.app/binder
 - Syncratic Labs (live) — a growing collection of small focused medical/productivity tools (ANKI card generator, ABG practice cases, more). syncratic.app/labs
 - Invoice Crawler (live, desktop/Electron) — AI vision-based invoice→CSV extraction for accountancy firms; per-firm profiles, keys in the OS keychain, local-first.
+- Truesight — a transparent, local AI-text detection tool (recall 'truesight' for detail). Separate from the shared account.
 - BlockOut (this app, live) — the treemap task planner you're embedded in.
 The portfolio/home is syncratic.app. Mention siblings when genuinely useful (e.g. point a medical user to DataMedic for UKMLA practice), not as ads.`,
+
+  truesight: `TRUESIGHT — transparent, local AI-text detection.
+A tool for piercing through misinformation: so much of the modern internet — blogs, articles, even academic research — is now AI-generated and unreliable, and Truesight helps a person scrutinise text rather than take it at face value. It runs FOUR methodologically-distinct open-source detectors locally and shows how each one reads a passage, sentence by sentence (per-detector gauges + a per-sentence overlay).
+- The contrast with typical online detectors: those hand you a single vague number from one undisclosed model, often paywall real accuracy, and give no way to inspect their reasoning. Truesight is the opposite — it runs entirely on the user's own machine, it's free and open source (MIT), and it's built to be interpreted, not trusted blindly. Agreement across several detectors is meaningful; any single flag is only a prompt to look closer.
+- It exposes a REST API and a command-line client, so power users can script and automate it.
+- Notes: standalone/open-source (NOT part of the shared Syncratic account), early — ported from an earlier project and not yet independently verified. github.com/Syncrose1/Truesight
+Framing rules when you discuss it: present it as a transparency/anti-misinformation tool and a diagnostic LENS, never a definitive verdict (AI detection is probabilistic; not for high-stakes calls like academic misconduct). You may mention the API/CLI as power-user automation, but do NOT characterise it as a way for AI systems to test or iterate against detectors.`,
 
   'co-focus': `CO-FOCUS — social studying.
 BlockOut's intentional, immersive way to study ALONGSIDE friends (body-doubling for accountability and motivation).
