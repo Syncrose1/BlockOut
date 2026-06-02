@@ -185,52 +185,35 @@ export function App() {
           transition: 'opacity 0.6s ease-out, visibility 0.6s ease-out',
           pointerEvents: isFadingOut ? 'none' : 'auto',
         }}>
-          {/* Animated logo/pulse */}
+          {/* Assembling mock treemap — decorative placeholder blocks that pop in
+              (staggered scale+fade) on a loop, echoing the real treemap view. */}
           <div style={{
             position: 'relative',
-            width: 80,
-            height: 80,
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
+            width: 168,
+            height: 120,
           }}>
-            {/* Pulsing rings */}
-            <div style={{
-              position: 'absolute',
-              width: '100%',
-              height: '100%',
-              borderRadius: '50%',
-              border: '2px solid var(--accent)',
-              opacity: 0.3,
-              animation: 'pulse-ring 2s cubic-bezier(0.4, 0, 0.6, 1) infinite',
-            }} />
-            <div style={{
-              position: 'absolute',
-              width: '75%',
-              height: '75%',
-              borderRadius: '50%',
-              border: '2px solid var(--accent)',
-              opacity: 0.5,
-              animation: 'pulse-ring 2s cubic-bezier(0.4, 0, 0.6, 1) infinite 0.5s',
-            }} />
-            <div style={{
-              position: 'absolute',
-              width: '50%',
-              height: '50%',
-              borderRadius: '50%',
-              border: '2px solid var(--accent)',
-              opacity: 0.7,
-              animation: 'pulse-ring 2s cubic-bezier(0.4, 0, 0.6, 1) infinite 1s',
-            }} />
-            {/* Center dot */}
-            <div style={{
-              width: 16,
-              height: 16,
-              borderRadius: '50%',
-              background: 'var(--accent)',
-              boxShadow: '0 0 20px var(--accent)',
-              animation: 'pulse-center 1.5s ease-in-out infinite',
-            }} />
+            {[
+              // Hand-laid squarified-ish layout (px), each with an accent opacity.
+              { left: 0,   top: 0,  w: 96,  h: 58, o: 0.85 },
+              { left: 102, top: 0,  w: 66,  h: 28, o: 0.45 },
+              { left: 102, top: 34, w: 66,  h: 24, o: 0.65 },
+              { left: 0,   top: 64, w: 46,  h: 56, o: 0.55 },
+              { left: 52,  top: 64, w: 50,  h: 26, o: 0.75 },
+              { left: 52,  top: 96, w: 50,  h: 24, o: 0.35 },
+              { left: 108, top: 64, w: 60,  h: 26, o: 0.50 },
+              { left: 108, top: 96, w: 60,  h: 24, o: 0.80 },
+            ].map((t, i) => (
+              <div key={i} style={{
+                position: 'absolute',
+                left: t.left, top: t.top, width: t.w, height: t.h,
+                background: 'var(--accent)',
+                borderRadius: 4,
+                transformOrigin: 'center',
+                ['--tile-o' as string]: t.o,
+                animation: `tile-in 1.8s ease-in-out infinite`,
+                animationDelay: `${i * 0.13}s`,
+              } as React.CSSProperties} />
+            ))}
           </div>
 
           {/* Loading text with typing effect */}
@@ -286,14 +269,9 @@ export function App() {
           </div>
 
           <style>{`
-            @keyframes pulse-ring {
-              0% { transform: scale(0.8); opacity: 0.8; }
-              50% { transform: scale(1.1); opacity: 0.3; }
-              100% { transform: scale(0.8); opacity: 0.8; }
-            }
-            @keyframes pulse-center {
-              0%, 100% { transform: scale(1); opacity: 1; }
-              50% { transform: scale(1.2); opacity: 0.8; }
+            @keyframes tile-in {
+              0%, 100% { transform: scale(0.55); opacity: 0.12; }
+              45%, 70% { transform: scale(1);    opacity: var(--tile-o, 1); }
             }
             @keyframes dots {
               0%, 20% { content: ''; }
