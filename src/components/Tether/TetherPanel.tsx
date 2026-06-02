@@ -10,6 +10,7 @@ import {
   type TetherMessage, type TetherEvent,
 } from '../../utils/tether';
 import { TetherLight } from './TetherLight';
+import { TetherFace } from './TetherFace';
 import { TetherEndpoints } from './TetherEndpoints';
 import {
   applyStagedActions, isImmediate, isDestructive, resolveDeleteTargets, requiredDeletePhrase,
@@ -164,26 +165,34 @@ export function TetherPanel() {
 
   return (
     <>
-      <div onClick={() => setOpen(false)} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.25)', zIndex: 1400 }} />
+      <div onClick={() => setOpen(false)} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.28)', backdropFilter: 'blur(1.5px)', zIndex: 1400 }} />
       <div style={{
         position: 'fixed', top: 0, right: 0, bottom: 0, width: 'min(420px, 100vw)',
         background: 'var(--bg-primary)', borderLeft: '1px solid var(--border)',
-        boxShadow: '-8px 0 32px rgba(0,0,0,0.18)', zIndex: 1401,
+        boxShadow: '-12px 0 40px rgba(0,0,0,0.16)', zIndex: 1401,
         display: 'flex', flexDirection: 'column',
       }}>
-        {/* Header */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '14px 16px', borderBottom: '1px solid var(--border)' }}>
-          <TetherLight size={10} />
-          <div style={{ flex: 1 }}>
-            <div style={{ fontWeight: 700, fontSize: 15 }}>{showModels ? 'Tether models' : 'Tether'}</div>
-            <div style={{ fontSize: 11, color: 'var(--text-tertiary)' }}>{showModels ? 'Your connected AI models' : 'Your Syncratic AI assistant'}</div>
+        {/* Header — lively hero band */}
+        <div style={{
+          position: 'relative', overflow: 'hidden',
+          display: 'flex', alignItems: 'center', gap: 12, padding: '16px 14px 16px 18px',
+          borderBottom: '1px solid var(--border)',
+          background: 'radial-gradient(120% 140% at 0% 0%, var(--bg-secondary), var(--bg-primary) 70%)',
+        }}>
+          <TetherFace size={42} />
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
+              <span style={{ fontWeight: 700, fontSize: 16, letterSpacing: '-0.01em' }}>{showModels ? 'Tether models' : 'Tether'}</span>
+              <TetherLight size={8} />
+            </div>
+            <div style={{ fontSize: 11.5, color: 'var(--text-tertiary)', marginTop: 1 }}>{showModels ? 'Your connected AI models' : 'Your Syncratic AI assistant'}</div>
           </div>
           {gate === 'ready' && (
-            <button className="btn btn-ghost btn-sm" title="Manage models" onClick={() => setShowModels((v) => !v)}>
+            <button className="btn btn-ghost btn-sm" title="Manage models" onClick={() => setShowModels((v) => !v)} style={{ flexShrink: 0 }}>
               {showModels ? '← Chat' : 'Models'}
             </button>
           )}
-          <button className="btn btn-ghost btn-sm" onClick={() => setOpen(false)}>✕</button>
+          <button className="btn btn-ghost btn-sm" onClick={() => setOpen(false)} style={{ flexShrink: 0 }}>✕</button>
         </div>
 
         {deleteQueue.length > 0 && (

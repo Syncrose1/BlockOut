@@ -26,7 +26,7 @@ const field: React.CSSProperties = {
 };
 const label: React.CSSProperties = { fontSize: 12, fontWeight: 600, color: 'var(--text-secondary)' };
 
-export function TetherEndpoints({ onChanged }: { onChanged?: () => void }) {
+export function TetherEndpoints({ onChanged, embedded }: { onChanged?: () => void; embedded?: boolean }) {
   const [endpoints, setEndpoints] = useState<ModelEndpoint[]>([]);
   const [loading, setLoading] = useState(true);
   const [mode, setMode] = useState<'hidden' | 'create' | 'edit'>('hidden');
@@ -81,10 +81,14 @@ export function TetherEndpoints({ onChanged }: { onChanged?: () => void }) {
   const makeDefault = async (id: string) => { await setDefaultEndpoint(id); await refresh(); };
 
   return (
-    <div style={{ flex: 1, overflowY: 'auto', padding: 18 }}>
-      <div style={{ fontSize: 13, color: 'var(--text-secondary)', lineHeight: 1.6, marginBottom: 14 }}>
-        Tether is <strong>bring-your-own-key</strong>. Connect any OpenAI-compatible model — endpoints are shared across Syncratic apps, and your keys are stored server-side only.
-      </div>
+    <div style={embedded
+      ? { padding: 0 }
+      : { flex: 1, overflowY: 'auto', padding: 18 }}>
+      {!embedded && (
+        <div style={{ fontSize: 13, color: 'var(--text-secondary)', lineHeight: 1.6, marginBottom: 14 }}>
+          Tether is <strong>bring-your-own-key</strong>. Connect any OpenAI-compatible model — endpoints are shared across Syncratic apps, and your keys are stored server-side only.
+        </div>
+      )}
 
       {loading ? (
         <div style={{ padding: '24px 0', textAlign: 'center', color: 'var(--text-tertiary)', fontSize: 13 }}>Loading…</div>

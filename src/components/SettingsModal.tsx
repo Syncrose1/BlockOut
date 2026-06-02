@@ -1,12 +1,22 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useStore } from '../store';
 import { getTheme, setTheme, type Theme } from '../utils/theme';
+import { getSession, isSupabaseConfigured } from '../utils/supabase';
+import { TetherEndpoints } from './Tether/TetherEndpoints';
 
 export function SettingsModal({ open, onClose }: { open: boolean; onClose: () => void }) {
   const [theme, setThemeState] = useState<Theme>(getTheme());
   const synamonEnabled = useStore((s) => s.synamonEnabled);
   const setSynamonEnabled = useStore((s) => s.setSynamonEnabled);
+  const setTetherOpen = useStore((s) => s.setTetherOpen);
+  const [signedIn, setSignedIn] = useState<boolean | null>(null);
+
+  useEffect(() => {
+    if (!open) return;
+    if (!isSupabaseConfigured()) { setSignedIn(false); return; }
+    getSession().then(({ user }) => setSignedIn(!!user));
+  }, [open]);
 
   if (!open) return null;
 
@@ -84,6 +94,34 @@ export function SettingsModal({ open, onClose }: { open: boolean; onClose: () =>
                 </div>
               </div>
             </label>
+          </div>
+
+          {/* Tether AI — BYOK model endpoints */}
+          <div className="modal-field" style={{ marginTop: 18 }}>
+            <label>Tether AI models</label>
+            {signedIn === null ? (
+              <div style={{ fontSize: 12, color: 'var(--text-tertiary)', padding: '6px 0' }}>Checking…</div>
+            ) : signedIn ? (
+              <div style={{
+                maxHeight: 300, overflowY: 'auto', padding: 12,
+                background: 'var(--bg-tertiary)', border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)',
+              }}>
+                <TetherEndpoints embedded />
+              </div>
+            ) : (
+              <p style={{ fontSize: 12, color: 'var(--text-tertiary)', lineHeight: 1.5, margin: 0 }}>
+                Sign in (Cloud Sync) to connect a bring-your-own-key AI model for Tether. Models are shared across Syncratic apps.
+              </p>
+            )}
+            <p style={{ fontSize: 11, color: 'var(--text-tertiary)', marginTop: 8, lineHeight: 1.5 }}>
+              Tether is your Syncratic AI assistant.{' '}
+              <button
+                onClick={() => { onClose(); setTetherOpen(true); }}
+                style={{ background: 'none', border: 'none', padding: 0, color: 'var(--accent)', cursor: 'pointer', font: 'inherit', fontSize: 11 }}
+              >
+                Open Tether →
+              </button>
+            </p>
           </div>
 
           {/* Onboarding */}
