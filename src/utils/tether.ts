@@ -4,6 +4,10 @@
 
 import { useStore } from '../store';
 import { getAccessToken } from './supabase';
+import { getTheme } from './theme';
+import { isDropboxConfigured } from './dropbox';
+import { getLastSyncedTime } from './persistence';
+import type { StagedAction } from './tetherApply';
 
 // Same derivation as r2sync.ts getApiBase(): '' in dev, '/blockout' on web.
 function getApiBase(): string {
@@ -15,6 +19,7 @@ function getApiBase(): string {
 // spend) small. Tether reads this; it never sees Synamon/pomodoro/etc.
 export function buildSnapshot(): Record<string, unknown> {
   const s = useStore.getState() as unknown as Record<string, unknown>;
+  const lastSynced = getLastSyncedTime();
   return {
     tasks: s.tasks,
     categories: s.categories,
@@ -23,6 +28,18 @@ export function buildSnapshot(): Record<string, unknown> {
     chainTasks: s.chainTasks,
     chainTemplates: s.chainTemplates,
     overviewBlocks: s.overviewBlocks,
+    // App status so Tether can guide (theme, companion, sync). Reaching this code
+    // means the caller already has an access token, so the account is signed in.
+    settings: {
+      theme: getTheme(),
+      synamonEnabled: s.synamonEnabled !== false,
+      sync: {
+        accountSignedIn: true,
+        dropboxConnected: isDropboxConfigured(),
+        lastSyncedAt: lastSynced ? new Date(lastSynced).toISOString() : null,
+        status: s.syncStatus,
+      },
+    },
   };
 }
 
@@ -37,6 +54,7 @@ export type TetherEvent =
   | { type: 'thinking'; data: string }
   | { type: 'tool_call'; data: { name: string; input: unknown } }
   | { type: 'tool_result'; data: { tool: string; error?: string } }
+  | { type: 'staged_action'; data: StagedAction }
   | { type: 'complete'; data: { response: string } }
   | { type: 'error'; data: { error: string } };
 

@@ -7,9 +7,17 @@ is BlockOut's integration. We audit against this doc at the end of each phase.
 
 1. **Reads are implicit** — never require permission. They run live, server-side,
    against the snapshot the client sends.
-2. **Writes are staged, never executed server-side.** Tools return *proposed*
+2. **Data writes are staged, never executed server-side.** Tools return *proposed*
    actions; the **client** applies them through existing Zustand actions only
-   after approval. Nothing the AI does touches data until the user says yes.
+   after approval. Nothing the AI does to *data* (tasks/categories/chains/blocks)
+   touches it until the user says yes.
+2b. **Immediate actions** — reversible UI/preference/navigation (theme,
+   show/hide Synamon companion, switch view, open sync settings). These apply on
+   receipt without the approval gate (they're instantly reversible and lose no
+   data) but are always *announced* in the panel. They are NOT data mutations and
+   never delete anything. Tether is also the user's in-app guide (explains
+   features, reads sync state, walks them to enable sync — it cannot enter
+   credentials).
 3. **One permission for a batch.** Create/update proposals are presented together
    as a single approval with a Claude-Code-style **per-item tickbox**: the user
    approves the batch but can untick individual actions. One prompt, not N.

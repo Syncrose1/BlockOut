@@ -9,6 +9,7 @@ import {
   streamTether, listEndpoints, createEndpoint,
   type TetherMessage, type TetherEvent, type ModelEndpoint,
 } from '../../utils/tether';
+import { applyStagedActions, isImmediate, type StagedAction, type ApplyResult } from '../../utils/tetherApply';
 
 type Gate = 'loading' | 'signed-out' | 'no-endpoint' | 'ready';
 
@@ -29,6 +30,10 @@ export function TetherPanel() {
   const [streamText, setStreamText] = useState('');
   const [activeTools, setActiveTools] = useState<string[]>([]);
   const [error, setError] = useState<string | null>(null);
+  // Staged proposals awaiting approval (batch + per-item tickboxes).
+  const [pending, setPending] = useState<StagedAction[]>([]);
+  const [checked, setChecked] = useState<Record<string, boolean>>({});
+  const [applyResults, setApplyResults] = useState<ApplyResult[] | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
 
   // ── Auth + endpoint gating ──
@@ -47,13 +52,23 @@ export function TetherPanel() {
 
   useEffect(() => {
     scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: 'smooth' });
-  }, [messages, streamText, activeTools]);
+  }, [messages, streamText, activeTools, pending, applyResults]);
+
+  const applyApproved = () => {
+    const approved = pending.filter((a) => checked[a.id]);
+    const results = approved.length ? applyStagedActions(approved) : [];
+    setApplyResults((prev) => [...(prev || []), ...results]);
+    setPending([]);
+  };
 
   const send = async () => {
     const text = input.trim();
     if (!text || streaming) return;
     setError(null);
     setInput('');
+    // Moving on abandons any unresolved proposals from the previous turn.
+    setPending([]);
+    setApplyResults(null);
 
     const history: TetherMessage[] = [
       ...messages.map((m) => ({ role: m.role, content: m.content })),
@@ -65,6 +80,7 @@ export function TetherPanel() {
     setActiveTools([]);
 
     const toolsUsed: string[] = [];
+    const staged: StagedAction[] = [];
     let finalText = '';
 
     const res = await streamTether(history, (e: TetherEvent) => {
@@ -76,6 +92,9 @@ export function TetherPanel() {
         case 'tool_call':
           toolsUsed.push(e.data.name);
           setActiveTools((t) => [...t, e.data.name]);
+          break;
+        case 'staged_action':
+          staged.push(e.data);
           break;
         case 'complete':
           finalText = e.data.response || finalText;
@@ -89,6 +108,16 @@ export function TetherPanel() {
     setStreaming(false);
     setStreamText('');
     setActiveTools([]);
+
+    // Immediate (reversible UI/settings) actions apply right away; data
+    // mutations wait for the user's tickbox approval.
+    const immediate = staged.filter(isImmediate);
+    const needsApproval = staged.filter((a) => !isImmediate(a));
+    if (immediate.length) setApplyResults(applyStagedActions(immediate));
+    if (needsApproval.length) {
+      setPending(needsApproval);
+      setChecked(Object.fromEntries(needsApproval.map((a) => [a.id, true])));
+    }
 
     if (!res.ok) {
       if (res.reason === 'NO_ENDPOINT') { setGate('no-endpoint'); return; }
@@ -137,6 +166,30 @@ export function TetherPanel() {
                 </div>
               )}
               {messages.map((m, i) => <Bubble key={i} msg={m} />)}
+
+              {pending.length > 0 && (
+                <ApprovalCard
+                  actions={pending}
+                  checked={checked}
+                  onToggle={(id) => setChecked((c) => ({ ...c, [id]: !c[id] }))}
+                  onApply={applyApproved}
+                  onDiscard={() => setPending([])}
+                />
+              )}
+
+              {applyResults && applyResults.length > 0 && (
+                <div style={{ border: '1px solid var(--border)', borderRadius: 10, padding: 12, background: 'var(--bg-secondary)' }}>
+                  <div style={{ fontSize: 12, fontWeight: 700, marginBottom: 8 }}>
+                    Applied {applyResults.filter((r) => r.ok).length}/{applyResults.length}
+                  </div>
+                  {applyResults.map((r) => (
+                    <div key={r.id} style={{ fontSize: 12, color: r.ok ? 'var(--text-secondary)' : 'hsl(35,90%,45%)', display: 'flex', gap: 6, marginBottom: 3 }}>
+                      <span>{r.ok ? '✓' : '⚠'}</span><span>{r.message}</span>
+                    </div>
+                  ))}
+                </div>
+              )}
+
               {streaming && (
                 <div>
                   {activeTools.length > 0 && (
@@ -198,6 +251,53 @@ function Bubble({ msg, streaming }: { msg: ChatMsg; streaming?: boolean }) {
       {msg.tools && msg.tools.length > 0 && (
         <div style={{ fontSize: 10, color: 'var(--text-tertiary)', marginTop: 3 }}>🔍 {msg.tools.join(' · ')}</div>
       )}
+    </div>
+  );
+}
+
+// Batch approval with per-item tickboxes — one permission for the whole batch,
+// untick the ones you don't want (Claude-Code style). Read tools never reach
+// here; only staged create/update proposals do.
+const TYPE_TINT: Record<string, string> = {
+  create_task: '140,60%,45%', create_category: '140,60%,45%', create_subcategory: '140,60%,45%',
+  create_block: '210,80%,55%', assign_to_block: '210,80%,55%', update_task: '35,85%,50%',
+};
+
+function ApprovalCard({ actions, checked, onToggle, onApply, onDiscard }: {
+  actions: StagedAction[];
+  checked: Record<string, boolean>;
+  onToggle: (id: string) => void;
+  onApply: () => void;
+  onDiscard: () => void;
+}) {
+  const count = actions.filter((a) => checked[a.id]).length;
+  return (
+    <div style={{ border: '1px solid var(--accent)', borderRadius: 12, padding: 12, background: 'var(--bg-secondary)' }}>
+      <div style={{ fontSize: 12, fontWeight: 700, marginBottom: 10 }}>
+        Tether proposes {actions.length} change{actions.length > 1 ? 's' : ''} — review &amp; approve
+      </div>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+        {actions.map((a) => {
+          const on = !!checked[a.id];
+          const tint = TYPE_TINT[a.type] || '210,80%,55%';
+          return (
+            <label key={a.id} style={{
+              display: 'flex', alignItems: 'flex-start', gap: 9, padding: '8px 10px', cursor: 'pointer',
+              borderRadius: 8, border: '1px solid var(--border)',
+              background: on ? `hsla(${tint},0.08)` : 'transparent', opacity: on ? 1 : 0.55,
+            }}>
+              <input type="checkbox" checked={on} onChange={() => onToggle(a.id)} style={{ marginTop: 2, accentColor: `hsl(${tint})` }} />
+              <span style={{ fontSize: 12.5, lineHeight: 1.4, color: 'var(--text-primary)' }}>{a.summary}</span>
+            </label>
+          );
+        })}
+      </div>
+      <div style={{ display: 'flex', gap: 8, marginTop: 12 }}>
+        <button className="btn btn-primary btn-sm" onClick={onApply} disabled={count === 0}>
+          Apply {count > 0 ? count : ''}
+        </button>
+        <button className="btn btn-ghost btn-sm" onClick={onDiscard}>Discard</button>
+      </div>
     </div>
   );
 }

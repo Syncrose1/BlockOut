@@ -5,7 +5,9 @@
 
 const OpenAI = require('openai');
 const { SYSTEM_PROMPT } = require('./prompt');
-const { toolDefinitions, executeReadTool } = require('./tools');
+const { toolDefinitions, executeReadTool, writeToolDefinitions, buildStagedAction, WRITE_TOOLS } = require('./tools');
+
+const ALL_TOOLS = [...toolDefinitions, ...writeToolDefinitions];
 
 // Low cap: read-only turns are short, and this is one invocation's budget.
 const MAX_ITERATIONS = 8;
@@ -43,7 +45,7 @@ async function runAgentLoopStreaming(snapshot, endpoint, conversationHistory, on
       response = await client.chat.completions.create({
         model: endpoint.model_id,
         max_tokens: MAX_TOKENS,
-        tools: toolDefinitions,
+        tools: ALL_TOOLS,
         messages,
       });
     } catch (err) {
@@ -76,11 +78,27 @@ async function runAgentLoopStreaming(snapshot, endpoint, conversationHistory, on
       onEvent({ type: 'tool_call', data: { name: call.function.name, input: args } });
 
       let result, isError = false;
-      try {
-        result = executeReadTool(snapshot, call.function.name, args);
-      } catch (e) {
-        isError = true;
-        result = { error: e instanceof Error ? e.message : 'Tool error' };
+      if (WRITE_TOOLS.has(call.function.name)) {
+        // Write tools NEVER mutate — they stage a proposal for the user to approve.
+        try {
+          const action = buildStagedAction(call.function.name, args);
+          onEvent({ type: 'staged_action', data: action });
+          // Immediate (reversible UI/settings) actions apply right away; data
+          // mutations are queued for the user's tickbox approval.
+          result = action.immediate
+            ? { applied: true, summary: action.summary }
+            : { staged: true, summary: action.summary, note: 'Queued for the user to approve. Not yet applied.' };
+        } catch (e) {
+          isError = true;
+          result = { error: e instanceof Error ? e.message : 'Invalid proposal' };
+        }
+      } else {
+        try {
+          result = executeReadTool(snapshot, call.function.name, args);
+        } catch (e) {
+          isError = true;
+          result = { error: e instanceof Error ? e.message : 'Tool error' };
+        }
       }
 
       messages.push({ role: 'tool', tool_call_id: call.id, content: JSON.stringify(result) });

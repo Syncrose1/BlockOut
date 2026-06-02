@@ -253,9 +253,28 @@ function getWeekOverview(snapshot, input) {
   };
 }
 
+// App status / settings — lets Tether act as a guide (theme, companion, sync).
+// Reads from snapshot.settings, which the client supplies.
+function getAppStatus(snapshot) {
+  const s = (snapshot && snapshot.settings) || {};
+  const sync = s.sync || {};
+  return {
+    theme: s.theme === 'dark' ? 'dark' : 'light',
+    synamonCompanionVisible: s.synamonEnabled !== false,
+    sync: {
+      // User-facing framing (the app presents the account as primary "Cloud Sync").
+      cloudSyncEnabled: !!sync.accountSignedIn,
+      dropboxBackupConnected: !!sync.dropboxConnected,
+      lastSyncedAt: sync.lastSyncedAt || null,
+      status: sync.status || 'idle',
+    },
+  };
+}
+
 // ── registry ─────────────────────────────────────────────────────────────────
 
 const HANDLERS = {
+  get_app_status: getAppStatus,
   list_categories: listCategories,
   list_tasks: listTasks,
   get_task: getTask,
@@ -273,8 +292,230 @@ function executeReadTool(snapshot, name, input) {
   return h(snapshot, input || {});
 }
 
+// ── WRITE tools (phase 2) ─────────────────────────────────────────────────────
+// These NEVER mutate. They validate the model's request and return a normalized
+// "staged action" — a proposal the client renders for approval and only then
+// applies through the Zustand store. The agent loop emits each as a
+// `staged_action` SSE event and tells the model it was queued (not applied).
+
+const crypto = require('crypto');
+const newId = () => (crypto.randomUUID ? crypto.randomUUID() : 'sa-' + Math.random().toString(36).slice(2));
+
+const WRITE_TOOLS = new Set([
+  'propose_create_task', 'propose_update_task', 'propose_create_category',
+  'propose_create_subcategory', 'propose_assign_to_block', 'propose_create_block',
+  // Immediate (reversible UI/preference) actions — applied without the approval gate.
+  'set_theme', 'set_synamon_companion', 'switch_view', 'open_sync_settings',
+]);
+
+function reqStr(v, label) {
+  if (typeof v !== 'string' || !v.trim()) throw new Error(`${label} is required`);
+  return v.trim();
+}
+
+// Build a staged action {id, type, summary, payload}. Throws on invalid input.
+function buildStagedAction(name, input) {
+  const i = input || {};
+  switch (name) {
+    case 'propose_create_task': {
+      const title = reqStr(i.title, 'title');
+      const payload = {
+        title,
+        categoryName: i.categoryName ? String(i.categoryName) : undefined,
+        subcategoryName: i.subcategoryName ? String(i.subcategoryName) : undefined,
+        weight: typeof i.weight === 'number' ? Math.max(1, Math.min(10, Math.round(i.weight))) : undefined,
+        notes: i.notes ? String(i.notes) : undefined,
+        dueDate: i.dueDate ? String(i.dueDate) : undefined,
+        blockName: i.blockName ? String(i.blockName) : undefined,
+      };
+      const bits = [payload.categoryName && `in ${payload.categoryName}`, payload.weight && `weight ${payload.weight}`, payload.dueDate && `due ${payload.dueDate}`, payload.blockName && `→ ${payload.blockName}`].filter(Boolean);
+      return { id: newId(), type: 'create_task', summary: `Create task “${title}”${bits.length ? ' (' + bits.join(', ') + ')' : ''}`, payload };
+    }
+    case 'propose_update_task': {
+      const taskId = reqStr(i.taskId, 'taskId');
+      const payload = { taskId };
+      const changes = [];
+      if (i.title != null) { payload.title = String(i.title); changes.push(`title → “${payload.title}”`); }
+      if (i.weight != null) { payload.weight = Math.max(1, Math.min(10, Math.round(Number(i.weight)))); changes.push(`weight → ${payload.weight}`); }
+      if (i.notes != null) { payload.notes = String(i.notes); changes.push('notes'); }
+      if (i.dueDate != null) { payload.dueDate = String(i.dueDate); changes.push(`due → ${payload.dueDate}`); }
+      if (i.categoryName != null) { payload.categoryName = String(i.categoryName); changes.push(`category → ${payload.categoryName}`); }
+      if (i.subcategoryName != null) { payload.subcategoryName = String(i.subcategoryName); changes.push(`subcategory → ${payload.subcategoryName}`); }
+      if (i.completed != null) { payload.completed = !!i.completed; changes.push(payload.completed ? 'mark complete' : 'mark incomplete'); }
+      if (changes.length === 0) throw new Error('No changes specified');
+      return { id: newId(), type: 'update_task', summary: `Update task: ${changes.join(', ')}`, payload, refTaskId: taskId };
+    }
+    case 'propose_create_category': {
+      const name2 = reqStr(i.name, 'name');
+      const subs = Array.isArray(i.subcategories) ? i.subcategories.map(String).filter(Boolean) : [];
+      return { id: newId(), type: 'create_category', summary: `Create category “${name2}”${subs.length ? ` with ${subs.length} subcategor${subs.length > 1 ? 'ies' : 'y'}` : ''}`, payload: { name: name2, subcategories: subs } };
+    }
+    case 'propose_create_subcategory': {
+      const name2 = reqStr(i.name, 'name');
+      const categoryName = reqStr(i.categoryName, 'categoryName');
+      return { id: newId(), type: 'create_subcategory', summary: `Add subcategory “${name2}” to ${categoryName}`, payload: { categoryName, name: name2 } };
+    }
+    case 'propose_assign_to_block': {
+      const taskId = reqStr(i.taskId, 'taskId');
+      const blockName = reqStr(i.blockName, 'blockName');
+      return { id: newId(), type: 'assign_to_block', summary: `Assign task to time block “${blockName}”`, payload: { taskId, blockName }, refTaskId: taskId };
+    }
+    case 'propose_create_block': {
+      const name2 = reqStr(i.name, 'name');
+      const startDate = reqStr(i.startDate, 'startDate');
+      const endDate = reqStr(i.endDate, 'endDate');
+      return { id: newId(), type: 'create_block', summary: `Create time block “${name2}” (${startDate} → ${endDate})`, payload: { name: name2, startDate, endDate } };
+    }
+
+    // ── Immediate (reversible) settings & navigation ──
+    case 'set_theme': {
+      const theme = i.theme === 'dark' ? 'dark' : 'light';
+      return { id: newId(), type: 'set_theme', immediate: true, summary: `Switched to ${theme} theme`, payload: { theme } };
+    }
+    case 'set_synamon_companion': {
+      const visible = !!i.visible;
+      return { id: newId(), type: 'set_synamon', immediate: true, summary: visible ? 'Showed the Synamon companion' : 'Hid the Synamon companion', payload: { visible } };
+    }
+    case 'switch_view': {
+      const view = String(i.view || '');
+      const labels = { treemap: 'Treemap', taskchain: 'Task Chain', overview: 'Weekview', cofocus: 'Co-Focus' };
+      if (!labels[view]) throw new Error('view must be treemap | taskchain | overview | cofocus');
+      return { id: newId(), type: 'switch_view', immediate: true, summary: `Opened the ${labels[view]} view`, payload: { view } };
+    }
+    case 'open_sync_settings': {
+      return { id: newId(), type: 'open_sync_settings', immediate: true, summary: 'Opened Cloud Sync settings', payload: {} };
+    }
+    default:
+      throw new Error(`Unknown write tool: ${name}`);
+  }
+}
+
+const writeToolDefinitions = [
+  {
+    type: 'function',
+    function: {
+      name: 'propose_create_task',
+      description: 'PROPOSE creating a task (staged for the user to approve — not applied immediately). Reference category/subcategory/block by NAME.',
+      parameters: {
+        type: 'object',
+        properties: {
+          title: { type: 'string' },
+          categoryName: { type: 'string', description: 'Existing or newly-proposed category name.' },
+          subcategoryName: { type: 'string' },
+          weight: { type: 'number', description: 'Effort 1–10 (default 1).' },
+          notes: { type: 'string' },
+          dueDate: { type: 'string', description: 'ISO date YYYY-MM-DD.' },
+          blockName: { type: 'string', description: 'Optionally also assign to this time block.' },
+        },
+        required: ['title'],
+      },
+    },
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'propose_update_task',
+      description: 'PROPOSE updating an existing task (staged). Use a real taskId from a read tool. Only include fields to change.',
+      parameters: {
+        type: 'object',
+        properties: {
+          taskId: { type: 'string' },
+          title: { type: 'string' },
+          weight: { type: 'number' },
+          notes: { type: 'string' },
+          dueDate: { type: 'string', description: 'ISO date YYYY-MM-DD.' },
+          categoryName: { type: 'string' },
+          subcategoryName: { type: 'string' },
+          completed: { type: 'boolean' },
+        },
+        required: ['taskId'],
+      },
+    },
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'propose_create_category',
+      description: 'PROPOSE creating a category (staged), optionally with subcategories.',
+      parameters: {
+        type: 'object',
+        properties: {
+          name: { type: 'string' },
+          subcategories: { type: 'array', items: { type: 'string' } },
+        },
+        required: ['name'],
+      },
+    },
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'propose_create_subcategory',
+      description: 'PROPOSE adding a subcategory to a category (staged).',
+      parameters: { type: 'object', properties: { categoryName: { type: 'string' }, name: { type: 'string' } }, required: ['categoryName', 'name'] },
+    },
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'propose_assign_to_block',
+      description: 'PROPOSE assigning an existing task to a time block (staged). Use a real taskId.',
+      parameters: { type: 'object', properties: { taskId: { type: 'string' }, blockName: { type: 'string' } }, required: ['taskId', 'blockName'] },
+    },
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'propose_create_block',
+      description: 'PROPOSE creating a time block (staged). Dates are ISO YYYY-MM-DD.',
+      parameters: { type: 'object', properties: { name: { type: 'string' }, startDate: { type: 'string' }, endDate: { type: 'string' } }, required: ['name', 'startDate', 'endDate'] },
+    },
+  },
+  // Immediate, reversible UI/preference actions (apply without the approval gate).
+  {
+    type: 'function',
+    function: {
+      name: 'set_theme',
+      description: 'Switch the app theme. Applies immediately (reversible).',
+      parameters: { type: 'object', properties: { theme: { type: 'string', enum: ['light', 'dark'] } }, required: ['theme'] },
+    },
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'set_synamon_companion',
+      description: 'Show or hide the Synamon companion across the app. Applies immediately (reversible). Does not delete companion data.',
+      parameters: { type: 'object', properties: { visible: { type: 'boolean' } }, required: ['visible'] },
+    },
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'switch_view',
+      description: 'Navigate the user to a view: treemap (tasks), taskchain, overview (Weekview), or cofocus. Applies immediately.',
+      parameters: { type: 'object', properties: { view: { type: 'string', enum: ['treemap', 'taskchain', 'overview', 'cofocus'] } }, required: ['view'] },
+    },
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'open_sync_settings',
+      description: 'Open the Cloud Sync settings panel for the user (e.g. to connect cloud sync or a Dropbox backup). You cannot enter their credentials — this just guides them there.',
+      parameters: { type: 'object', properties: {} },
+    },
+  },
+];
+
 // OpenAI tool-schema definitions for the read tools.
 const toolDefinitions = [
+  {
+    type: 'function',
+    function: {
+      name: 'get_app_status',
+      description: "Get the user's app settings & sync status: theme (light/dark), whether the Synamon companion is shown, and cloud-sync/Dropbox-backup state with last-synced time. Use this to answer 'is my data backed up?' and to guide setup.",
+      parameters: { type: 'object', properties: {} },
+    },
+  },
   {
     type: 'function',
     function: {
@@ -371,4 +612,4 @@ const toolDefinitions = [
   },
 ];
 
-module.exports = { toolDefinitions, executeReadTool };
+module.exports = { toolDefinitions, executeReadTool, writeToolDefinitions, buildStagedAction, WRITE_TOOLS };
