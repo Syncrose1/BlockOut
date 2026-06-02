@@ -211,6 +211,26 @@ function r2HasContent(d: AnyRecord): boolean {
     Object.keys((d.categories as object) ?? {}).length > 0;
 }
 
+// Fields that change on every save/sync but carry no user content. Excluded from
+// content comparison so a snapshot that was just downloaded (and re-stamped with
+// a fresh `lastModified` by the local persistence layer) isn't mistaken for a
+// genuine edit.
+const VOLATILE_KEYS = new Set(['lastModified', 'version', 'exportedAt', 'lastSynced']);
+
+// Order-insensitive stable stringify, skipping volatile keys.
+function stableStringify(x: unknown): string {
+  if (x === null || typeof x !== 'object') return JSON.stringify(x) ?? 'null';
+  if (Array.isArray(x)) return '[' + x.map(stableStringify).join(',') + ']';
+  const obj = x as Record<string, unknown>;
+  const keys = Object.keys(obj).filter((k) => !VOLATILE_KEYS.has(k)).sort();
+  return '{' + keys.map((k) => JSON.stringify(k) + ':' + stableStringify(obj[k])).join(',') + '}';
+}
+
+/** True when two snapshots are identical apart from volatile bookkeeping fields. */
+function sameContent(a: AnyRecord, b: AnyRecord): boolean {
+  return stableStringify(a) === stableStringify(b);
+}
+
 async function syncToR2WithResolution(
   localData: AnyRecord,
   prefetchedRemote?: AnyRecord | null,
@@ -283,6 +303,17 @@ async function syncToR2WithResolution(
 
   // Remote unchanged — upload local if it's at least as new (else nothing to do).
   if (localLastModified >= remoteLastModified) {
+    // Guard against a phantom upload: right after a download, applyData() re-saves
+    // the adopted remote locally with a fresh `lastModified`, so `localLastModified`
+    // looks newer than the bookmark even though no real edit happened. If the local
+    // content is byte-identical to remote, there's nothing to push — re-affirm the
+    // bookmark (advancing lastSyncedAt past the phantom save) and report unchanged.
+    // This is what made a fresh login wrongly narrate "uploaded to cloud" when it
+    // had in fact just downloaded the account's data.
+    if (sameContent(localData, remote)) {
+      recordR2Sync(remoteVersion);
+      return { success: true, action: 'unchanged' };
+    }
     const newVersion = Math.max(remoteVersion, lastSyncedVersion) + 1;
     const res = await saveToR2({ ...localData, version: newVersion });
     if (!res.success) return { success: false, action: 'error', error: res.error };
