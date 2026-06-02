@@ -304,6 +304,7 @@ function ApprovalCard({ actions, checked, onToggle, onApply, onDiscard }: {
 
 // Minimal BYOK endpoint setup (writes to the shared model_endpoints table).
 const PRESETS = [
+  { label: 'OpenRouter', base_url: 'https://openrouter.ai/api/v1', model_id: 'nvidia/nemotron-3-super-120b-a12b:free' },
   { label: 'OpenAI', base_url: 'https://api.openai.com/v1', model_id: 'gpt-4o' },
   { label: 'Anthropic', base_url: 'https://api.anthropic.com/v1', model_id: 'claude-sonnet-4-6' },
   { label: 'Gemini', base_url: 'https://generativelanguage.googleapis.com/v1beta/openai', model_id: 'gemini-2.0-flash' },
