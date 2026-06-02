@@ -12,8 +12,11 @@ import { setTheme, type Theme } from './theme';
 export type StagedActionType =
   | 'create_task' | 'update_task' | 'create_category'
   | 'create_subcategory' | 'assign_to_block' | 'create_block'
+  // Task Chains + Weekview:
+  | 'add_chain_steps' | 'add_tasks_to_chain' | 'complete_chain_step'
+  | 'apply_chain_template' | 'schedule_block'
   // Destructive — gated behind a typed confirmation, never part of "apply all":
-  | 'delete_tasks' | 'delete_category'
+  | 'delete_tasks' | 'delete_category' | 'remove_chain_steps' | 'remove_schedule_blocks'
   // Immediate, reversible UI/settings/navigation actions (no approval gate):
   | 'set_theme' | 'set_synamon' | 'switch_view' | 'open_sync_settings';
 
@@ -34,7 +37,7 @@ export function isImmediate(a: StagedAction): boolean {
   return !!a.immediate || IMMEDIATE_TYPES.has(a.type);
 }
 
-const DESTRUCTIVE_TYPES = new Set<StagedActionType>(['delete_tasks', 'delete_category']);
+const DESTRUCTIVE_TYPES = new Set<StagedActionType>(['delete_tasks', 'delete_category', 'remove_chain_steps', 'remove_schedule_blocks']);
 export function isDestructive(a: StagedAction): boolean {
   return !!a.destructive || DESTRUCTIVE_TYPES.has(a.type);
 }
@@ -57,6 +60,19 @@ export function resolveDeleteTargets(action: StagedAction): DeleteTargets {
     const ids = Array.isArray(p.taskIds) ? (p.taskIds as string[]) : [];
     const names = ids.map((id) => tasks[id]?.title).filter(Boolean) as string[];
     return { noun: 'task', count: names.length, names };
+  }
+  if (action.type === 'remove_chain_steps') {
+    const date = String(p.date ?? '');
+    const titles = Array.isArray(p.stepTitles) ? (p.stepTitles as string[]) : [];
+    const present = chainLinkTitles(date).map((l) => lc(l.title));
+    // Only count steps that actually exist in the day's chain.
+    const names = titles.filter((t) => present.includes(lc(t)));
+    return { noun: 'step', count: names.length, names: names.length ? names : titles };
+  }
+  if (action.type === 'remove_schedule_blocks') {
+    const sel = Array.isArray(p.blocks) ? (p.blocks as Array<Record<string, unknown>>) : [];
+    const names = sel.map((b) => `${b.day} ${b.startTime}`);
+    return { noun: 'block', count: sel.length, names };
   }
   // delete_category
   const catId = findCategoryId(p.categoryName);
@@ -87,7 +103,9 @@ export interface ApplyResult {
 const ORDER: StagedActionType[] = [
   'create_category', 'create_subcategory', 'create_block',
   'create_task', 'assign_to_block', 'update_task',
-  'delete_tasks', 'delete_category',
+  'add_chain_steps', 'add_tasks_to_chain', 'apply_chain_template', 'complete_chain_step',
+  'schedule_block',
+  'delete_tasks', 'delete_category', 'remove_chain_steps', 'remove_schedule_blocks',
   'set_theme', 'set_synamon', 'switch_view', 'open_sync_settings',
 ];
 
@@ -119,6 +137,63 @@ function findBlockId(name: unknown): string | undefined {
   if (!n) return undefined;
   const blocks = useStore.getState().timeBlocks;
   return Object.values(blocks).find((b) => lc(b.name) === n)?.id;
+}
+
+function findTaskIdByTitle(title: unknown): string | undefined {
+  const n = lc(title);
+  if (!n) return undefined;
+  return Object.values(useStore.getState().tasks).find((t) => lc(t.title) === n)?.id;
+}
+
+// ── Chain / Weekview resolution (title/date/day+time → store addressing) ──
+
+const DAYS = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'];
+function dayNameToIndex(day: unknown): number {
+  const d = lc(day);
+  const i = DAYS.findIndex((name) => name === d || name.slice(0, 3) === d.slice(0, 3));
+  return i; // -1 if not found
+}
+
+// "9:00" / "09:30" → slot (0 = 6:00 AM, 30-min steps), or -1 if invalid/out of range.
+function timeToSlot(time: unknown): number {
+  const m = String(time ?? '').match(/^(\d{1,2}):(\d{2})$/);
+  if (!m) return -1;
+  const h = parseInt(m[1], 10), min = parseInt(m[2], 10);
+  if (h < 6 || h > 23 || (min !== 0 && min !== 30)) return -1;
+  return (h - 6) * 2 + (min >= 30 ? 1 : 0);
+}
+
+// Monday (YYYY-MM-DD) of the week containing `date` (defaults to today).
+function weekMonday(date?: Date): string {
+  const d = date ? new Date(date) : new Date();
+  const day = d.getDay();
+  const diff = d.getDate() - day + (day === 0 ? -6 : 1);
+  const monday = new Date(d.setDate(diff));
+  return `${monday.getFullYear()}-${String(monday.getMonth() + 1).padStart(2, '0')}-${String(monday.getDate()).padStart(2, '0')}`;
+}
+
+/** Top-level chain links of a date, with their resolved titles (for title→index). */
+function chainLinkTitles(date: string): { index: number; title: string; ctId?: string; type: string }[] {
+  const chain = useStore.getState().taskChains[date];
+  if (!chain) return [];
+  const tasks = useStore.getState().tasks;
+  const chainTasks = useStore.getState().chainTasks;
+  return (chain.links || []).map((l, index) => {
+    if (l.type === 'ct') return { index, title: chainTasks[l.taskId]?.title || '', ctId: l.taskId, type: 'ct' };
+    if (l.type === 'realtask') return { index, title: tasks[l.taskId]?.title || l.placeholder || '', type: 'realtask' };
+    return { index, title: '', type: l.type };
+  });
+}
+
+// Resolve {day, startTime, weekDate?} → a Weekview block id in the current store.
+function findScheduleBlockId(sel: { day: unknown; startTime: unknown; weekDate?: unknown }): string | undefined {
+  const dayIndex = dayNameToIndex(sel.day);
+  const startSlot = timeToSlot(sel.startTime);
+  const week = sel.weekDate ? String(sel.weekDate) : weekMonday();
+  if (dayIndex < 0 || startSlot < 0) return undefined;
+  return useStore.getState().overviewBlocks.find(
+    (b) => b.dayIndex === dayIndex && b.startSlot === startSlot && b.weekDate === week,
+  )?.id;
 }
 
 /**
@@ -237,6 +312,75 @@ export function applyStagedActions(actions: StagedAction[]): ApplyResult[] {
           break;
         }
 
+        // ── Task Chains ──
+        case 'add_chain_steps': {
+          const date = String(p.date || '');
+          const steps = Array.isArray(p.steps) ? (p.steps as Array<Record<string, unknown>>) : [];
+          let n = 0;
+          for (const s of steps) {
+            const title = String(s.title || '').trim();
+            if (!title) continue;
+            const ctId = store.addChainTask(date, title);
+            if (s.notes) store.updateChainTaskNotes(ctId, String(s.notes));
+            if (typeof s.durationMinutes === 'number') store.setChainTaskDuration(ctId, s.durationMinutes);
+            n++;
+          }
+          results.push({ id: action.id, ok: true, message: `Added ${n} step${n === 1 ? '' : 's'} to the ${date} chain.` });
+          break;
+        }
+        case 'add_tasks_to_chain': {
+          const date = String(p.date || '');
+          const ids = Array.isArray(p.taskIds) ? (p.taskIds as string[]) : [];
+          let n = 0;
+          for (const id of ids) {
+            if (useStore.getState().tasks[id]) { store.addRealTaskToChain(date, id); n++; }
+          }
+          results.push({ id: action.id, ok: true, message: `Added ${n} task${n === 1 ? '' : 's'} to the ${date} chain.` });
+          break;
+        }
+        case 'complete_chain_step': {
+          const date = String(p.date || '');
+          const link = chainLinkTitles(date).find((l) => l.type === 'ct' && lc(l.title) === lc(p.stepTitle));
+          if (!link || !link.ctId) { results.push(skip(action, `step “${p.stepTitle}” not found in the ${date} chain`)); break; }
+          store.completeChainTask(link.ctId);
+          results.push({ id: action.id, ok: true, message: `Marked “${p.stepTitle}” complete.` });
+          break;
+        }
+        case 'apply_chain_template': {
+          const date = String(p.date || '');
+          const name = lc(p.templateName);
+          const tpl = Object.values(useStore.getState().chainTemplates).find((t) => lc(t.name) === name);
+          if (!tpl) { results.push(skip(action, `template “${p.templateName}” not found`)); break; }
+          if (p.mode === 'append') store.appendTemplateToChain(tpl.id, date);
+          else store.loadTemplateAsChain(tpl.id, date);
+          results.push({ id: action.id, ok: true, message: `${p.mode === 'append' ? 'Appended' : 'Loaded'} template “${tpl.name}”.` });
+          break;
+        }
+
+        // ── Weekview ──
+        case 'schedule_block': {
+          const dayIndex = dayNameToIndex(p.day);
+          const startSlot = timeToSlot(p.startTime);
+          const endSlot = timeToSlot(p.endTime);
+          if (dayIndex < 0) { results.push(skip(action, `invalid day “${p.day}”`)); break; }
+          if (startSlot < 0 || endSlot < 0 || endSlot <= startSlot) { results.push(skip(action, 'invalid time range (06:00–23:30, 30-min steps)')); break; }
+          const week = p.weekDate ? String(p.weekDate) : weekMonday();
+          const taskId = p.taskTitle ? findTaskIdByTitle(p.taskTitle) : undefined;
+          const now = Date.now();
+          const block = {
+            id: Math.random().toString(36).substr(2, 9),
+            dayIndex, startSlot, endSlot,
+            type: (taskId ? 'mt' : 'placeholder') as 'mt' | 'placeholder',
+            name: String(p.name || 'Block'),
+            ...(taskId ? { taskId } : {}),
+            weekDate: week,
+            createdAt: now, updatedAt: now,
+          };
+          store.setOverviewBlocks([...useStore.getState().overviewBlocks, block]);
+          results.push({ id: action.id, ok: true, message: `Scheduled “${block.name}” on ${p.day} ${p.startTime}–${p.endTime}.` });
+          break;
+        }
+
         // ── Destructive (only reached after the typed-confirmation modal) ──
         case 'delete_tasks': {
           const ids = Array.isArray(p.taskIds) ? (p.taskIds as string[]) : [];
@@ -253,6 +397,28 @@ export function applyStagedActions(actions: StagedAction[]): ApplyResult[] {
           const taskCount = Object.values(useStore.getState().tasks).filter((t) => t.categoryId === catId).length;
           store.deleteCategory(catId);
           results.push({ id: action.id, ok: true, message: `Deleted category and ${taskCount} task${taskCount === 1 ? '' : 's'}.` });
+          break;
+        }
+        case 'remove_chain_steps': {
+          const date = String(p.date || '');
+          const titles = Array.isArray(p.stepTitles) ? (p.stepTitles as string[]).map(lc) : [];
+          // Resolve titles → top-level indices, then remove high→low so indices stay valid.
+          const indices = chainLinkTitles(date)
+            .filter((l) => titles.includes(lc(l.title)))
+            .map((l) => l.index)
+            .sort((a, b) => b - a);
+          for (const idx of indices) store.removeChainLink(date, idx);
+          results.push({ id: action.id, ok: true, message: `Removed ${indices.length} step${indices.length === 1 ? '' : 's'} from the ${date} chain.` });
+          break;
+        }
+        case 'remove_schedule_blocks': {
+          const sel = Array.isArray(p.blocks) ? (p.blocks as Array<Record<string, unknown>>) : [];
+          const ids = sel.map((b) => findScheduleBlockId(b as { day: unknown; startTime: unknown; weekDate?: unknown })).filter(Boolean) as string[];
+          if (ids.length) {
+            const remaining = useStore.getState().overviewBlocks.filter((b) => !ids.includes(b.id));
+            store.setOverviewBlocks(remaining);
+          }
+          results.push({ id: action.id, ok: true, message: `Removed ${ids.length} schedule block${ids.length === 1 ? '' : 's'}.` });
           break;
         }
 

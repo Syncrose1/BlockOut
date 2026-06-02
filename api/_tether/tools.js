@@ -295,8 +295,14 @@ const newId = () => (crypto.randomUUID ? crypto.randomUUID() : 'sa-' + Math.rand
 const WRITE_TOOLS = new Set([
   'propose_create_task', 'propose_update_task', 'propose_create_category',
   'propose_create_subcategory', 'propose_assign_to_block', 'propose_create_block',
+  // Task Chains (daily plans).
+  'propose_add_chain_steps', 'propose_add_tasks_to_chain', 'propose_complete_chain_step',
+  'propose_apply_chain_template',
+  // Weekview (weekly schedule).
+  'propose_schedule_block',
   // Destructive — staged AND gated behind a typed confirmation on the client.
   'propose_delete_tasks', 'propose_delete_category',
+  'propose_remove_chain_steps', 'propose_remove_schedule_blocks',
   // Immediate (reversible UI/preference) actions — applied without the approval gate.
   'set_theme', 'set_synamon_companion', 'switch_view', 'open_sync_settings',
 ]);
@@ -360,7 +366,63 @@ function buildStagedAction(name, input) {
       return { id: newId(), type: 'create_block', summary: `Create time block “${name2}” (${startDate} → ${endDate})`, payload: { name: name2, startDate, endDate } };
     }
 
+    // ── Task Chains (daily plans) ──
+    case 'propose_add_chain_steps': {
+      const date = reqStr(i.date, 'date');
+      const raw = Array.isArray(i.steps) ? i.steps : [];
+      const steps = raw.map((s) => ({
+        title: reqStr(s && s.title, 'step title'),
+        notes: s && s.notes ? String(s.notes) : undefined,
+        durationMinutes: s && typeof s.durationMinutes === 'number' ? Math.max(1, Math.round(s.durationMinutes)) : undefined,
+      }));
+      if (!steps.length) throw new Error('steps (a non-empty array) is required');
+      const n = steps.length;
+      return { id: newId(), type: 'add_chain_steps', summary: `Add ${n} step${n > 1 ? 's' : ''} to the ${date} chain: ${steps.map((s) => `“${s.title}”`).join(', ')}`, payload: { date, steps } };
+    }
+    case 'propose_add_tasks_to_chain': {
+      const date = reqStr(i.date, 'date');
+      const taskIds = Array.isArray(i.taskIds) ? i.taskIds.map(String).filter(Boolean) : [];
+      if (!taskIds.length) throw new Error('taskIds (a non-empty array) is required');
+      return { id: newId(), type: 'add_tasks_to_chain', summary: `Add ${taskIds.length} existing task${taskIds.length > 1 ? 's' : ''} to the ${date} chain`, payload: { date, taskIds } };
+    }
+    case 'propose_complete_chain_step': {
+      const date = reqStr(i.date, 'date');
+      const stepTitle = reqStr(i.stepTitle, 'stepTitle');
+      return { id: newId(), type: 'complete_chain_step', summary: `Mark chain step “${stepTitle}” (${date}) complete`, payload: { date, stepTitle } };
+    }
+    case 'propose_apply_chain_template': {
+      const templateName = reqStr(i.templateName, 'templateName');
+      const date = reqStr(i.date, 'date');
+      const mode = i.mode === 'append' ? 'append' : 'load';
+      return { id: newId(), type: 'apply_chain_template', summary: `${mode === 'append' ? 'Append' : 'Load'} template “${templateName}” ${mode === 'append' ? 'onto' : 'as'} the ${date} chain`, payload: { templateName, date, mode } };
+    }
+
+    // ── Weekview (weekly schedule) ──
+    case 'propose_schedule_block': {
+      const day = reqStr(i.day, 'day');
+      const startTime = reqStr(i.startTime, 'startTime');
+      const endTime = reqStr(i.endTime, 'endTime');
+      const name = i.taskTitle ? String(i.taskTitle) : reqStr(i.name, 'name');
+      const payload = { day, startTime, endTime, name, taskTitle: i.taskTitle ? String(i.taskTitle) : undefined, weekDate: i.weekDate ? String(i.weekDate) : undefined };
+      const wk = payload.weekDate ? ` (week of ${payload.weekDate})` : '';
+      return { id: newId(), type: 'schedule_block', summary: `Schedule “${name}” on ${day} ${startTime}–${endTime}${wk}`, payload };
+    }
+
     // ── Destructive (typed-confirmation gated on the client) ──
+    case 'propose_remove_chain_steps': {
+      const date = reqStr(i.date, 'date');
+      const titles = Array.isArray(i.stepTitles) ? i.stepTitles.map(String).filter(Boolean) : [];
+      if (!titles.length) throw new Error('stepTitles (a non-empty array) is required');
+      const n = titles.length;
+      return { id: newId(), type: 'remove_chain_steps', destructive: true, summary: `Remove ${n} step${n > 1 ? 's' : ''} from the ${date} chain`, payload: { date, stepTitles: titles } };
+    }
+    case 'propose_remove_schedule_blocks': {
+      const blocks = Array.isArray(i.blocks) ? i.blocks : [];
+      const norm = blocks.map((b) => ({ day: reqStr(b && b.day, 'day'), startTime: reqStr(b && b.startTime, 'startTime'), weekDate: b && b.weekDate ? String(b.weekDate) : undefined }));
+      if (!norm.length) throw new Error('blocks (a non-empty array) is required');
+      const n = norm.length;
+      return { id: newId(), type: 'remove_schedule_blocks', destructive: true, summary: `Remove ${n} schedule block${n > 1 ? 's' : ''}`, payload: { blocks: norm } };
+    }
     case 'propose_delete_tasks': {
       const ids = Array.isArray(i.taskIds) ? i.taskIds.map(String).filter(Boolean) : [];
       if (!ids.length) throw new Error('taskIds (a non-empty array) is required');
@@ -476,7 +538,104 @@ const writeToolDefinitions = [
       parameters: { type: 'object', properties: { name: { type: 'string' }, startDate: { type: 'string' }, endDate: { type: 'string' } }, required: ['name', 'startDate', 'endDate'] },
     },
   },
+  // ── Task Chains. NOTE: you must call get_task_chains for the target date
+  //    before editing that day's chain (read-before-edit). ──
+  {
+    type: 'function',
+    function: {
+      name: 'propose_add_chain_steps',
+      description: "PROPOSE adding one or more steps to a day's Task Chain (staged). Read get_task_chains for that date first. Batch all steps for a day in one call.",
+      parameters: {
+        type: 'object',
+        properties: {
+          date: { type: 'string', description: 'ISO date YYYY-MM-DD.' },
+          steps: {
+            type: 'array',
+            items: {
+              type: 'object',
+              properties: {
+                title: { type: 'string' },
+                notes: { type: 'string' },
+                durationMinutes: { type: 'number' },
+              },
+              required: ['title'],
+            },
+          },
+        },
+        required: ['date', 'steps'],
+      },
+    },
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'propose_add_tasks_to_chain',
+      description: "PROPOSE adding existing tasks (by taskId) into a day's Task Chain (staged). Read get_task_chains for that date first.",
+      parameters: { type: 'object', properties: { date: { type: 'string' }, taskIds: { type: 'array', items: { type: 'string' } } }, required: ['date', 'taskIds'] },
+    },
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'propose_complete_chain_step',
+      description: "PROPOSE marking a chain step complete, identified by its title within that day's chain (staged). Read get_task_chains for that date first.",
+      parameters: { type: 'object', properties: { date: { type: 'string' }, stepTitle: { type: 'string' } }, required: ['date', 'stepTitle'] },
+    },
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'propose_apply_chain_template',
+      description: "PROPOSE applying a saved chain template to a date (staged). mode 'load' replaces the day's chain; 'append' adds to it. Read get_task_chains for that date and list_chain_templates first.",
+      parameters: { type: 'object', properties: { templateName: { type: 'string' }, date: { type: 'string' }, mode: { type: 'string', enum: ['load', 'append'] } }, required: ['templateName', 'date'] },
+    },
+  },
+  // ── Weekview. NOTE: call get_week_overview before scheduling/removing blocks. ──
+  {
+    type: 'function',
+    function: {
+      name: 'propose_schedule_block',
+      description: 'PROPOSE adding a block to the weekly schedule (staged). Times are natural ("09:00", "14:30"); day is Monday–Sunday. Optionally bind to an existing task by taskTitle. Read get_week_overview first. Schedule is 6:00 AM–11:30 PM in 30-min steps.',
+      parameters: {
+        type: 'object',
+        properties: {
+          day: { type: 'string', description: 'Monday … Sunday.' },
+          startTime: { type: 'string', description: 'e.g. "09:00".' },
+          endTime: { type: 'string', description: 'e.g. "10:30".' },
+          name: { type: 'string', description: 'Block label (omit if taskTitle given).' },
+          taskTitle: { type: 'string', description: 'Bind to this existing task instead of a plain label.' },
+          weekDate: { type: 'string', description: "Monday of the target week (YYYY-MM-DD). Omit for this week." },
+        },
+        required: ['day', 'startTime', 'endTime'],
+      },
+    },
+  },
   // Destructive — staged, then gated behind a typed deletion confirmation client-side.
+  {
+    type: 'function',
+    function: {
+      name: 'propose_remove_chain_steps',
+      description: "PROPOSE removing steps from a day's chain by their titles (staged → typed confirmation). Read get_task_chains for that date first.",
+      parameters: { type: 'object', properties: { date: { type: 'string' }, stepTitles: { type: 'array', items: { type: 'string' } } }, required: ['date', 'stepTitles'] },
+    },
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'propose_remove_schedule_blocks',
+      description: 'PROPOSE removing schedule blocks, each identified by day + startTime (+ optional weekDate) (staged → typed confirmation). Read get_week_overview first.',
+      parameters: {
+        type: 'object',
+        properties: {
+          blocks: {
+            type: 'array',
+            items: { type: 'object', properties: { day: { type: 'string' }, startTime: { type: 'string' }, weekDate: { type: 'string' } }, required: ['day', 'startTime'] },
+          },
+        },
+        required: ['blocks'],
+      },
+    },
+  },
   {
     type: 'function',
     function: {
@@ -612,4 +771,44 @@ const toolDefinitions = [
   },
 ];
 
-module.exports = { toolDefinitions, executeReadTool, writeToolDefinitions, buildStagedAction, WRITE_TOOLS };
+// ── Read-before-edit gate (Claude-Code style) ────────────────────────────────
+// Chains and Weekview are addressed by date / title / day+time — values a model
+// can hallucinate — so a write to them must be preceded by the matching READ in
+// the same turn. (Task/category writes already need a real id/name from a read,
+// so they're implicitly gated and not listed here.)
+//
+// `seen` is accumulated by the agent loop from read-tool calls:
+//   { chainDates:Set, chainAll:bool, week:bool }
+function recordRead(seen, name, input) {
+  if (name === 'get_task_chains') {
+    if (input && input.date) seen.chainDates.add(input.date);
+    else seen.chainAll = true; // range/all read surfaced the list of chains
+  } else if (name === 'get_week_overview') {
+    seen.week = true;
+  }
+}
+
+// Returns an error string if a write isn't allowed yet (read first), else null.
+function requireReadBeforeWrite(seen, name, input) {
+  const chainWrites = new Set([
+    'propose_add_chain_steps', 'propose_add_tasks_to_chain', 'propose_complete_chain_step',
+    'propose_apply_chain_template', 'propose_remove_chain_steps',
+  ]);
+  if (chainWrites.has(name)) {
+    const date = input && input.date;
+    if (date && !seen.chainDates.has(date)) {
+      return `Read first: call get_task_chains with date "${date}" before editing that day's chain.`;
+    }
+  }
+  if (name === 'propose_schedule_block' || name === 'propose_remove_schedule_blocks') {
+    if (!seen.week) {
+      return 'Read first: call get_week_overview before changing the weekly schedule.';
+    }
+  }
+  return null;
+}
+
+module.exports = {
+  toolDefinitions, executeReadTool, writeToolDefinitions, buildStagedAction, WRITE_TOOLS,
+  recordRead, requireReadBeforeWrite,
+};

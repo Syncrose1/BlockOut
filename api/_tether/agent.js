@@ -5,7 +5,7 @@
 
 const OpenAI = require('openai');
 const { SYSTEM_PROMPT } = require('./prompt');
-const { toolDefinitions, executeReadTool, writeToolDefinitions, buildStagedAction, WRITE_TOOLS } = require('./tools');
+const { toolDefinitions, executeReadTool, writeToolDefinitions, buildStagedAction, WRITE_TOOLS, recordRead, requireReadBeforeWrite } = require('./tools');
 
 const ALL_TOOLS = [...toolDefinitions, ...writeToolDefinitions];
 
@@ -38,6 +38,10 @@ async function runAgentLoopStreaming(snapshot, endpoint, conversationHistory, on
       .filter((m) => m.role === 'user' || m.role === 'assistant')
       .map((m) => ({ role: m.role, content: m.content })),
   ];
+
+  // Tracks which chains/weekview the model has READ this turn — enforces
+  // read-before-edit for date/title/day-addressed writes.
+  const seen = { chainDates: new Set(), chainAll: false, week: false };
 
   for (let i = 0; i < MAX_ITERATIONS; i++) {
     let response;
@@ -79,6 +83,15 @@ async function runAgentLoopStreaming(snapshot, endpoint, conversationHistory, on
 
       let result, isError = false;
       if (WRITE_TOOLS.has(call.function.name)) {
+        // Read-before-edit: chain/Weekview writes must follow the matching read.
+        const gate = requireReadBeforeWrite(seen, call.function.name, args);
+        if (gate) {
+          isError = true;
+          result = { error: gate };
+          messages.push({ role: 'tool', tool_call_id: call.id, content: JSON.stringify(result) });
+          onEvent({ type: 'tool_result', data: { tool: call.function.name, error: gate } });
+          continue;
+        }
         // Write tools NEVER mutate — they stage a proposal for the user to approve.
         try {
           const action = buildStagedAction(call.function.name, args);
@@ -101,6 +114,7 @@ async function runAgentLoopStreaming(snapshot, endpoint, conversationHistory, on
       } else {
         try {
           result = executeReadTool(snapshot, call.function.name, args);
+          recordRead(seen, call.function.name, args); // unlock matching writes
         } catch (e) {
           isError = true;
           result = { error: e instanceof Error ? e.message : 'Tool error' };
