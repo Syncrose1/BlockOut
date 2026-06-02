@@ -410,6 +410,14 @@ export async function updateSessionTimerMode(sessionId: string, timerMode: 'shar
     .eq('id', sessionId);
 }
 
+// The invite channel is a singleton per page: Supabase keys realtime channels by
+// topic, so creating a second `cofocus-invites:<id>` channel while the first is
+// still subscribed makes the later `.on('postgres_changes', …)` calls throw
+// ("cannot add … callbacks after subscribe()"). setupInviteSubscription can run
+// more than once (StrictMode double-mount, re-init, auth refresh), so we track
+// the live channel here and tear it down before re-subscribing — idempotent.
+let _inviteChannel: any = null;
+
 export async function subscribeToInvites(
   userId: string,
   onIncomingInvite: (invite: any) => void,
@@ -417,6 +425,12 @@ export async function subscribeToInvites(
 ) {
   const sb = getSupabaseClient();
   if (!sb) return null;
+
+  // Drop any existing invite channel before opening a new one for this topic.
+  if (_inviteChannel) {
+    try { sb.removeChannel(_inviteChannel); } catch { /* already gone */ }
+    _inviteChannel = null;
+  }
 
   const channel = sb.channel(`cofocus-invites:${userId}`)
     // New incoming invites (I'm the recipient)
@@ -451,6 +465,7 @@ export async function subscribeToInvites(
     )
     .subscribe();
 
+  _inviteChannel = channel;
   return channel;
 }
 
@@ -458,4 +473,5 @@ export function unsubscribeFromInvites(channel: any) {
   const sb = getSupabaseClient();
   if (!sb || !channel) return;
   sb.removeChannel(channel);
+  if (channel === _inviteChannel) _inviteChannel = null;
 }

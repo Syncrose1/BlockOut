@@ -1,6 +1,6 @@
 import { useEffect, useState, useRef, useCallback } from 'react';
 import { useStore } from './store';
-import { loadData, debouncedSave, startPeriodicCloudSync } from './utils/persistence';
+import { loadData, debouncedSave, startPeriodicCloudSync, shouldSeedSampleData } from './utils/persistence';
 import { handleDropboxCallback } from './utils/dropbox';
 import { loadTutorialData, hasShownTutorial } from './utils/tutorial';
 import { loadSynamonFromSupabase, startSynamonSyncListener } from './utils/synamonLifecycle';
@@ -98,8 +98,11 @@ export function App() {
     const initializeApp = async () => {
       await loadData();
 
-      // Load tutorial data if first time user
-      if (!hasShownTutorial()) {
+      // Seed the illustrative tutorial data ONLY for a genuinely new local user:
+      // empty store AND no cloud account connected. `shouldSeedSampleData()` is
+      // the guard — never inject sample data when signed in or when real data
+      // loaded, so it can't sync upward and clobber a real backup (it did once).
+      if (!hasShownTutorial() && (await shouldSeedSampleData())) {
         loadTutorialData();
       }
 
