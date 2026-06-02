@@ -1,6 +1,7 @@
-// Tether — the Syncratic AI assistant panel (phase 1b: read-only chat).
-// Right-side slide-in. Gated on: signed in → has a model endpoint → chat.
-// Writes/deletes are not wired yet; the agent can only read & advise.
+// Tether — the Syncratic AI assistant panel. Floating card, gated on signed-in →
+// has a model endpoint → chat. Streams the agent (reads, staged writes with
+// tickbox approval, typed-gated deletes, guide actions), persists conversations
+// to localStorage, and manages BYOK model endpoints.
 
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { useStore } from '../../store';
@@ -16,6 +17,11 @@ import {
   applyStagedActions, isImmediate, isDestructive, resolveDeleteTargets, requiredDeletePhrase,
   type StagedAction, type ApplyResult,
 } from '../../utils/tetherApply';
+import {
+  type ChatMsg, type TetherConversation,
+  newConversationId, listConversations, getActiveId, setActiveId,
+  saveConversation, loadConversation, deleteConversation,
+} from '../../utils/tetherConversations';
 
 type Gate = 'loading' | 'signed-out' | 'no-endpoint' | 'ready';
 
@@ -42,18 +48,15 @@ function toolLabels(names: string[]): string[] {
   return [...new Set(names.map(toolLabel))];
 }
 
-interface ChatMsg {
-  role: 'user' | 'assistant';
-  content: string;
-  tools?: string[]; // tool names used while producing an assistant turn
-}
-
 export function TetherPanel() {
   const open = useStore((s) => s.tetherOpen);
   const setOpen = useStore((s) => s.setTetherOpen);
   const setTetherStatus = useStore((s) => s.setTetherStatus);
 
   const [gate, setGate] = useState<Gate>('loading');
+  const [convoId, setConvoId] = useState<string>(() => getActiveId() || newConversationId());
+  const [conversations, setConversations] = useState<TetherConversation[]>([]);
+  const [showHistory, setShowHistory] = useState(false);
   const [messages, setMessages] = useState<ChatMsg[]>([]);
   const [input, setInput] = useState('');
   const [streaming, setStreaming] = useState(false);
@@ -92,6 +95,40 @@ export function TetherPanel() {
   useEffect(() => {
     scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: 'smooth' });
   }, [messages, streamText, activeTools, pending, applyResults]);
+
+  // ── Conversation persistence (localStorage) ──
+  // On open, restore the active conversation's messages.
+  useEffect(() => {
+    if (!open) return;
+    setConversations(listConversations());
+    setMessages(loadConversation(convoId));
+    setActiveId(convoId);
+  }, [open, convoId]);
+
+  // Persist whenever the message list settles (not mid-stream).
+  useEffect(() => {
+    if (!streaming && messages.length > 0) {
+      saveConversation(convoId, messages);
+      setConversations(listConversations());
+    }
+  }, [messages, streaming, convoId]);
+
+  const startNewChat = () => {
+    const id = newConversationId();
+    setConvoId(id); setActiveId(id);
+    setMessages([]); setPending([]); setApplyResults(null); setDeleteQueue([]);
+    setError(null); setShowHistory(false); setShowModels(false);
+  };
+  const switchChat = (id: string) => {
+    setConvoId(id); setActiveId(id);
+    setMessages(loadConversation(id));
+    setPending([]); setApplyResults(null); setDeleteQueue([]); setError(null); setShowHistory(false);
+  };
+  const removeChat = (id: string) => {
+    deleteConversation(id);
+    setConversations(listConversations());
+    if (id === convoId) startNewChat();
+  };
 
   const applyApproved = () => {
     const approved = pending.filter((a) => checked[a.id]);
@@ -214,13 +251,39 @@ export function TetherPanel() {
             </div>
             <div style={{ fontSize: 11.5, color: 'var(--text-tertiary)', marginTop: 1 }}>{showModels ? 'Your connected AI models' : 'Your Syncratic AI assistant'}</div>
           </div>
+          {gate === 'ready' && !showModels && (
+            <>
+              <button className="btn btn-ghost btn-sm" title="New chat" onClick={startNewChat} style={{ flexShrink: 0, padding: '4px 8px' }}>＋</button>
+              <button className="btn btn-ghost btn-sm" title="Chat history" onClick={() => { setConversations(listConversations()); setShowHistory((v) => !v); }} style={{ flexShrink: 0, padding: '4px 8px' }}>🕘</button>
+            </>
+          )}
           {gate === 'ready' && (
-            <button className="btn btn-ghost btn-sm" title="Manage models" onClick={() => setShowModels((v) => !v)} style={{ flexShrink: 0 }}>
+            <button className="btn btn-ghost btn-sm" title="Manage models" onClick={() => { setShowModels((v) => !v); setShowHistory(false); }} style={{ flexShrink: 0 }}>
               {showModels ? '← Chat' : 'Models'}
             </button>
           )}
           <button className="btn btn-ghost btn-sm" onClick={() => setOpen(false)} style={{ flexShrink: 0 }}>✕</button>
         </div>
+
+        {/* Chat history dropdown */}
+        {showHistory && gate === 'ready' && (
+          <div style={{
+            position: 'absolute', top: 70, right: 12, width: 'min(300px, calc(100% - 24px))', maxHeight: 360, overflowY: 'auto',
+            background: 'var(--bg-primary)', border: '1px solid var(--border)', borderRadius: 'var(--radius-md, 11px)',
+            boxShadow: '0 12px 32px rgba(0,0,0,0.22)', zIndex: 6, padding: 6,
+          }}>
+            {conversations.length === 0 && <div style={{ padding: 10, fontSize: 12, color: 'var(--text-tertiary)' }}>No past chats yet.</div>}
+            {conversations.map((c) => (
+              <div key={c.id} style={{
+                display: 'flex', alignItems: 'center', gap: 6, padding: '7px 8px', borderRadius: 7, cursor: 'pointer',
+                background: c.id === convoId ? 'var(--bg-tertiary)' : 'transparent',
+              }}>
+                <span onClick={() => switchChat(c.id)} style={{ flex: 1, minWidth: 0, fontSize: 12.5, color: 'var(--text-primary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{c.title}</span>
+                <button className="btn btn-ghost btn-sm" title="Delete chat" onClick={() => removeChat(c.id)} style={{ padding: '2px 5px', color: 'hsl(0,72%,55%)', flexShrink: 0 }}>🗑</button>
+              </div>
+            ))}
+          </div>
+        )}
 
         {deleteQueue.length > 0 && (
           <DeletionModal
