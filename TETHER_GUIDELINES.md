@@ -82,16 +82,40 @@ short invocation). Only a long single *turn* needs chaining:
   Types: placeholder | mt (taskId) | ct. NO granular store CRUD — only
   `setOverviewBlocks(wholeArray)`; tools accept natural time and convert.
 
+## Domain awareness Tether must have (knowledge, not necessarily tools)
+
+Tether is a guide, so it must understand the app's *intentional* features and
+respect their design — never short-circuiting the engagement they're built on.
+
+- **Co-Focus** — intentional, immersive **social studying**: live-synced focus
+  sessions with friends (shared/independent timers, pauses, laps, task-chain
+  tick-offs, presence, chat). Tether should know *what it is, why it exists, and
+  what it offers*, and be able to explain it and point users to it. What Tether
+  should actively *do* inside a session is still open (the activity is meant to be
+  immersive and human — don't bolt on AI that distracts from it). Default to
+  explain/guide, not automate.
+- **Synamon companion** — a tamagotchi-style pet that grows from the user's REAL
+  focus and task completion. Tether must understand it and **encourage engagement
+  — but must NOT tend the pet for the user.** No feeding/petting/playing on their
+  behalf, no shortcuts to companion progress. Nurturing is *earned* by actually
+  focusing and completing tasks; Tether motivates that, it doesn't replace it.
+  (Tether may still show/hide the companion via set_synamon_companion — a display
+  preference, not pet-care.) Respect the opt-out: if Synamon is disabled, don't
+  push it.
+
 ## Phase plan
 
-- **1a (this) — read-only server:** `api/tether.js` + agent + read tools + prompt;
+- **1a ✅ — read-only server:** `api/tether.js` + agent + read tools + prompt;
   endpoints CRUD; deps + vercel config.
-- **1b — read-only client:** Tether panel, SSE display, endpoint gating.
-- **2 — staged writes:** create/update tools + batch approval w/ tickboxes + apply
-  layer.
+- **1b ✅ — read-only client:** Tether panel, SSE display, endpoint gating.
+- **2 ✅ — staged writes + guide:** create/update tools + batch approval w/
+  tickboxes + apply layer; immediate settings/nav actions; get_app_status/sync.
 - **3 — deletes:** typed-confirmation gate.
 - **4 — chains + Weekview tools.**
-- **5 — persistence, resumable chaining, polish.**
+- **5 — domain awareness:** teach Tether about Co-Focus + Synamon (above) via the
+  system prompt; explain/guide tools as needed (no pet-care, no in-session
+  automation by default).
+- **6 — persistence, resumable chaining, polish.**
 
 ## Audit at each phase
 
