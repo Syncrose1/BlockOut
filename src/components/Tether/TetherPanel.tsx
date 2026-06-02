@@ -9,7 +9,10 @@ import {
   streamTether, listEndpoints, createEndpoint,
   type TetherMessage, type TetherEvent, type ModelEndpoint,
 } from '../../utils/tether';
-import { applyStagedActions, isImmediate, type StagedAction, type ApplyResult } from '../../utils/tetherApply';
+import {
+  applyStagedActions, isImmediate, isDestructive, resolveDeleteTargets, requiredDeletePhrase,
+  type StagedAction, type ApplyResult,
+} from '../../utils/tetherApply';
 
 type Gate = 'loading' | 'signed-out' | 'no-endpoint' | 'ready';
 
@@ -34,6 +37,9 @@ export function TetherPanel() {
   const [pending, setPending] = useState<StagedAction[]>([]);
   const [checked, setChecked] = useState<Record<string, boolean>>({});
   const [applyResults, setApplyResults] = useState<ApplyResult[] | null>(null);
+  // Destructive actions are handled one at a time via a typed-confirmation modal —
+  // never bundled into "apply all".
+  const [deleteQueue, setDeleteQueue] = useState<StagedAction[]>([]);
   const scrollRef = useRef<HTMLDivElement>(null);
 
   // ── Auth + endpoint gating ──
@@ -61,6 +67,13 @@ export function TetherPanel() {
     setPending([]);
   };
 
+  // Confirm (apply) or skip the head of the destructive queue, then advance.
+  const resolveDelete = (apply: boolean) => {
+    const [head, ...rest] = deleteQueue;
+    if (apply && head) setApplyResults((prev) => [...(prev || []), ...applyStagedActions([head])]);
+    setDeleteQueue(rest);
+  };
+
   const send = async () => {
     const text = input.trim();
     if (!text || streaming) return;
@@ -69,6 +82,7 @@ export function TetherPanel() {
     // Moving on abandons any unresolved proposals from the previous turn.
     setPending([]);
     setApplyResults(null);
+    setDeleteQueue([]);
 
     const history: TetherMessage[] = [
       ...messages.map((m) => ({ role: m.role, content: m.content })),
@@ -109,15 +123,17 @@ export function TetherPanel() {
     setStreamText('');
     setActiveTools([]);
 
-    // Immediate (reversible UI/settings) actions apply right away; data
-    // mutations wait for the user's tickbox approval.
+    // Three lanes: immediate (apply now), destructive (typed-confirmation modal,
+    // one at a time), and ordinary data mutations (tickbox approval batch).
     const immediate = staged.filter(isImmediate);
-    const needsApproval = staged.filter((a) => !isImmediate(a));
+    const destructive = staged.filter((a) => !isImmediate(a) && isDestructive(a));
+    const needsApproval = staged.filter((a) => !isImmediate(a) && !isDestructive(a));
     if (immediate.length) setApplyResults(applyStagedActions(immediate));
     if (needsApproval.length) {
       setPending(needsApproval);
       setChecked(Object.fromEntries(needsApproval.map((a) => [a.id, true])));
     }
+    if (destructive.length) setDeleteQueue(destructive);
 
     if (!res.ok) {
       if (res.reason === 'NO_ENDPOINT') { setGate('no-endpoint'); return; }
@@ -150,6 +166,15 @@ export function TetherPanel() {
           </div>
           <button className="btn btn-ghost btn-sm" onClick={() => setOpen(false)}>✕</button>
         </div>
+
+        {deleteQueue.length > 0 && (
+          <DeletionModal
+            action={deleteQueue[0]}
+            remaining={deleteQueue.length}
+            onConfirm={() => resolveDelete(true)}
+            onCancel={() => resolveDelete(false)}
+          />
+        )}
 
         {/* Body */}
         {gate === 'loading' && <Centered>Loading…</Centered>}
@@ -297,6 +322,68 @@ function ApprovalCard({ actions, checked, onToggle, onApply, onDiscard }: {
           Apply {count > 0 ? count : ''}
         </button>
         <button className="btn btn-ghost btn-sm" onClick={onDiscard}>Discard</button>
+      </div>
+    </div>
+  );
+}
+
+// Typed-confirmation gate for a single destructive action. Lists ONLY the
+// targets and requires the exact phrase before Delete is enabled. Destructive
+// actions never ride "apply all" — each gets this modal.
+function DeletionModal({ action, remaining, onConfirm, onCancel }: {
+  action: StagedAction;
+  remaining: number;
+  onConfirm: () => void;
+  onCancel: () => void;
+}) {
+  const targets = resolveDeleteTargets(action);
+  const phrase = requiredDeletePhrase(targets.noun, targets.count);
+  const [typed, setTyped] = useState('');
+  const match = typed === phrase;
+  const danger = 'hsl(0,72%,55%)';
+
+  return (
+    <div style={{ position: 'absolute', inset: 0, background: 'rgba(0,0,0,0.45)', zIndex: 5, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }}>
+      <div style={{ background: 'var(--bg-primary)', border: `1px solid ${danger}`, borderRadius: 12, padding: 16, width: '100%', maxWidth: 360, maxHeight: '90%', overflowY: 'auto' }}>
+        <div style={{ fontWeight: 700, fontSize: 14, color: danger, marginBottom: 4 }}>Confirm deletion</div>
+        {remaining > 1 && <div style={{ fontSize: 11, color: 'var(--text-tertiary)', marginBottom: 8 }}>{remaining} deletions queued — confirming one at a time.</div>}
+
+        <div style={{ fontSize: 12.5, color: 'var(--text-secondary)', margin: '8px 0 4px' }}>
+          This will permanently delete:
+        </div>
+        <ul style={{ margin: '0 0 8px 0', paddingLeft: 18, fontSize: 12.5, color: 'var(--text-primary)' }}>
+          {targets.names.map((n, i) => <li key={i}>{n}</li>)}
+        </ul>
+        {targets.cascade && targets.cascade.length > 0 && (
+          <>
+            <div style={{ fontSize: 11.5, color: danger, margin: '4px 0' }}>…and everything inside it:</div>
+            <ul style={{ margin: '0 0 8px 0', paddingLeft: 18, fontSize: 11.5, color: 'var(--text-secondary)' }}>
+              {targets.cascade.map((n, i) => <li key={i}>{n}</li>)}
+            </ul>
+          </>
+        )}
+
+        <div style={{ fontSize: 12, color: 'var(--text-secondary)', margin: '10px 0 4px' }}>
+          Type <strong style={{ color: 'var(--text-primary)' }}>{phrase}</strong> to confirm:
+        </div>
+        <input
+          autoFocus
+          value={typed}
+          onChange={(e) => setTyped(e.target.value)}
+          placeholder={phrase}
+          style={{ width: '100%', padding: '8px 10px', fontSize: 13, borderRadius: 'var(--radius-sm)', border: `1px solid ${match ? danger : 'var(--border)'}`, background: 'var(--bg-secondary)', color: 'var(--text-primary)' }}
+        />
+        <div style={{ display: 'flex', gap: 8, marginTop: 12 }}>
+          <button
+            className="btn btn-sm"
+            onClick={onConfirm}
+            disabled={!match || targets.count === 0}
+            style={{ background: match ? danger : 'var(--bg-tertiary)', color: match ? '#fff' : 'var(--text-tertiary)', border: 'none', cursor: match ? 'pointer' : 'not-allowed' }}
+          >
+            Delete
+          </button>
+          <button className="btn btn-ghost btn-sm" onClick={onCancel}>Cancel</button>
+        </div>
       </div>
     </div>
   );

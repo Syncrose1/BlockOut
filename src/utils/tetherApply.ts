@@ -12,6 +12,8 @@ import { setTheme, type Theme } from './theme';
 export type StagedActionType =
   | 'create_task' | 'update_task' | 'create_category'
   | 'create_subcategory' | 'assign_to_block' | 'create_block'
+  // Destructive — gated behind a typed confirmation, never part of "apply all":
+  | 'delete_tasks' | 'delete_category'
   // Immediate, reversible UI/settings/navigation actions (no approval gate):
   | 'set_theme' | 'set_synamon' | 'switch_view' | 'open_sync_settings';
 
@@ -22,12 +24,56 @@ export interface StagedAction {
   payload: Record<string, unknown>;
   /** Immediate actions apply on receipt (reversible); data mutations need approval. */
   immediate?: boolean;
+  /** Destructive actions route to the typed-confirmation deletion modal. */
+  destructive?: boolean;
 }
 
 // Reversible UI/preference/navigation actions that apply without the approval gate.
 const IMMEDIATE_TYPES = new Set<StagedActionType>(['set_theme', 'set_synamon', 'switch_view', 'open_sync_settings']);
 export function isImmediate(a: StagedAction): boolean {
   return !!a.immediate || IMMEDIATE_TYPES.has(a.type);
+}
+
+const DESTRUCTIVE_TYPES = new Set<StagedActionType>(['delete_tasks', 'delete_category']);
+export function isDestructive(a: StagedAction): boolean {
+  return !!a.destructive || DESTRUCTIVE_TYPES.has(a.type);
+}
+
+export interface DeleteTargets {
+  noun: string;        // 'task' | 'category'
+  count: number;       // primary entities being deleted
+  names: string[];     // their names, for the modal list
+  cascade?: string[];  // extra things that disappear (e.g. a category's tasks)
+}
+
+/**
+ * Resolve, against the CURRENT store, exactly what a delete action will remove —
+ * so the confirmation modal lists real names (the action only carries ids).
+ */
+export function resolveDeleteTargets(action: StagedAction): DeleteTargets {
+  const p = action.payload || {};
+  if (action.type === 'delete_tasks') {
+    const tasks = useStore.getState().tasks;
+    const ids = Array.isArray(p.taskIds) ? (p.taskIds as string[]) : [];
+    const names = ids.map((id) => tasks[id]?.title).filter(Boolean) as string[];
+    return { noun: 'task', count: names.length, names };
+  }
+  // delete_category
+  const catId = findCategoryId(p.categoryName);
+  const state = useStore.getState();
+  const cat = catId ? state.categories[catId] : undefined;
+  const cascade = cat
+    ? [
+        ...cat.subcategories.map((s) => `subcategory: ${s.name}`),
+        ...Object.values(state.tasks).filter((t) => t.categoryId === cat.id).map((t) => `task: ${t.title}`),
+      ]
+    : [];
+  return { noun: 'category', count: cat ? 1 : 0, names: cat ? [cat.name] : [String(p.categoryName ?? '')], cascade };
+}
+
+/** The exact phrase the user must type, count-aware and pluralised. */
+export function requiredDeletePhrase(noun: string, count: number): string {
+  return count === 1 ? `Delete this 1 ${noun}` : `Delete these ${count} ${noun}s`;
 }
 
 export interface ApplyResult {
@@ -41,6 +87,7 @@ export interface ApplyResult {
 const ORDER: StagedActionType[] = [
   'create_category', 'create_subcategory', 'create_block',
   'create_task', 'assign_to_block', 'update_task',
+  'delete_tasks', 'delete_category',
   'set_theme', 'set_synamon', 'switch_view', 'open_sync_settings',
 ];
 
@@ -187,6 +234,25 @@ export function applyStagedActions(actions: StagedAction[]): ApplyResult[] {
           // Completion has side-effects (streaks, completedAt) — route via toggle.
           if (p.completed != null && !!p.completed !== !!task.completed) store.toggleTask(taskId);
           results.push({ id: action.id, ok: true, message: 'Updated.' });
+          break;
+        }
+
+        // ── Destructive (only reached after the typed-confirmation modal) ──
+        case 'delete_tasks': {
+          const ids = Array.isArray(p.taskIds) ? (p.taskIds as string[]) : [];
+          let n = 0;
+          for (const id of ids) {
+            if (useStore.getState().tasks[id]) { store.deleteTask(id); n++; }
+          }
+          results.push({ id: action.id, ok: true, message: `Deleted ${n} task${n === 1 ? '' : 's'}.` });
+          break;
+        }
+        case 'delete_category': {
+          const catId = findCategoryId(p.categoryName);
+          if (!catId) { results.push(skip(action, `category “${p.categoryName}” not found`)); break; }
+          const taskCount = Object.values(useStore.getState().tasks).filter((t) => t.categoryId === catId).length;
+          store.deleteCategory(catId);
+          results.push({ id: action.id, ok: true, message: `Deleted category and ${taskCount} task${taskCount === 1 ? '' : 's'}.` });
           break;
         }
 

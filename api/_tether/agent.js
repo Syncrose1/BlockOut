@@ -87,7 +87,13 @@ async function runAgentLoopStreaming(snapshot, endpoint, conversationHistory, on
           // mutations are queued for the user's tickbox approval.
           result = action.immediate
             ? { applied: true, summary: action.summary }
-            : { staged: true, summary: action.summary, note: 'Queued for the user to approve. Not yet applied.' };
+            : {
+                staged: true,
+                summary: action.summary,
+                note: action.destructive
+                  ? 'Queued — the user must confirm this DELETION by typing a confirmation phrase. Not yet applied.'
+                  : 'Queued for the user to approve. Not yet applied.',
+              };
         } catch (e) {
           isError = true;
           result = { error: e instanceof Error ? e.message : 'Invalid proposal' };

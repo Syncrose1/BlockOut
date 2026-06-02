@@ -295,6 +295,8 @@ const newId = () => (crypto.randomUUID ? crypto.randomUUID() : 'sa-' + Math.rand
 const WRITE_TOOLS = new Set([
   'propose_create_task', 'propose_update_task', 'propose_create_category',
   'propose_create_subcategory', 'propose_assign_to_block', 'propose_create_block',
+  // Destructive — staged AND gated behind a typed confirmation on the client.
+  'propose_delete_tasks', 'propose_delete_category',
   // Immediate (reversible UI/preference) actions — applied without the approval gate.
   'set_theme', 'set_synamon_companion', 'switch_view', 'open_sync_settings',
 ]);
@@ -356,6 +358,18 @@ function buildStagedAction(name, input) {
       const startDate = reqStr(i.startDate, 'startDate');
       const endDate = reqStr(i.endDate, 'endDate');
       return { id: newId(), type: 'create_block', summary: `Create time block “${name2}” (${startDate} → ${endDate})`, payload: { name: name2, startDate, endDate } };
+    }
+
+    // ── Destructive (typed-confirmation gated on the client) ──
+    case 'propose_delete_tasks': {
+      const ids = Array.isArray(i.taskIds) ? i.taskIds.map(String).filter(Boolean) : [];
+      if (!ids.length) throw new Error('taskIds (a non-empty array) is required');
+      const n = ids.length;
+      return { id: newId(), type: 'delete_tasks', destructive: true, summary: `Delete ${n} task${n > 1 ? 's' : ''}`, payload: { taskIds: ids } };
+    }
+    case 'propose_delete_category': {
+      const categoryName = reqStr(i.categoryName, 'categoryName');
+      return { id: newId(), type: 'delete_category', destructive: true, summary: `Delete category “${categoryName}” and all its tasks`, payload: { categoryName } };
     }
 
     // ── Immediate (reversible) settings & navigation ──
@@ -460,6 +474,23 @@ const writeToolDefinitions = [
       name: 'propose_create_block',
       description: 'PROPOSE creating a time block (staged). Dates are ISO YYYY-MM-DD.',
       parameters: { type: 'object', properties: { name: { type: 'string' }, startDate: { type: 'string' }, endDate: { type: 'string' } }, required: ['name', 'startDate', 'endDate'] },
+    },
+  },
+  // Destructive — staged, then gated behind a typed deletion confirmation client-side.
+  {
+    type: 'function',
+    function: {
+      name: 'propose_delete_tasks',
+      description: 'PROPOSE deleting one or more tasks. Staged — the user must confirm by typing a deletion phrase before anything is removed. Use real taskIds from a read. Be conservative; only when clearly asked.',
+      parameters: { type: 'object', properties: { taskIds: { type: 'array', items: { type: 'string' } } }, required: ['taskIds'] },
+    },
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'propose_delete_category',
+      description: 'PROPOSE deleting a category AND every task inside it (cascade). Staged — the user must confirm by typing a deletion phrase. Use sparingly; explain the consequence.',
+      parameters: { type: 'object', properties: { categoryName: { type: 'string' } }, required: ['categoryName'] },
     },
   },
   // Immediate, reversible UI/preference actions (apply without the approval gate).
