@@ -30,6 +30,72 @@ import { SessionModal } from './components/SessionModal';
 import { useCoFocusPresence } from './hooks/useCoFocusPresence';
 import { useSynapseTrickle } from './utils/synapseEarn';
 
+// ─── Loading treemap ──────────────────────────────────────────────────────────
+// A decorative treemap that GROWS the way the real view does: empty → one block
+// filling the box → split in half → the largest cell subdivides each step, with
+// existing tiles smoothly resizing (CSS transition) to make room. Loops while the
+// app loads. Tiles are placeholders, not real tasks; themed via --accent so it
+// tracks light/dark automatically.
+type Rect = { x: number; y: number; w: number; h: number };
+
+// STAGES[n] = rects for n+1 visible blocks. Block index i keeps the SAME slot in
+// every stage it exists in, so growing the count animates a resize, not a jump.
+// Each step splits the largest current cell (the squarified "slice" feel).
+const STAGES: Rect[][] = [
+  // 1 — fills the box
+  [{ x: 0, y: 0, w: 1, h: 1 }],
+  // 2 — split into left / right halves
+  [{ x: 0, y: 0, w: 0.5, h: 1 }, { x: 0.5, y: 0, w: 0.5, h: 1 }],
+  // 3 — right half splits top / bottom
+  [{ x: 0, y: 0, w: 0.5, h: 1 }, { x: 0.5, y: 0, w: 0.5, h: 0.5 }, { x: 0.5, y: 0.5, w: 0.5, h: 0.5 }],
+  // 4 — left half splits top / bottom → four quadrants
+  [{ x: 0, y: 0, w: 0.5, h: 0.5 }, { x: 0.5, y: 0, w: 0.5, h: 0.5 }, { x: 0.5, y: 0.5, w: 0.5, h: 0.5 }, { x: 0, y: 0.5, w: 0.5, h: 0.5 }],
+  // 5 — bottom-left quadrant splits left / right
+  [{ x: 0, y: 0, w: 0.5, h: 0.5 }, { x: 0.5, y: 0, w: 0.5, h: 0.5 }, { x: 0.5, y: 0.5, w: 0.5, h: 0.5 }, { x: 0, y: 0.5, w: 0.25, h: 0.5 }, { x: 0.25, y: 0.5, w: 0.25, h: 0.5 }],
+  // 6 — bottom-right quadrant splits left / right
+  [{ x: 0, y: 0, w: 0.5, h: 0.5 }, { x: 0.5, y: 0, w: 0.5, h: 0.5 }, { x: 0.5, y: 0.5, w: 0.25, h: 0.5 }, { x: 0, y: 0.5, w: 0.25, h: 0.5 }, { x: 0.25, y: 0.5, w: 0.25, h: 0.5 }, { x: 0.75, y: 0.5, w: 0.25, h: 0.5 }],
+];
+const MAX_BLOCKS = STAGES.length;
+// Per-block accent opacity so the finished treemap reads as varied "weights".
+const TILE_OPACITY = [0.85, 0.45, 0.65, 0.55, 0.75, 0.5];
+
+function LoadingTreemap() {
+  const BOX_W = 168, BOX_H = 120, GAP = 4;
+  const [count, setCount] = useState(0); // 0 = empty; grows to MAX_BLOCKS then resets
+
+  useEffect(() => {
+    const id = setInterval(() => {
+      setCount((c) => (c >= MAX_BLOCKS ? 0 : c + 1));
+    }, 680);
+    return () => clearInterval(id);
+  }, []);
+
+  return (
+    <div style={{ position: 'relative', width: BOX_W, height: BOX_H }}>
+      {Array.from({ length: MAX_BLOCKS }).map((_, i) => {
+        const visible = i < count;
+        // When visible, read this block's rect from the current stage; when not yet
+        // born, pre-place it at its birth rect (opacity 0) so it only fades in —
+        // no positional jump — while siblings resize around it.
+        const rect = visible ? STAGES[count - 1][i] : STAGES[i][i];
+        return (
+          <div key={i} style={{
+            position: 'absolute',
+            left: rect.x * BOX_W + GAP / 2,
+            top: rect.y * BOX_H + GAP / 2,
+            width: rect.w * BOX_W - GAP,
+            height: rect.h * BOX_H - GAP,
+            background: 'var(--accent)',
+            opacity: visible ? TILE_OPACITY[i] : 0,
+            borderRadius: 4,
+            transition: 'left 0.5s ease, top 0.5s ease, width 0.5s ease, height 0.5s ease, opacity 0.4s ease',
+          }} />
+        );
+      })}
+    </div>
+  );
+}
+
 export function App() {
   const viewMode = useStore((s) => s.viewMode);
   const selectedTaskIds = useStore((s) => s.selectedTaskIds);
@@ -185,36 +251,10 @@ export function App() {
           transition: 'opacity 0.6s ease-out, visibility 0.6s ease-out',
           pointerEvents: isFadingOut ? 'none' : 'auto',
         }}>
-          {/* Assembling mock treemap — decorative placeholder blocks that pop in
-              (staggered scale+fade) on a loop, echoing the real treemap view. */}
-          <div style={{
-            position: 'relative',
-            width: 168,
-            height: 120,
-          }}>
-            {[
-              // Hand-laid squarified-ish layout (px), each with an accent opacity.
-              { left: 0,   top: 0,  w: 96,  h: 58, o: 0.85 },
-              { left: 102, top: 0,  w: 66,  h: 28, o: 0.45 },
-              { left: 102, top: 34, w: 66,  h: 24, o: 0.65 },
-              { left: 0,   top: 64, w: 46,  h: 56, o: 0.55 },
-              { left: 52,  top: 64, w: 50,  h: 26, o: 0.75 },
-              { left: 52,  top: 96, w: 50,  h: 24, o: 0.35 },
-              { left: 108, top: 64, w: 60,  h: 26, o: 0.50 },
-              { left: 108, top: 96, w: 60,  h: 24, o: 0.80 },
-            ].map((t, i) => (
-              <div key={i} style={{
-                position: 'absolute',
-                left: t.left, top: t.top, width: t.w, height: t.h,
-                background: 'var(--accent)',
-                borderRadius: 4,
-                transformOrigin: 'center',
-                ['--tile-o' as string]: t.o,
-                animation: `tile-in 1.8s ease-in-out infinite`,
-                animationDelay: `${i * 0.13}s`,
-              } as React.CSSProperties} />
-            ))}
-          </div>
+          {/* Treemap that builds up like the real view: starts empty, blocks are
+              ADDED one by one, and each addition resizes the existing tiles to
+              make room (squarified-style subdivision). Loops while loading. */}
+          <LoadingTreemap />
 
           {/* Loading text with typing effect */}
           <div style={{
@@ -269,10 +309,6 @@ export function App() {
           </div>
 
           <style>{`
-            @keyframes tile-in {
-              0%, 100% { transform: scale(0.55); opacity: 0.12; }
-              45%, 70% { transform: scale(1);    opacity: var(--tile-o, 1); }
-            }
             @keyframes dots {
               0%, 20% { content: ''; }
               40% { content: '.'; }
