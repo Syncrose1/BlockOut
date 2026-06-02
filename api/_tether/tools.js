@@ -83,6 +83,14 @@ function listTasks(snapshot, input) {
 
   const f = input || {};
 
+  // Single-task detail: `taskId` short-circuits filters and returns the full task
+  // (notes + dependencies). Keeps one versatile read tool instead of a separate get.
+  if (f.taskId) {
+    const t = (snapshot.tasks || {})[f.taskId];
+    if (!t) throw new Error('Task not found');
+    return { task: { ...projectTask(t, maps, blocks), notes: t.notes || null, dependsOn: t.dependsOn || [] } };
+  }
+
   // category / subcategory (by id or name)
   let catId = f.categoryId || null;
   if (!catId && f.categoryName) catId = maps.nameToId[String(f.categoryName).toLowerCase()] || '__none__';
@@ -134,14 +142,6 @@ function listTasks(snapshot, input) {
   return { total, returned: projected.length, truncated: total > projected.length, tasks: projected };
 }
 
-function getTask(snapshot, input) {
-  const t = (snapshot.tasks || {})[input.taskId];
-  if (!t) throw new Error('Task not found');
-  const maps = categoryMaps(snapshot);
-  const blocks = blockIndex(snapshot);
-  return { ...projectTask(t, maps, blocks), notes: t.notes || null, dependsOn: t.dependsOn || [] };
-}
-
 function listTimeBlocks(snapshot) {
   const tasks = snapshot.tasks || {};
   return Object.values(snapshot.timeBlocks || {}).map((b) => {
@@ -156,15 +156,6 @@ function listTimeBlocks(snapshot) {
       completed: done,
     };
   });
-}
-
-function getBlock(snapshot, input) {
-  const b = (snapshot.timeBlocks || {})[input.blockId];
-  if (!b) throw new Error('Block not found');
-  const maps = categoryMaps(snapshot);
-  const blocks = blockIndex(snapshot);
-  const tasks = (b.taskIds || []).map((id) => (snapshot.tasks || {})[id]).filter(Boolean).map((t) => projectTask(t, maps, blocks));
-  return { id: b.id, name: b.name, startDate: toISO(b.startDate), endDate: toISO(b.endDate), tasks };
 }
 
 function resolveChainLink(snapshot, link) {
@@ -192,29 +183,32 @@ function chainSummary(snapshot, chain) {
   };
 }
 
-function listTaskChains(snapshot, input) {
+// One versatile chain reader: pass `date` for a single day's full chain, or
+// `from`/`to` (either optional) for a range of summaries.
+function getTaskChains(snapshot, input) {
   const f = input || {};
+  if (f.date) {
+    const c = (snapshot.taskChains || {})[f.date];
+    if (!c) return { date: f.date, exists: false, steps: [], groups: [] };
+    return { exists: true, ...chainSummary(snapshot, c) };
+  }
   const from = f.from ? Date.parse(f.from) : null;
   const to = f.to ? Date.parse(f.to) : null;
-  return Object.values(snapshot.taskChains || {})
-    .filter((c) => {
-      const d = Date.parse(c.date);
-      if (from != null && d < from) return false;
-      if (to != null && d > to) return false;
-      return true;
-    })
-    .sort((a, b) => a.date.localeCompare(b.date))
-    .map((c) => {
-      const all = [...(c.links || []), ...((c.groups || []).flatMap((g) => g.links || []))];
-      const resolved = all.map((l) => resolveChainLink(snapshot, l));
-      return { date: c.date, stepCount: resolved.length, completed: resolved.filter((r) => r.completed).length };
-    });
-}
-
-function getTaskChain(snapshot, input) {
-  const c = (snapshot.taskChains || {})[input.date];
-  if (!c) return { date: input.date, exists: false, steps: [], groups: [] };
-  return { exists: true, ...chainSummary(snapshot, c) };
+  return {
+    chains: Object.values(snapshot.taskChains || {})
+      .filter((c) => {
+        const d = Date.parse(c.date);
+        if (from != null && d < from) return false;
+        if (to != null && d > to) return false;
+        return true;
+      })
+      .sort((a, b) => a.date.localeCompare(b.date))
+      .map((c) => {
+        const all = [...(c.links || []), ...((c.groups || []).flatMap((g) => g.links || []))];
+        const resolved = all.map((l) => resolveChainLink(snapshot, l));
+        return { date: c.date, stepCount: resolved.length, completed: resolved.filter((r) => r.completed).length };
+      }),
+  };
 }
 
 function listChainTemplates(snapshot) {
@@ -277,11 +271,8 @@ const HANDLERS = {
   get_app_status: getAppStatus,
   list_categories: listCategories,
   list_tasks: listTasks,
-  get_task: getTask,
   list_time_blocks: listTimeBlocks,
-  get_block: getBlock,
-  list_task_chains: listTaskChains,
-  get_task_chain: getTaskChain,
+  get_task_chains: getTaskChains,
   list_chain_templates: listChainTemplates,
   get_week_overview: getWeekOverview,
 };
@@ -528,10 +519,11 @@ const toolDefinitions = [
     type: 'function',
     function: {
       name: 'list_tasks',
-      description: 'List tasks with optional filters. Returns compact projections; prefer filters over listing everything.',
+      description: 'Read tasks. Pass taskId for one task in full (notes + dependencies), or any combination of filters for a list of compact projections. Prefer filters over listing everything.',
       parameters: {
         type: 'object',
         properties: {
+          taskId: { type: 'string', description: 'Return just this task, in full. Ignores other filters.' },
           categoryName: { type: 'string', description: 'Filter by category name.' },
           subcategoryName: { type: 'string', description: 'Filter by subcategory name.' },
           status: { type: 'string', enum: ['active', 'completed', 'all'], description: 'Default all.' },
@@ -551,47 +543,24 @@ const toolDefinitions = [
   {
     type: 'function',
     function: {
-      name: 'get_task',
-      description: 'Get one task in full (incl. notes and dependencies).',
-      parameters: { type: 'object', properties: { taskId: { type: 'string' } }, required: ['taskId'] },
-    },
-  },
-  {
-    type: 'function',
-    function: {
       name: 'list_time_blocks',
-      description: 'List time blocks (date-ranged task buckets) with counts.',
+      description: 'List time blocks (date-ranged task buckets) with counts. For the tasks inside one, call list_tasks with assignedToBlockId.',
       parameters: { type: 'object', properties: {} },
     },
   },
   {
     type: 'function',
     function: {
-      name: 'get_block',
-      description: 'Get one time block and the tasks in it.',
-      parameters: { type: 'object', properties: { blockId: { type: 'string' } }, required: ['blockId'] },
-    },
-  },
-  {
-    type: 'function',
-    function: {
-      name: 'list_task_chains',
-      description: 'List daily Task Chains (ordered per-day plans) with step counts. Optional date range.',
+      name: 'get_task_chains',
+      description: "Read daily Task Chains (ordered per-day plans). Pass date for one day's full chain (steps + groups), or from/to (either optional) for a range of summaries.",
       parameters: {
         type: 'object',
         properties: {
-          from: { type: 'string', description: 'ISO date inclusive.' },
-          to: { type: 'string', description: 'ISO date inclusive.' },
+          date: { type: 'string', description: "ISO date YYYY-MM-DD — return this day's full chain." },
+          from: { type: 'string', description: 'ISO date inclusive (range mode).' },
+          to: { type: 'string', description: 'ISO date inclusive (range mode).' },
         },
       },
-    },
-  },
-  {
-    type: 'function',
-    function: {
-      name: 'get_task_chain',
-      description: 'Get a single day\'s Task Chain (its ordered steps and groups).',
-      parameters: { type: 'object', properties: { date: { type: 'string', description: 'ISO date YYYY-MM-DD.' } }, required: ['date'] },
     },
   },
   {
