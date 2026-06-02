@@ -277,9 +277,18 @@ function getAppStatus(snapshot) {
   };
 }
 
+const { recall, recallTopics } = require('./knowledge');
+
+// recall — pull a focused context package on demand (keeps the system prompt
+// lean). Read-like: no permission, no mutation.
+function recallTool(_snapshot, input) {
+  return recall(input && input.topic);
+}
+
 // ── registry ─────────────────────────────────────────────────────────────────
 
 const HANDLERS = {
+  recall: recallTool,
   get_app_status: getAppStatus,
   list_categories: listCategories,
   list_tasks: listTasks,
@@ -701,6 +710,14 @@ const writeToolDefinitions = [
 
 // OpenAI tool-schema definitions for the read tools.
 const toolDefinitions = [
+  {
+    type: 'function',
+    function: {
+      name: 'recall',
+      description: `Recall a focused knowledge package about a BlockOut feature before answering about it. Topics: ${recallTopics().join(', ')}. Call this when the user asks about (or you need to reference) the Synamon companion or Co-Focus — the details aren't in your base context.`,
+      parameters: { type: 'object', properties: { topic: { type: 'string', enum: recallTopics() } }, required: ['topic'] },
+    },
+  },
   {
     type: 'function',
     function: {

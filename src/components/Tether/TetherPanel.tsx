@@ -19,6 +19,29 @@ import {
 
 type Gate = 'loading' | 'signed-out' | 'no-endpoint' | 'ready';
 
+// Vague, friendly activity labels so raw tool names never leak into the UI.
+// `recall` is deliberately opaque ("Organising thoughts") — never reveal the
+// topic — so it reads as the agent thinking, not a feature loading.
+const TOOL_LABELS: Record<string, string> = {
+  recall: 'Organising thoughts',
+  list_tasks: 'Reading your tasks',
+  list_categories: 'Reviewing categories',
+  list_time_blocks: 'Reading time blocks',
+  get_task_chains: 'Checking your chains',
+  list_chain_templates: 'Reading templates',
+  get_week_overview: 'Checking your schedule',
+  get_app_status: 'Checking your setup',
+};
+function toolLabel(name: string): string {
+  if (TOOL_LABELS[name]) return TOOL_LABELS[name];
+  if (name.startsWith('propose_')) return 'Preparing changes';
+  if (name.startsWith('set_') || name === 'switch_view' || name === 'open_sync_settings') return 'Adjusting your settings';
+  return 'Working';
+}
+function toolLabels(names: string[]): string[] {
+  return [...new Set(names.map(toolLabel))];
+}
+
 interface ChatMsg {
   role: 'user' | 'assistant';
   content: string;
@@ -215,14 +238,21 @@ export function TetherPanel() {
         {gate === 'ready' && showModels && <TetherEndpoints onChanged={refreshGate} />}
         {gate === 'ready' && !showModels && (
           <>
-            <div ref={scrollRef} style={{ flex: 1, overflowY: 'auto', padding: 16, display: 'flex', flexDirection: 'column', gap: 12 }}>
-              {messages.length === 0 && !streaming && (
-                <div style={{ color: 'var(--text-tertiary)', fontSize: 13, lineHeight: 1.6 }}>
-                  Ask about your tasks — e.g. <em>“What’s due in the next 7 days?”</em>,
-                  <em> “Which category has the most unfinished effort?”</em>, or
-                  <em> “Summarise today’s chain.”</em>
+            <div ref={scrollRef} style={{ position: 'relative', flex: 1, overflowY: 'auto', padding: 16, display: 'flex', flexDirection: 'column', gap: 12 }}>
+              {/* Empty-chat hero: the face hovers (∞) dead-centre, then fades out
+                  the moment the conversation starts. */}
+              <div style={{
+                position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column',
+                alignItems: 'center', justifyContent: 'center', gap: 20, padding: 24,
+                opacity: messages.length === 0 && !streaming ? 1 : 0,
+                pointerEvents: messages.length === 0 && !streaming ? 'auto' : 'none',
+                transition: 'opacity 0.3s ease',
+              }}>
+                <TetherFace size={96} variant="hero" />
+                <div style={{ color: 'var(--text-tertiary)', fontSize: 12.5, textAlign: 'center', maxWidth: 250, lineHeight: 1.6 }}>
+                  Ask about your tasks, plan your week, or have me tidy things up — just say the word.
                 </div>
-              )}
+              </div>
               {messages.map((m, i) => <Bubble key={i} msg={m} />)}
 
               {pending.length > 0 && (
@@ -251,8 +281,8 @@ export function TetherPanel() {
               {streaming && (
                 <div>
                   {activeTools.length > 0 && (
-                    <div style={{ fontSize: 11, color: 'var(--text-tertiary)', marginBottom: 6 }}>
-                      🔍 {activeTools.join(' · ')}
+                    <div style={{ fontSize: 11, color: 'var(--text-tertiary)', marginBottom: 6, fontStyle: 'italic' }}>
+                      {toolLabels(activeTools).join(' · ')}…
                     </div>
                   )}
                   <Bubble msg={{ role: 'assistant', content: streamText || '…' }} streaming />
@@ -307,7 +337,7 @@ function Bubble({ msg, streaming }: { msg: ChatMsg; streaming?: boolean }) {
         {msg.content}
       </div>
       {msg.tools && msg.tools.length > 0 && (
-        <div style={{ fontSize: 10, color: 'var(--text-tertiary)', marginTop: 3 }}>🔍 {msg.tools.join(' · ')}</div>
+        <div style={{ fontSize: 10, color: 'var(--text-tertiary)', marginTop: 3, fontStyle: 'italic' }}>{toolLabels(msg.tools).join(' · ')}</div>
       )}
     </div>
   );

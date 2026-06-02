@@ -1,16 +1,13 @@
-// Tether's "face" — the Syncratic logo, alive. The SVG is used as a CSS mask
-// over an animated multi-colour gradient (so the mark gradients through colours),
-// gently drifting within the bar and wobbling side-to-side on its axis. Pure CSS;
-// base-path-safe via asset(). When Tether is working the motion speeds up.
+// Tether's "face" — the Syncratic logo as a CSS mask over a blue→purple gradient
+// (cyans, blues, navys, purples, magentas, pinks). NO rotation.
+//   variant 'badge' (title bar): static + colourful, no movement.
+//   variant 'hero'  (empty chat): large, centred, hovers along an infinity (∞)
+//                    path while the gradient drifts through the palette.
 
-import { useStore } from '../../store';
 import { asset } from '../../utils/asset';
 
-export function TetherFace({ size = 42 }: { size?: number }) {
-  const status = useStore((s) => s.tetherStatus);
+export function TetherFace({ size = 42, variant = 'badge' }: { size?: number; variant?: 'badge' | 'hero' }) {
   const url = asset('/Syncratic-Logo-cropped.svg');
-  const lively = status === 'working';
-
   const mask: React.CSSProperties = {
     width: '100%', height: '100%',
     WebkitMaskImage: `url(${url})`, maskImage: `url(${url})`,
@@ -18,46 +15,50 @@ export function TetherFace({ size = 42 }: { size?: number }) {
     WebkitMaskRepeat: 'no-repeat', maskRepeat: 'no-repeat',
     WebkitMaskPosition: 'center', maskPosition: 'center',
   };
-
   return (
-    <div className="tether-face-drift" style={{ width: size, height: size, animationDuration: lively ? '3.5s' : '7s' }}>
-      <div className="tether-face-wobble" style={{ width: '100%', height: '100%', animationDuration: lively ? '1.6s' : '3.4s' }}>
-        <div className="tether-face-mask" style={{ ...mask, animationDuration: lively ? '4s' : '8s' }} />
-      </div>
+    <div className={variant === 'hero' ? 'tether-face tether-face-hero' : 'tether-face'} style={{ width: size, height: size }}>
+      <div className="tether-face-mask" style={mask} />
     </div>
   );
 }
 
-// Inject the keyframes + masked-gradient style once.
+// Inject styles once.
 if (typeof document !== 'undefined' && !document.getElementById('tether-face-kf')) {
   const el = document.createElement('style');
   el.id = 'tether-face-kf';
   el.textContent = `
+    /* Blue→purple→pink spectrum only (cyan, blue, indigo, violet, magenta, pink). */
     .tether-face-mask {
-      background: linear-gradient(120deg, #3b82f6, #8b5cf6, #ec4899, #f59e0b, #10b981, #3b82f6);
-      background-size: 300% 300%;
-      animation: tether-face-hue 8s ease-in-out infinite;
-      filter: drop-shadow(0 1px 3px rgba(0,0,0,0.12));
+      width: 100%; height: 100%;
+      background: linear-gradient(120deg, #22d3ee, #3b82f6, #4f46e5, #7c3aed, #a21caf, #db2777, #22d3ee);
+      background-size: 100% 100%;
+      filter: drop-shadow(0 1px 3px rgba(40, 20, 90, 0.16));
     }
-    .tether-face-drift { animation: tether-face-drift 7s ease-in-out infinite; will-change: transform; }
-    .tether-face-wobble { animation: tether-face-wobble 3.4s ease-in-out infinite; will-change: transform; }
+    /* Hero: drift the gradient through the palette + hover along an infinity path. */
+    .tether-face-hero { animation: tether-face-infinity 6.5s ease-in-out infinite; will-change: transform; }
+    .tether-face-hero .tether-face-mask {
+      background-size: 280% 280%;
+      animation: tether-face-hue 9s ease-in-out infinite;
+    }
     @keyframes tether-face-hue {
       0% { background-position: 0% 50%; }
       50% { background-position: 100% 50%; }
       100% { background-position: 0% 50%; }
     }
-    @keyframes tether-face-drift {
-      0%, 100% { transform: translate(0, 0); }
-      25% { transform: translate(4px, -3px); }
-      50% { transform: translate(-3px, 2px); }
-      75% { transform: translate(2px, 4px); }
-    }
-    @keyframes tether-face-wobble {
-      0%, 100% { transform: rotate(-8deg); }
-      50% { transform: rotate(8deg); }
+    /* Figure-8 (∞): right loop then left loop, crossing at centre. No rotation. */
+    @keyframes tether-face-infinity {
+      0%   { transform: translate(0px, 0px); }
+      12.5%{ transform: translate(20px, -12px); }
+      25%  { transform: translate(28px, 0px); }
+      37.5%{ transform: translate(20px, 12px); }
+      50%  { transform: translate(0px, 0px); }
+      62.5%{ transform: translate(-20px, -12px); }
+      75%  { transform: translate(-28px, 0px); }
+      87.5%{ transform: translate(-20px, 12px); }
+      100% { transform: translate(0px, 0px); }
     }
     @media (prefers-reduced-motion: reduce) {
-      .tether-face-drift, .tether-face-wobble, .tether-face-mask { animation: none !important; }
+      .tether-face-hero, .tether-face-hero .tether-face-mask { animation: none !important; }
     }
   `;
   document.head.appendChild(el);
