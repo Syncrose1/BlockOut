@@ -9,8 +9,11 @@ const { toolDefinitions, executeReadTool, writeToolDefinitions, buildStagedActio
 
 const ALL_TOOLS = [...toolDefinitions, ...writeToolDefinitions];
 
-// Low cap: read-only turns are short, and this is one invocation's budget.
-const MAX_ITERATIONS = 8;
+// One invocation's tool-iteration budget. Modest headroom for multi-step
+// analysis/planning; the real fix for very long turns is the resumable
+// continuation (Phase 6). Enriched read tools (e.g. list_categories aggregates)
+// keep most tasks well under this.
+const MAX_ITERATIONS = 12;
 const MAX_TOKENS = 2048;
 
 function createClient(endpoint) {
@@ -126,7 +129,7 @@ async function runAgentLoopStreaming(snapshot, endpoint, conversationHistory, on
     }
   }
 
-  onEvent({ type: 'complete', data: { response: 'Reached the step limit for one turn. Ask me to continue or narrow the request.' } });
+  onEvent({ type: 'complete', data: { response: "I did a lot of looking and ran out of steps for this turn before finishing. Say \"continue\" and I'll pick up where I left off, or narrow the request (e.g. focus on one category)." } });
 }
 
 // Surface BYOK/model failures clearly WITHOUT leaking the key.

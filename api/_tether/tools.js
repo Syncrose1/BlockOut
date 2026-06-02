@@ -62,15 +62,27 @@ function projectTask(t, maps, blocks) {
 
 function listCategories(snapshot) {
   const tasks = Object.values(snapshot.tasks || {});
+  // Aggregate counts AND unfinished effort per category/subcategory so questions
+  // like "which category has the heaviest unfinished workload" are ONE call, not
+  // a list_tasks per category (which burns the iteration budget).
+  const agg = (pred) => {
+    const sel = tasks.filter(pred);
+    const active = sel.filter((t) => !t.completed);
+    return {
+      taskCount: sel.length,
+      unfinishedCount: active.length,
+      unfinishedWeight: active.reduce((sum, t) => sum + (t.weight || 0), 0),
+    };
+  };
   return Object.values(snapshot.categories || {}).map((c) => ({
     id: c.id,
     name: c.name,
     color: c.color,
-    taskCount: tasks.filter((t) => t.categoryId === c.id).length,
+    ...agg((t) => t.categoryId === c.id),
     subcategories: (c.subcategories || []).map((s) => ({
       id: s.id,
       name: s.name,
-      taskCount: tasks.filter((t) => t.subcategoryId === s.id).length,
+      ...agg((t) => t.subcategoryId === s.id),
     })),
   }));
 }
@@ -701,7 +713,7 @@ const toolDefinitions = [
     type: 'function',
     function: {
       name: 'list_categories',
-      description: "List the user's categories and subcategories with task counts.",
+      description: "List the user's categories and subcategories, each with taskCount, unfinishedCount, and unfinishedWeight (summed effort of incomplete tasks). Use unfinishedWeight/unfinishedCount to answer 'which category is heaviest / has the most to do' in ONE call — do not list_tasks per category for that.",
       parameters: { type: 'object', properties: {} },
     },
   },
