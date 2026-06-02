@@ -127,6 +127,31 @@ async function isR2Active(): Promise<boolean> {
   return !!token;
 }
 
+/**
+ * Whether to seed the illustrative tutorial/sample data. Sample data is NOT real
+ * user data — it must only ever appear for a genuinely brand-new local user, and
+ * must NEVER be able to sync upward and overwrite a real backup (it did exactly
+ * that once: seeded into an empty store, then `pickFresher` chose it over the
+ * account copy and it clobbered R2).
+ *
+ * So seed only when ALL of these hold AFTER `loadData()` has run:
+ *   - the store is empty (no real data was loaded), AND
+ *   - no cloud account of any kind is connected (signed-in account is the source
+ *     of truth — empty or not; we never inject sample data into a synced state).
+ */
+export async function shouldSeedSampleData(): Promise<boolean> {
+  const s = useStore.getState();
+  const hasData =
+    Object.keys(s.tasks ?? {}).length > 0 ||
+    Object.keys(s.categories ?? {}).length > 0;
+  if (hasData) return false;
+  if (isDropboxConfigured()) return false;
+  if (await isR2Active()) return false;
+  const { url } = getCloudConfig();
+  if (url) return false;
+  return true;
+}
+
 /** Task count of a snapshot (0 if none). */
 function taskCount(x: AnyRecord | null): number {
   return x?.tasks ? Object.keys(x.tasks as object).length : 0;
@@ -222,8 +247,21 @@ async function syncToR2WithResolution(
   const localHasUnpushedChanges = localLastModified > lastSyncedAt && lastSyncedAt > 0;
 
   // First-time connect with existing remote content — adopt remote.
-  if (lastSyncedVersion === 0 && remoteVersion > 0 && r2HasContent(remote)) {
-    recordR2Sync(remoteVersion);
+  // Deliberately does NOT require `remoteVersion > 0`: R2 blobs written by the
+  // mirror/unload paths (`mirrorToR2Backup`, the beforeunload handler) call
+  // `saveToR2` directly and carry NO version field. If we gated on a positive
+  // version, a brand-new client whose local store holds freshly-generated
+  // *sample* data (newer lastModified) would skip this branch and fall through
+  // to the "upload local" tail — clobbering the user's real account data. This
+  // exact regression wiped a populated R2 backup once. On a first sync the local
+  // copy is never authoritative, so whenever the account already has content we
+  // take it.
+  if (lastSyncedVersion === 0 && r2HasContent(remote)) {
+    // Bookmark at >= 1 so we LEAVE the first-connect state even when the remote
+    // blob is version-less (remoteVersion === 0). Otherwise every later save
+    // would re-enter this branch and re-download remote, making local edits
+    // un-pushable. A subsequent local edit then uploads as version 2.
+    recordR2Sync(Math.max(remoteVersion, 1));
     return { success: true, action: 'downloaded', data: remote };
   }
 
