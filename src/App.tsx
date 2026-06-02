@@ -61,12 +61,15 @@ const TILE_OPACITY = [0.85, 0.45, 0.65, 0.55, 0.75, 0.5];
 
 function LoadingTreemap() {
   const BOX_W = 168, BOX_H = 120, GAP = 4;
-  const [count, setCount] = useState(0); // 0 = empty; grows to MAX_BLOCKS then resets
+  // Start with the first block already filling the box (the app loads fast, so
+  // the empty → first-block fade-in was rarely seen and just delayed the splits).
+  // The loop also resets to 1, never back to empty.
+  const [count, setCount] = useState(1);
 
   useEffect(() => {
     const id = setInterval(() => {
-      setCount((c) => (c >= MAX_BLOCKS ? 0 : c + 1));
-    }, 680);
+      setCount((c) => (c >= MAX_BLOCKS ? 1 : c + 1));
+    }, 460);
     return () => clearInterval(id);
   }, []);
 
@@ -88,7 +91,7 @@ function LoadingTreemap() {
             background: 'var(--accent)',
             opacity: visible ? TILE_OPACITY[i] : 0,
             borderRadius: 4,
-            transition: 'left 0.5s ease, top 0.5s ease, width 0.5s ease, height 0.5s ease, opacity 0.4s ease',
+            transition: 'left 0.38s ease, top 0.38s ease, width 0.38s ease, height 0.38s ease, opacity 0.3s ease',
           }} />
         );
       })}
