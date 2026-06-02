@@ -6,7 +6,7 @@
   "homepage": ".",
   "scripts": {
     "dev": "vite",
-    "build": "vite build",
+    "build": "NODE_ENV=production vite build",
     "preview": "vite preview",
     "electron": "electron .",
     "electron:dev": "npm run build && electron .",
