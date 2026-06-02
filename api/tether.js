@@ -64,9 +64,11 @@ module.exports = async (req, res) => {
   try { body = typeof req.body === 'string' ? JSON.parse(req.body) : req.body; } catch { body = null; }
   if (!body) return res.status(400).json({ error: 'Invalid JSON body' });
 
-  const { messages, snapshot } = body;
+  const { messages, snapshot, resume } = body;
   const endpointId = body.endpoint_id || null;
-  if (!Array.isArray(messages) || !messages.some((m) => m && m.role === 'user')) {
+  // On a continuation hop the conversation lives inside `resume.messages`, so a
+  // top-level user message isn't required.
+  if (!resume && (!Array.isArray(messages) || !messages.some((m) => m && m.role === 'user'))) {
     return res.status(400).json({ error: 'A user message is required.' });
   }
   if (!snapshot || typeof snapshot !== 'object') {
@@ -93,7 +95,7 @@ module.exports = async (req, res) => {
   };
 
   try {
-    await runAgentLoopStreaming(snapshot, endpoint, messages, send);
+    await runAgentLoopStreaming(snapshot, endpoint, messages, send, resume);
   } catch (e) {
     send({ type: 'error', data: { error: e instanceof Error ? e.message : 'Tether failed.' } });
   } finally {

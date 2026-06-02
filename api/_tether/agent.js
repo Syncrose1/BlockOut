@@ -9,11 +9,18 @@ const { toolDefinitions, executeReadTool, writeToolDefinitions, buildStagedActio
 
 const ALL_TOOLS = [...toolDefinitions, ...writeToolDefinitions];
 
-// One invocation's tool-iteration budget. Modest headroom for multi-step
-// analysis/planning; the real fix for very long turns is the resumable
-// continuation (Phase 6). Enriched read tools (e.g. list_categories aggregates)
-// keep most tasks well under this.
-const MAX_ITERATIONS = 12;
+// Per-hop tool-iteration budget — kept MODEST on purpose: a weak BYOK model can
+// flail, and a tight cap bounds the damage per invocation. Genuine long work
+// isn't lost — when the cap (or the soft time deadline) is hit mid-task we hand
+// off a checkpoint and the client resumes in a fresh invocation (continuation).
+const MAX_ITERATIONS = 10;
+// Hard ceiling across ALL hops of one turn — stops a looping model from running
+// away over the user's BYOK budget.
+const MAX_TOTAL_ITERATIONS = 30;
+// Hand off before Vercel's ~60s wall clock, leaving margin for one more model
+// round-trip. (A single model call can't be split, so the per-hop budget must
+// exceed expected call latency.)
+const SOFT_DEADLINE_MS = 45000;
 const MAX_TOKENS = 2048;
 
 function createClient(endpoint) {
@@ -31,22 +38,59 @@ function snapshotPreamble(snapshot) {
   return `Context: today is ${today}. The user currently has ${taskCount} task(s) across ${catCount} categor(ies), ${blockCount} time block(s), and ${chainCount} day(s) of Task Chains. Use the read tools to inspect specifics.`;
 }
 
-async function runAgentLoopStreaming(snapshot, endpoint, conversationHistory, onEvent) {
+// `resume` (optional) carries a checkpoint from a previous hop so a long turn
+// can continue in a fresh invocation: { messages, seen, totalIterations }.
+async function runAgentLoopStreaming(snapshot, endpoint, conversationHistory, onEvent, resume) {
   const client = createClient(endpoint);
 
-  const messages = [
-    { role: 'system', content: SYSTEM_PROMPT },
-    { role: 'system', content: snapshotPreamble(snapshot) },
-    ...conversationHistory
-      .filter((m) => m.role === 'user' || m.role === 'assistant')
-      .map((m) => ({ role: m.role, content: m.content })),
-  ];
+  let messages, seen, priorIterations;
+  if (resume && Array.isArray(resume.messages)) {
+    // Continuation — pick up exactly where the prior hop left off.
+    messages = resume.messages;
+    seen = {
+      chainDates: new Set((resume.seen && resume.seen.chainDates) || []),
+      chainAll: !!(resume.seen && resume.seen.chainAll),
+      week: !!(resume.seen && resume.seen.week),
+    };
+    priorIterations = resume.totalIterations || 0;
+  } else {
+    messages = [
+      { role: 'system', content: SYSTEM_PROMPT },
+      { role: 'system', content: snapshotPreamble(snapshot) },
+      ...conversationHistory
+        .filter((m) => m.role === 'user' || m.role === 'assistant')
+        .map((m) => ({ role: m.role, content: m.content })),
+    ];
+    // Tracks which chains/weekview the model has READ this turn — enforces
+    // read-before-edit for date/title/day-addressed writes.
+    seen = { chainDates: new Set(), chainAll: false, week: false };
+    priorIterations = 0;
+  }
 
-  // Tracks which chains/weekview the model has READ this turn — enforces
-  // read-before-edit for date/title/day-addressed writes.
-  const seen = { chainDates: new Set(), chainAll: false, week: false };
+  // Serialise the checkpoint for the client to send back on the next hop.
+  const checkpoint = (totalIterations) => ({
+    messages,
+    seen: { chainDates: [...seen.chainDates], chainAll: seen.chainAll, week: seen.week },
+    totalIterations,
+  });
 
-  for (let i = 0; i < MAX_ITERATIONS; i++) {
+  const hopStart = Date.now();
+
+  for (let local = 0; local < MAX_ITERATIONS; local++) {
+    const total = priorIterations + local;
+
+    // Hard ceiling across all hops — stop a runaway/looping model.
+    if (total >= MAX_TOTAL_ITERATIONS) {
+      onEvent({ type: 'complete', data: { response: 'I went back and forth several times without finishing — let me know a narrower next step and I\'ll continue.' } });
+      return;
+    }
+    // Soft time deadline: hand off before the invocation is killed, leaving room
+    // for the client to resume seamlessly. (Checkpoint only BETWEEN iterations.)
+    if (local > 0 && (Date.now() - hopStart) > SOFT_DEADLINE_MS) {
+      onEvent({ type: 'needs_continuation', data: checkpoint(total) });
+      return;
+    }
+
     let response;
     try {
       response = await client.chat.completions.create({
@@ -129,7 +173,9 @@ async function runAgentLoopStreaming(snapshot, endpoint, conversationHistory, on
     }
   }
 
-  onEvent({ type: 'complete', data: { response: "I did a lot of looking and ran out of steps for this turn before finishing. Say \"continue\" and I'll pick up where I left off, or narrow the request (e.g. focus on one category)." } });
+  // Spent this hop's iteration budget and the model still wants to act — hand off
+  // a checkpoint; the client resumes in a fresh invocation (transparent to the user).
+  onEvent({ type: 'needs_continuation', data: checkpoint(priorIterations + MAX_ITERATIONS) });
 }
 
 // Surface BYOK/model failures clearly WITHOUT leaking the key.

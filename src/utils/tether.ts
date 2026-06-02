@@ -65,9 +65,15 @@ export interface StreamResult {
   error?: string;
 }
 
+// Cap on continuation hops the client will chase before giving up (backstop to
+// the server's MAX_TOTAL_ITERATIONS — bounds runaway models).
+const MAX_HOPS = 4;
+
 /**
- * POST a conversation to the Tether agent and dispatch SSE events as they
- * arrive. Resolves when the stream ends.
+ * POST a conversation to the Tether agent and dispatch SSE events as they arrive.
+ * Transparently follows `needs_continuation` checkpoints across fresh
+ * invocations (the resumable-loop fix for long turns) so the caller sees one
+ * seamless stream. Resolves when the turn truly ends.
  */
 export async function streamTether(
   messages: TetherMessage[],
@@ -77,59 +83,74 @@ export async function streamTether(
   const token = await getAccessToken();
   if (!token) return { ok: false, reason: 'UNAUTHORIZED', error: 'Sign in to use Tether.' };
 
-  let res: Response;
-  try {
-    res = await fetch(`${getApiBase()}/api/tether`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-      body: JSON.stringify({ messages, snapshot: buildSnapshot() }),
-      signal,
-    });
-  } catch (e) {
-    return { ok: false, reason: 'ERROR', error: e instanceof Error ? e.message : 'Network error' };
-  }
+  // Capture the snapshot ONCE so it stays stable across continuation hops.
+  const snapshot = buildSnapshot();
+  let resume: unknown = undefined; // checkpoint from the previous hop
 
-  if (!res.ok) {
-    const body = await res.json().catch(() => ({}));
-    if (res.status === 503 && body.error === 'NO_ENDPOINT') return { ok: false, reason: 'NO_ENDPOINT' };
-    if (res.status === 401) return { ok: false, reason: 'UNAUTHORIZED', error: body.error };
-    return { ok: false, reason: 'ERROR', error: body.error || `HTTP ${res.status}` };
-  }
+  for (let hop = 0; hop < MAX_HOPS; hop++) {
+    const body = resume ? { snapshot, resume } : { messages, snapshot };
 
-  const reader = res.body?.getReader();
-  if (!reader) return { ok: false, reason: 'ERROR', error: 'No response stream' };
-
-  const decoder = new TextDecoder();
-  let buffer = '';
-
-  // Parse the SSE wire format: blocks separated by a blank line, each with an
-  // `event:` line and a `data:` line.
-  const dispatch = (block: string) => {
-    let type = '';
-    let dataLine = '';
-    for (const line of block.split('\n')) {
-      if (line.startsWith('event:')) type = line.slice(6).trim();
-      else if (line.startsWith('data:')) dataLine += line.slice(5).trim();
+    let res: Response;
+    try {
+      res = await fetch(`${getApiBase()}/api/tether`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify(body),
+        signal,
+      });
+    } catch (e) {
+      return { ok: false, reason: 'ERROR', error: e instanceof Error ? e.message : 'Network error' };
     }
-    if (!type) return;
-    let data: unknown = {};
-    try { data = JSON.parse(dataLine || '{}'); } catch { /* keep {} */ }
-    onEvent({ type, data } as TetherEvent);
-  };
 
-  while (true) {
-    const { done, value } = await reader.read();
-    if (done) break;
-    buffer += decoder.decode(value, { stream: true });
-    let sep;
-    while ((sep = buffer.indexOf('\n\n')) !== -1) {
-      const block = buffer.slice(0, sep);
-      buffer = buffer.slice(sep + 2);
-      if (block.trim()) dispatch(block);
+    if (!res.ok) {
+      const errBody = await res.json().catch(() => ({}));
+      if (res.status === 503 && errBody.error === 'NO_ENDPOINT') return { ok: false, reason: 'NO_ENDPOINT' };
+      if (res.status === 401) return { ok: false, reason: 'UNAUTHORIZED', error: errBody.error };
+      return { ok: false, reason: 'ERROR', error: errBody.error || `HTTP ${res.status}` };
     }
-  }
-  if (buffer.trim()) dispatch(buffer);
 
+    const reader = res.body?.getReader();
+    if (!reader) return { ok: false, reason: 'ERROR', error: 'No response stream' };
+
+    const decoder = new TextDecoder();
+    let buffer = '';
+    let nextResume: unknown = undefined;
+
+    // Parse one SSE block. `needs_continuation` is intercepted (drives the next
+    // hop) rather than forwarded — the caller never sees the seam.
+    const dispatch = (block: string) => {
+      let type = '';
+      let dataLine = '';
+      for (const line of block.split('\n')) {
+        if (line.startsWith('event:')) type = line.slice(6).trim();
+        else if (line.startsWith('data:')) dataLine += line.slice(5).trim();
+      }
+      if (!type) return;
+      let data: unknown = {};
+      try { data = JSON.parse(dataLine || '{}'); } catch { /* keep {} */ }
+      if (type === 'needs_continuation') { nextResume = data; return; }
+      onEvent({ type, data } as TetherEvent);
+    };
+
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      buffer += decoder.decode(value, { stream: true });
+      let sep;
+      while ((sep = buffer.indexOf('\n\n')) !== -1) {
+        const block = buffer.slice(0, sep);
+        buffer = buffer.slice(sep + 2);
+        if (block.trim()) dispatch(block);
+      }
+    }
+    if (buffer.trim()) dispatch(buffer);
+
+    if (!nextResume) return { ok: true }; // turn finished
+    resume = nextResume;                  // continue in a fresh hop
+  }
+
+  // Exhausted hops — let the UI close out gracefully.
+  onEvent({ type: 'complete', data: { response: 'That turned into a long task — I paused after several steps. Ask me to continue or narrow it down.' } });
   return { ok: true };
 }
 

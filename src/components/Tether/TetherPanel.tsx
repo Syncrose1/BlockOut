@@ -167,9 +167,13 @@ export function TetherPanel() {
     <>
       <div onClick={() => setOpen(false)} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.28)', backdropFilter: 'blur(1.5px)', zIndex: 1400 }} />
       <div style={{
-        position: 'fixed', top: 0, right: 0, bottom: 0, width: 'min(420px, 100vw)',
-        background: 'var(--bg-primary)', borderLeft: '1px solid var(--border)',
-        boxShadow: '-12px 0 40px rgba(0,0,0,0.16)', zIndex: 1401,
+        // Floating card: detached from the edges with rounded corners, matching
+        // BlockOut's modal feel (lighter weight than an edge-to-edge drawer).
+        position: 'fixed', top: 16, right: 16, bottom: 16,
+        width: 'min(420px, calc(100vw - 32px))',
+        background: 'var(--bg-primary)', border: '1px solid var(--border)',
+        borderRadius: 'var(--radius-lg, 16px)', overflow: 'hidden',
+        boxShadow: '0 24px 64px rgba(0,0,0,0.22)', zIndex: 1401,
         display: 'flex', flexDirection: 'column',
       }}>
         {/* Header — lively hero band */}
