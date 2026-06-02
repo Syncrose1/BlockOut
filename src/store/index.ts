@@ -100,6 +100,9 @@ interface BlockOutState {
   syncStatus: 'idle' | 'syncing' | 'synced' | 'error';
   syncSettingsOpen: boolean;
   tetherOpen: boolean;
+  // Tether status light: 'unconfigured' (grey, no endpoint) | 'ready' (blue) |
+  // 'working' (blue, flashing) | 'error' (red, flashing — needs user attention).
+  tetherStatus: 'unconfigured' | 'ready' | 'working' | 'error';
   lastModified?: number; // Timestamp for cloud sync tracking
   conflictState: {
     local: Record<string, unknown>;
@@ -217,6 +220,7 @@ interface BlockOutState {
   setSyncStatus: (status: 'idle' | 'syncing' | 'synced' | 'error') => void;
   setSyncSettingsOpen: (open: boolean) => void;
   setTetherOpen: (open: boolean) => void;
+  setTetherStatus: (status: 'unconfigured' | 'ready' | 'working' | 'error') => void;
   setConflictState: (state: BlockOutState['conflictState']) => void;
 
   // Actions — Task Chains
@@ -380,6 +384,7 @@ export const useStore = create<BlockOutState>((set, get) => ({
   syncStatus: 'idle',
   syncSettingsOpen: false,
   tetherOpen: false,
+  tetherStatus: 'unconfigured',
   conflictState: null,
 
   // Task Chains
@@ -807,6 +812,7 @@ export const useStore = create<BlockOutState>((set, get) => ({
   setSyncStatus: (status) => set({ syncStatus: status }),
   setSyncSettingsOpen: (open) => set({ syncSettingsOpen: open }),
   setTetherOpen: (open) => set({ tetherOpen: open }),
+  setTetherStatus: (status) => set({ tetherStatus: status }),
   setSynamonEnabled: (enabled) => set({ synamonEnabled: enabled, lastModified: Date.now() }),
   recordSynapseCredit: (date, amount) => set((state) => {
     const sameDay = state.synapseDaily.date === date;

@@ -6,9 +6,11 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 import { useStore } from '../../store';
 import { getSession, onAuthStateChange } from '../../utils/supabase';
 import {
-  streamTether, listEndpoints, createEndpoint,
-  type TetherMessage, type TetherEvent, type ModelEndpoint,
+  streamTether, listEndpoints, refreshTetherStatus,
+  type TetherMessage, type TetherEvent,
 } from '../../utils/tether';
+import { TetherLight } from './TetherLight';
+import { TetherEndpoints } from './TetherEndpoints';
 import {
   applyStagedActions, isImmediate, isDestructive, resolveDeleteTargets, requiredDeletePhrase,
   type StagedAction, type ApplyResult,
@@ -25,6 +27,7 @@ interface ChatMsg {
 export function TetherPanel() {
   const open = useStore((s) => s.tetherOpen);
   const setOpen = useStore((s) => s.setTetherOpen);
+  const setTetherStatus = useStore((s) => s.setTetherStatus);
 
   const [gate, setGate] = useState<Gate>('loading');
   const [messages, setMessages] = useState<ChatMsg[]>([]);
@@ -40,19 +43,25 @@ export function TetherPanel() {
   // Destructive actions are handled one at a time via a typed-confirmation modal —
   // never bundled into "apply all".
   const [deleteQueue, setDeleteQueue] = useState<StagedAction[]>([]);
+  const [showModels, setShowModels] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
 
   // ── Auth + endpoint gating ──
   const refreshGate = useCallback(async () => {
     const { user } = await getSession();
-    if (!user) { setGate('signed-out'); return; }
+    if (!user) { setGate('signed-out'); setTetherStatus('unconfigured'); return; }
     const eps = await listEndpoints();
-    setGate(eps.length > 0 ? 'ready' : 'no-endpoint');
-  }, []);
+    const ready = eps.length > 0;
+    setGate(ready ? 'ready' : 'no-endpoint');
+    // Opening the panel acknowledges any error; sync the light to real state.
+    if (useStore.getState().tetherStatus !== 'working') setTetherStatus(ready ? 'ready' : 'unconfigured');
+  }, [setTetherStatus]);
 
-  useEffect(() => { if (open) refreshGate(); }, [open, refreshGate]);
+  // Keep the light current even when the panel is never opened.
+  useEffect(() => { refreshTetherStatus(); }, []);
+  useEffect(() => { if (open) refreshGate(); else setShowModels(false); }, [open, refreshGate]);
   useEffect(() => {
-    const unsub = onAuthStateChange(() => { if (open) refreshGate(); });
+    const unsub = onAuthStateChange(() => { refreshTetherStatus(); if (open) refreshGate(); });
     return unsub || undefined;
   }, [open, refreshGate]);
 
@@ -92,10 +101,12 @@ export function TetherPanel() {
     setStreaming(true);
     setStreamText('');
     setActiveTools([]);
+    setTetherStatus('working'); // blue + flashing while the request runs
 
     const toolsUsed: string[] = [];
     const staged: StagedAction[] = [];
     let finalText = '';
+    let sawError = false;
 
     const res = await streamTether(history, (e: TetherEvent) => {
       switch (e.type) {
@@ -114,6 +125,7 @@ export function TetherPanel() {
           finalText = e.data.response || finalText;
           break;
         case 'error':
+          sawError = true;
           setError(e.data.error || 'Something went wrong.');
           break;
       }
@@ -122,6 +134,8 @@ export function TetherPanel() {
     setStreaming(false);
     setStreamText('');
     setActiveTools([]);
+    // Light: red+flashing on failure/timeout (needs the user); blue otherwise.
+    setTetherStatus(!res.ok || sawError ? 'error' : 'ready');
 
     // Three lanes: immediate (apply now), destructive (typed-confirmation modal,
     // one at a time), and ordinary data mutations (tickbox approval batch).
@@ -159,11 +173,16 @@ export function TetherPanel() {
       }}>
         {/* Header */}
         <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '14px 16px', borderBottom: '1px solid var(--border)' }}>
-          <span style={{ width: 10, height: 10, borderRadius: '50%', background: 'var(--accent)', boxShadow: '0 0 8px var(--accent)' }} />
+          <TetherLight size={10} />
           <div style={{ flex: 1 }}>
-            <div style={{ fontWeight: 700, fontSize: 15 }}>Tether</div>
-            <div style={{ fontSize: 11, color: 'var(--text-tertiary)' }}>Read-only · can view & advise, not yet edit</div>
+            <div style={{ fontWeight: 700, fontSize: 15 }}>{showModels ? 'Tether models' : 'Tether'}</div>
+            <div style={{ fontSize: 11, color: 'var(--text-tertiary)' }}>{showModels ? 'Your connected AI models' : 'Your Syncratic AI assistant'}</div>
           </div>
+          {gate === 'ready' && (
+            <button className="btn btn-ghost btn-sm" title="Manage models" onClick={() => setShowModels((v) => !v)}>
+              {showModels ? '← Chat' : 'Models'}
+            </button>
+          )}
           <button className="btn btn-ghost btn-sm" onClick={() => setOpen(false)}>✕</button>
         </div>
 
@@ -179,8 +198,9 @@ export function TetherPanel() {
         {/* Body */}
         {gate === 'loading' && <Centered>Loading…</Centered>}
         {gate === 'signed-out' && <Centered>Sign in (Cloud Sync) to use Tether — it uses your own AI model + key.</Centered>}
-        {gate === 'no-endpoint' && <EndpointSetup onDone={() => setGate('ready')} />}
-        {gate === 'ready' && (
+        {gate === 'no-endpoint' && <TetherEndpoints onChanged={refreshGate} />}
+        {gate === 'ready' && showModels && <TetherEndpoints onChanged={refreshGate} />}
+        {gate === 'ready' && !showModels && (
           <>
             <div ref={scrollRef} style={{ flex: 1, overflowY: 'auto', padding: 16, display: 'flex', flexDirection: 'column', gap: 12 }}>
               {messages.length === 0 && !streaming && (
@@ -391,63 +411,3 @@ function DeletionModal({ action, remaining, onConfirm, onCancel }: {
   );
 }
 
-// Minimal BYOK endpoint setup (writes to the shared model_endpoints table).
-const PRESETS = [
-  { label: 'OpenRouter', base_url: 'https://openrouter.ai/api/v1', model_id: 'nvidia/nemotron-3-super-120b-a12b:free' },
-  { label: 'OpenAI', base_url: 'https://api.openai.com/v1', model_id: 'gpt-4o' },
-  { label: 'Anthropic', base_url: 'https://api.anthropic.com/v1', model_id: 'claude-sonnet-4-6' },
-  { label: 'Gemini', base_url: 'https://generativelanguage.googleapis.com/v1beta/openai', model_id: 'gemini-2.0-flash' },
-];
-
-function EndpointSetup({ onDone }: { onDone: () => void }) {
-  const [name, setName] = useState('My model');
-  const [baseUrl, setBaseUrl] = useState(PRESETS[0].base_url);
-  const [modelId, setModelId] = useState(PRESETS[0].model_id);
-  const [apiKey, setApiKey] = useState('');
-  const [saving, setSaving] = useState(false);
-  const [err, setErr] = useState<string | null>(null);
-
-  const save = async () => {
-    setErr(null);
-    if (!apiKey.trim()) { setErr('Enter your API key.'); return; }
-    setSaving(true);
-    const r = await createEndpoint({ name: name.trim(), base_url: baseUrl.trim(), api_key: apiKey.trim(), model_id: modelId.trim(), is_default: true });
-    setSaving(false);
-    if (!r.ok) { setErr(r.error || 'Failed to save.'); return; }
-    onDone();
-  };
-
-  const field: React.CSSProperties = {
-    width: '100%', padding: '8px 10px', fontSize: 13, marginTop: 4,
-    borderRadius: 'var(--radius-sm)', border: '1px solid var(--border)',
-    background: 'var(--bg-secondary)', color: 'var(--text-primary)', fontFamily: 'inherit',
-  };
-  const label: React.CSSProperties = { fontSize: 12, fontWeight: 600, color: 'var(--text-secondary)' };
-
-  return (
-    <div style={{ flex: 1, overflowY: 'auto', padding: 18 }}>
-      <div style={{ fontSize: 13, color: 'var(--text-secondary)', lineHeight: 1.6, marginBottom: 16 }}>
-        Tether is <strong>bring-your-own-key</strong>. Connect any OpenAI-compatible model — it’s shared across Syncratic apps, and your key is stored server-side only.
-      </div>
-      <div style={{ display: 'flex', gap: 6, marginBottom: 14, flexWrap: 'wrap' }}>
-        {PRESETS.map((p) => (
-          <button key={p.label} className="btn btn-ghost btn-sm"
-            onClick={() => { setBaseUrl(p.base_url); setModelId(p.model_id); }}>
-            {p.label}
-          </button>
-        ))}
-      </div>
-      <label style={label}>Name<input style={field} value={name} onChange={(e) => setName(e.target.value)} /></label>
-      <div style={{ height: 10 }} />
-      <label style={label}>Base URL<input style={field} value={baseUrl} onChange={(e) => setBaseUrl(e.target.value)} placeholder="https://api.openai.com/v1" /></label>
-      <div style={{ height: 10 }} />
-      <label style={label}>Model ID<input style={field} value={modelId} onChange={(e) => setModelId(e.target.value)} placeholder="gpt-4o" /></label>
-      <div style={{ height: 10 }} />
-      <label style={label}>API key<input style={field} type="password" value={apiKey} onChange={(e) => setApiKey(e.target.value)} placeholder="sk-…" autoComplete="off" /></label>
-      {err && <div style={{ fontSize: 12, color: 'hsl(0,72%,55%)', marginTop: 10 }}>{err}</div>}
-      <button className="btn btn-primary" style={{ marginTop: 16, width: '100%' }} onClick={save} disabled={saving}>
-        {saving ? 'Connecting…' : 'Connect Tether'}
-      </button>
-    </div>
-  );
-}

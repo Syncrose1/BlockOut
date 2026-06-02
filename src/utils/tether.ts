@@ -157,6 +157,20 @@ export async function listEndpoints(): Promise<ModelEndpoint[]> {
   return res.json();
 }
 
+/**
+ * Reconcile the Tether status light with the server: grey (unconfigured) unless
+ * the signed-in user actually has ≥1 model endpoint, in which case blue (ready).
+ * Never downgrades an in-flight 'working' or an unacknowledged 'error'.
+ */
+export async function refreshTetherStatus(): Promise<void> {
+  const cur = useStore.getState().tetherStatus;
+  if (cur === 'working' || cur === 'error') return;
+  const token = await getAccessToken();
+  if (!token) { useStore.getState().setTetherStatus('unconfigured'); return; }
+  const eps = await listEndpoints();
+  useStore.getState().setTetherStatus(eps.length > 0 ? 'ready' : 'unconfigured');
+}
+
 export async function createEndpoint(input: {
   name: string; base_url: string; api_key: string; model_id: string; is_default?: boolean;
 }): Promise<{ ok: boolean; error?: string; endpoint?: ModelEndpoint }> {
@@ -168,6 +182,22 @@ export async function createEndpoint(input: {
   const body = await res.json().catch(() => ({}));
   if (!res.ok) return { ok: false, error: body.error || `HTTP ${res.status}` };
   return { ok: true, endpoint: body };
+}
+
+export async function updateEndpoint(id: string, patch: {
+  name?: string; base_url?: string; api_key?: string; model_id?: string; is_default?: boolean;
+}): Promise<{ ok: boolean; error?: string }> {
+  const res = await authedFetch(`/api/tether-endpoints?id=${encodeURIComponent(id)}`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(patch),
+  });
+  if (!res.ok) { const b = await res.json().catch(() => ({})); return { ok: false, error: b.error || `HTTP ${res.status}` }; }
+  return { ok: true };
+}
+
+export async function setDefaultEndpoint(id: string): Promise<boolean> {
+  return (await updateEndpoint(id, { is_default: true })).ok;
 }
 
 export async function deleteEndpoint(id: string): Promise<boolean> {

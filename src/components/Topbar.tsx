@@ -1,6 +1,7 @@
 import { useMemo, useState, useCallback } from 'react';
 import { useStore } from '../store';
 import { AssignTasksModal, AITaskGeneratorModal } from './Modals';
+import { TetherLight } from './Tether/TetherLight';
 import { saveToCloud } from '../utils/persistence';
 import type { ViewMode } from '../types';
 
@@ -183,8 +184,9 @@ export function Topbar({ isMobile, onMenuToggle }: TopbarProps) {
             className="btn btn-ghost btn-sm"
             onClick={() => setTetherOpen(true)}
             title="Tether — your AI assistant"
-            style={{ fontSize: 11, padding: '4px 8px' }}
+            style={{ fontSize: 11, padding: '4px 8px', display: 'flex', alignItems: 'center', gap: 5 }}
           >
+            <TetherLight size={7} />
             Tether
           </button>
         </div>
@@ -364,7 +366,7 @@ export function Topbar({ isMobile, onMenuToggle }: TopbarProps) {
           title="Tether — your AI assistant"
           style={{ display: 'flex', alignItems: 'center', gap: 6 }}
         >
-          <span style={{ width: 8, height: 8, borderRadius: '50%', background: 'var(--accent)', boxShadow: '0 0 6px var(--accent)' }} />
+          <TetherLight size={8} />
           Tether
         </button>
 

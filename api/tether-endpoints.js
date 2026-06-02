@@ -33,7 +33,7 @@ async function getUserFromToken(authHeader) {
 
 function setCors(res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, DELETE, OPTIONS');
+  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PATCH, DELETE, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
 }
 
@@ -87,6 +87,49 @@ module.exports = async (req, res) => {
     }).select(SAFE_COLUMNS).single();
     if (error) return res.status(500).json({ error: 'Failed to create endpoint.' });
     return res.status(201).json(data);
+  }
+
+  // PATCH — edit an endpoint (owner-scoped). api_key updated only if provided;
+  // setting is_default true clears the others first.
+  if (req.method === 'PATCH') {
+    const id = (req.query && req.query.id) || null;
+    if (!id) return res.status(400).json({ error: 'Endpoint id required.' });
+
+    let body;
+    try { body = typeof req.body === 'string' ? JSON.parse(req.body) : req.body; } catch { body = null; }
+    if (!body) return res.status(400).json({ error: 'Invalid JSON.' });
+
+    const patch = {};
+    if (body.name != null) {
+      if (typeof body.name !== 'string' || !body.name.trim() || body.name.length > 100) return res.status(400).json({ error: 'Invalid name.' });
+      patch.name = body.name.trim();
+    }
+    if (body.base_url != null) {
+      if (typeof body.base_url !== 'string' || !URL_REGEX.test(body.base_url)) return res.status(400).json({ error: 'Invalid base URL.' });
+      patch.base_url = body.base_url.trim().replace(/\/+$/, '');
+    }
+    if (body.model_id != null) {
+      if (typeof body.model_id !== 'string' || !body.model_id.trim() || body.model_id.length > 200) return res.status(400).json({ error: 'Invalid model id.' });
+      patch.model_id = body.model_id.trim();
+    }
+    if (typeof body.api_key === 'string' && body.api_key.trim()) patch.api_key = body.api_key;
+
+    if (body.is_default === true) {
+      await sb.from('model_endpoints').update({ is_default: false }).eq('owner_id', user.id);
+      patch.is_default = true;
+    } else if (body.is_default === false) {
+      patch.is_default = false;
+    }
+
+    if (Object.keys(patch).length === 0) return res.status(400).json({ error: 'Nothing to update.' });
+
+    const { data, error } = await sb
+      .from('model_endpoints').update(patch)
+      .eq('id', id).eq('owner_id', user.id)
+      .select(SAFE_COLUMNS).single();
+    if (error) return res.status(500).json({ error: 'Failed to update endpoint.' });
+    if (!data) return res.status(404).json({ error: 'Endpoint not found.' });
+    return res.json(data);
   }
 
   // DELETE — by id (owner-scoped)
