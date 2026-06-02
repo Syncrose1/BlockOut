@@ -99,6 +99,7 @@ interface BlockOutState {
   // Sync
   syncStatus: 'idle' | 'syncing' | 'synced' | 'error';
   syncSettingsOpen: boolean;
+  tetherOpen: boolean;
   lastModified?: number; // Timestamp for cloud sync tracking
   conflictState: {
     local: Record<string, unknown>;
@@ -215,6 +216,7 @@ interface BlockOutState {
   // Actions — Sync
   setSyncStatus: (status: 'idle' | 'syncing' | 'synced' | 'error') => void;
   setSyncSettingsOpen: (open: boolean) => void;
+  setTetherOpen: (open: boolean) => void;
   setConflictState: (state: BlockOutState['conflictState']) => void;
 
   // Actions — Task Chains
@@ -377,6 +379,7 @@ export const useStore = create<BlockOutState>((set, get) => ({
   synapseDaily: { date: '', todayAmount: 0 },
   syncStatus: 'idle',
   syncSettingsOpen: false,
+  tetherOpen: false,
   conflictState: null,
 
   // Task Chains
@@ -803,6 +806,7 @@ export const useStore = create<BlockOutState>((set, get) => ({
   setPomodoroSettingsOpen: (open) => set({ pomodoroSettingsOpen: open }),
   setSyncStatus: (status) => set({ syncStatus: status }),
   setSyncSettingsOpen: (open) => set({ syncSettingsOpen: open }),
+  setTetherOpen: (open) => set({ tetherOpen: open }),
   setSynamonEnabled: (enabled) => set({ synamonEnabled: enabled, lastModified: Date.now() }),
   recordSynapseCredit: (date, amount) => set((state) => {
     const sameDay = state.synapseDaily.date === date;

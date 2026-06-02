@@ -36,6 +36,7 @@ export function Topbar({ isMobile, onMenuToggle }: TopbarProps) {
   const viewMode = useStore((s) => s.viewMode);
   const setViewMode = useStore((s) => s.setViewMode);
   const setShowNewTaskModal = useStore((s) => s.setShowNewTaskModal);
+  const setTetherOpen = useStore((s) => s.setTetherOpen);
   const focusMode = useStore((s) => s.focusMode);
   const exitFocusMode = useStore((s) => s.exitFocusMode);
   const focusedCategoryId = useStore((s) => s.pomodoro.focusedCategoryId);
@@ -177,6 +178,14 @@ export function Topbar({ isMobile, onMenuToggle }: TopbarProps) {
             style={{ fontSize: 11, padding: '4px 8px' }}
           >
             Smart Create
+          </button>
+          <button
+            className="btn btn-ghost btn-sm"
+            onClick={() => setTetherOpen(true)}
+            title="Tether — your AI assistant"
+            style={{ fontSize: 11, padding: '4px 8px' }}
+          >
+            Tether
           </button>
         </div>
 
@@ -347,6 +356,16 @@ export function Topbar({ isMobile, onMenuToggle }: TopbarProps) {
             <path d="M12 2L22 12L12 22L2 12L12 2Z" fill="currentColor"/>
           </svg>
           Smart Create
+        </button>
+
+        <button
+          className="btn btn-ghost btn-sm"
+          onClick={() => setTetherOpen(true)}
+          title="Tether — your AI assistant"
+          style={{ display: 'flex', alignItems: 'center', gap: 6 }}
+        >
+          <span style={{ width: 8, height: 8, borderRadius: '50%', background: 'var(--accent)', boxShadow: '0 0 6px var(--accent)' }} />
+          Tether
         </button>
 
         <button

@@ -27,6 +27,7 @@ import {
 } from './components/Modals';
 import { FriendModal } from './components/FriendModal';
 import { SessionModal } from './components/SessionModal';
+import { TetherPanel } from './components/Tether/TetherPanel';
 import { useCoFocusPresence } from './hooks/useCoFocusPresence';
 import { useSynapseTrickle } from './utils/synapseEarn';
 
@@ -393,6 +394,7 @@ export function App() {
         <WelcomeModal />
         <FriendModal />
         <SessionModal />
+        <TetherPanel />
       </div>
     </div>
   );
