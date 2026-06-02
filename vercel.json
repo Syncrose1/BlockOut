@@ -4,6 +4,9 @@
   "buildCommand": "npm run build",
   "outputDirectory": "dist",
   "framework": "vite",
+  "functions": {
+    "api/tether.js": { "maxDuration": 60 }
+  },
   "redirects": [
     { "source": "/", "destination": "/blockout", "permanent": false }
   ],
