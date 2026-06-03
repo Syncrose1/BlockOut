@@ -25,29 +25,23 @@ import {
   saveConversation, loadConversation, deleteConversation,
 } from '../../utils/tetherConversations';
 
-// Border wave-pulse keyframes (injected once). Layered ring OUTLINES that expand
-// outward from the panel edge. Each ring's weight (opacity) builds as it travels,
-// peaking when it's DISTAL — so it reads as force being pushed out of the panel —
-// then dissolves at its furthest reach. Three staggered layers = a rolling ripple.
+// Border wave-pulse keyframes (injected once). A soft blue-purple glow that blooms
+// out from the panel edge: it grows in spread + blur as it pushes outward, holding
+// presence through the middle of its travel before dissolving far out — a soft
+// wave of force, not a thin line. Two staggered layers give a continuous swell.
 if (typeof document !== 'undefined' && !document.getElementById('tether-pulse-kf')) {
   const el = document.createElement('style');
   el.id = 'tether-pulse-kf';
   el.textContent = `
-    .tether-ring {
-      border: 1.5px solid hsl(250 84% 62%);
-      transform-origin: center center;
-      opacity: 0;
-      animation: tether-ring 3.6s ease-out infinite;
+    .tether-glow { animation: tether-glow 3.2s ease-out infinite; }
+    .tether-glow.g2 { animation-delay: 1.6s; }
+    @keyframes tether-glow {
+      0%   { box-shadow: 0 0 0 0 hsla(250,84%,62%,0); }
+      26%  { box-shadow: 0 0 20px 4px hsla(250,84%,62%,0.32); }
+      60%  { box-shadow: 0 0 36px 16px hsla(250,84%,62%,0.20); }
+      100% { box-shadow: 0 0 54px 30px hsla(250,84%,62%,0); }
     }
-    .tether-ring.r2 { animation-delay: 1.2s; }
-    .tether-ring.r3 { animation-delay: 2.4s; }
-    @keyframes tether-ring {
-      0%   { transform: scale(1);     opacity: 0; }
-      30%  { transform: scale(1.012); opacity: 0.16; }
-      68%  { transform: scale(1.035); opacity: 0.30; }
-      100% { transform: scale(1.055); opacity: 0; }
-    }
-    @media (prefers-reduced-motion: reduce) { .tether-ring { animation: none !important; opacity: 0 !important; } }
+    @media (prefers-reduced-motion: reduce) { .tether-glow { animation: none !important; box-shadow: none !important; } }
   `;
   document.head.appendChild(el);
 }
@@ -260,17 +254,18 @@ export function TetherPanel() {
         transition={{ duration: 0.2 }}
         style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.28)', backdropFilter: 'blur(1.5px)', zIndex: 1400 }}
       />
-      {/* Border wave-pulse: three expanding ring outlines that emanate outward from
-          the panel, heaviest when distal. Separate fixed elements (outside the
-          panel's overflow:hidden), behind it, non-interactive. */}
+      {/* Border wave-pulse: a soft glow that blooms outward from the panel, on a
+          loop. Separate fixed elements (outside the panel's overflow:hidden so the
+          box-shadow isn't clipped), behind it, non-interactive. Two staggered
+          layers for a continuous swell. */}
       <motion.div
         initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
         transition={{ duration: 0.2 }}
         aria-hidden
         style={{ position: 'fixed', inset: 0, zIndex: 1401, pointerEvents: 'none' }}
       >
-        {['r1', 'r2', 'r3'].map((r) => (
-          <div key={r} className={`tether-ring ${r}`} style={{
+        {['g1', 'g2'].map((g) => (
+          <div key={g} className={`tether-glow ${g}`} style={{
             position: 'fixed', top: 16, right: 16, bottom: 16,
             width: 'min(420px, calc(100vw - 32px))',
             borderRadius: 'var(--radius-lg, 16px)',
