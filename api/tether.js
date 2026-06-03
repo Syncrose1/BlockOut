@@ -94,8 +94,12 @@ module.exports = async (req, res) => {
     try { res.write(`event: ${event.type}\ndata: ${JSON.stringify(event.data)}\n\n`); } catch { /* client gone */ }
   };
 
+  // Cross-app context: the same service-role client (owner-scoped in the tools)
+  // lets Tether read the user's Binder wiki from the shared Supabase.
+  const binderCtx = { supabase: sb, ownerId: user.id };
+
   try {
-    await runAgentLoopStreaming(snapshot, endpoint, messages, send, resume);
+    await runAgentLoopStreaming(snapshot, endpoint, messages, send, resume, binderCtx);
   } catch (e) {
     send({ type: 'error', data: { error: e instanceof Error ? e.message : 'Tether failed.' } });
   } finally {

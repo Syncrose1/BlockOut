@@ -6,8 +6,9 @@
 const OpenAI = require('openai');
 const { SYSTEM_PROMPT } = require('./prompt');
 const { toolDefinitions, executeReadTool, writeToolDefinitions, buildStagedAction, WRITE_TOOLS, recordRead, requireReadBeforeWrite } = require('./tools');
+const { BINDER_READ_TOOLS, binderToolDefinitions, executeBinderRead } = require('./binder');
 
-const ALL_TOOLS = [...toolDefinitions, ...writeToolDefinitions];
+const ALL_TOOLS = [...toolDefinitions, ...binderToolDefinitions, ...writeToolDefinitions];
 
 // Per-hop tool-iteration budget — kept MODEST on purpose: a weak BYOK model can
 // flail, and a tight cap bounds the damage per invocation. Genuine long work
@@ -40,7 +41,8 @@ function snapshotPreamble(snapshot) {
 
 // `resume` (optional) carries a checkpoint from a previous hop so a long turn
 // can continue in a fresh invocation: { messages, seen, totalIterations }.
-async function runAgentLoopStreaming(snapshot, endpoint, conversationHistory, onEvent, resume) {
+// `binderCtx` (optional) = { supabase, ownerId } enables cross-app Binder reads.
+async function runAgentLoopStreaming(snapshot, endpoint, conversationHistory, onEvent, resume, binderCtx) {
   const client = createClient(endpoint);
 
   let messages, seen, priorIterations;
@@ -157,6 +159,19 @@ async function runAgentLoopStreaming(snapshot, endpoint, conversationHistory, on
         } catch (e) {
           isError = true;
           result = { error: e instanceof Error ? e.message : 'Invalid proposal' };
+        }
+      } else if (BINDER_READ_TOOLS.has(call.function.name)) {
+        // Cross-app read into Binder's wiki (shared Supabase, owner-scoped).
+        if (!binderCtx) {
+          isError = true;
+          result = { error: 'Binder access is unavailable here.' };
+        } else {
+          try {
+            result = await executeBinderRead(binderCtx.supabase, binderCtx.ownerId, call.function.name, args);
+          } catch (e) {
+            isError = true;
+            result = { error: e instanceof Error ? e.message : 'Binder read failed' };
+          }
         }
       } else {
         try {

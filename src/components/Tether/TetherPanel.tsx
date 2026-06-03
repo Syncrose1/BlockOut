@@ -60,6 +60,8 @@ const TOOL_LABELS: Record<string, string> = {
   list_chain_templates: 'Reading templates',
   get_week_overview: 'Checking your schedule',
   get_app_status: 'Checking your setup',
+  list_binder_wiki: 'Searching your Binder wiki',
+  read_binder_wiki: 'Reading your Binder wiki',
 };
 function toolLabel(name: string): string {
   if (TOOL_LABELS[name]) return TOOL_LABELS[name];
