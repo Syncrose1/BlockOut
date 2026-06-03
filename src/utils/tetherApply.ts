@@ -10,7 +10,7 @@ import { useStore } from '../store';
 import { setTheme, type Theme } from './theme';
 
 export type StagedActionType =
-  | 'create_task' | 'update_task' | 'create_category'
+  | 'create_task' | 'update_task' | 'update_tasks' | 'rename_category' | 'create_category'
   | 'create_subcategory' | 'assign_to_block' | 'create_block'
   // Task Chains + Weekview:
   | 'add_chain_steps' | 'add_tasks_to_chain' | 'complete_chain_step'
@@ -101,8 +101,8 @@ export interface ApplyResult {
 // Apply in dependency order so a "create category" + "create task in it" batch
 // resolves correctly regardless of the order the agent emitted them.
 const ORDER: StagedActionType[] = [
-  'create_category', 'create_subcategory', 'create_block',
-  'create_task', 'assign_to_block', 'update_task',
+  'create_category', 'rename_category', 'create_subcategory', 'create_block',
+  'create_task', 'assign_to_block', 'update_task', 'update_tasks',
   'add_chain_steps', 'add_tasks_to_chain', 'apply_chain_template', 'complete_chain_step',
   'schedule_block',
   'delete_tasks', 'delete_category', 'remove_chain_steps', 'remove_schedule_blocks',
@@ -137,6 +137,56 @@ function findBlockId(name: unknown): string | undefined {
   if (!n) return undefined;
   const blocks = useStore.getState().timeBlocks;
   return Object.values(blocks).find((b) => lc(b.name) === n)?.id;
+}
+
+/**
+ * Apply an edit change-set to one task (shared by single + bulk update). Reads
+ * the LIVE store each call so it's correct mid-batch. Returns false if the task
+ * is gone. Handles fields, completion (via toggle for side-effects), dependencies,
+ * and block add/remove.
+ */
+function applyTaskChanges(taskId: string, c: Record<string, unknown>): boolean {
+  const store = useStore.getState();
+  const task = store.tasks[taskId];
+  if (!task) return false;
+
+  const updates: Record<string, unknown> = {};
+  if (c.title != null) updates.title = String(c.title);
+  if (c.weight != null) updates.weight = Number(c.weight);
+  if (c.notes != null) updates.notes = String(c.notes);
+  if (c.dueDate != null) updates.dueDate = parseDue(c.dueDate); // "" → undefined (clears)
+  if (c.categoryName != null) {
+    const catId = findCategoryId(c.categoryName);
+    if (catId) { updates.categoryId = catId; updates.subcategoryId = undefined; }
+  }
+  if (c.subcategoryName != null && (updates.categoryId || task.categoryId)) {
+    const sid = findSubcategoryId(String(updates.categoryId || task.categoryId), c.subcategoryName);
+    if (sid) updates.subcategoryId = sid;
+  }
+  // Dependencies (prerequisites): clear and/or add taskIds, excluding self + dupes.
+  if (c.clearDependencies || Array.isArray(c.addDependencies)) {
+    const base = c.clearDependencies ? [] : [...(task.dependsOn || [])];
+    const set = new Set(base);
+    for (const dep of (Array.isArray(c.addDependencies) ? c.addDependencies : []) as string[]) {
+      if (dep && dep !== taskId && store.tasks[dep]) set.add(dep);
+    }
+    updates.dependsOn = [...set];
+  }
+  if (Object.keys(updates).length) store.updateTask(taskId, updates);
+
+  // Completion has side-effects (streak, completedAt) — route via toggle.
+  if (c.completed != null && !!c.completed !== !!task.completed) store.toggleTask(taskId);
+
+  // Block membership.
+  if (c.removeFromBlock != null) {
+    const bid = findBlockId(c.removeFromBlock);
+    if (bid) store.removeTaskFromBlock(taskId, bid);
+  }
+  if (c.assignToBlock != null) {
+    const bid = findBlockId(c.assignToBlock);
+    if (bid) store.assignTaskToBlock(taskId, bid);
+  }
+  return true;
 }
 
 function findTaskIdByTitle(title: unknown): string | undefined {
@@ -290,25 +340,23 @@ export function applyStagedActions(actions: StagedAction[]): ApplyResult[] {
 
         case 'update_task': {
           const taskId = String(p.taskId || '');
-          const task = useStore.getState().tasks[taskId];
-          if (!task) { results.push(skip(action, 'task not found')); break; }
-          const updates: Record<string, unknown> = {};
-          if (p.title != null) updates.title = String(p.title);
-          if (p.weight != null) updates.weight = Number(p.weight);
-          if (p.notes != null) updates.notes = String(p.notes);
-          if (p.dueDate != null) updates.dueDate = parseDue(p.dueDate);
-          if (p.categoryName != null) {
-            const catId = findCategoryId(p.categoryName);
-            if (catId) { updates.categoryId = catId; updates.subcategoryId = undefined; }
-          }
-          if (p.subcategoryName != null && (updates.categoryId || task.categoryId)) {
-            const sid = findSubcategoryId(String(updates.categoryId || task.categoryId), p.subcategoryName);
-            if (sid) updates.subcategoryId = sid;
-          }
-          if (Object.keys(updates).length) store.updateTask(taskId, updates);
-          // Completion has side-effects (streaks, completedAt) — route via toggle.
-          if (p.completed != null && !!p.completed !== !!task.completed) store.toggleTask(taskId);
+          if (!applyTaskChanges(taskId, p)) { results.push(skip(action, 'task not found')); break; }
           results.push({ id: action.id, ok: true, message: 'Updated.' });
+          break;
+        }
+        case 'update_tasks': {
+          const ids = Array.isArray(p.taskIds) ? (p.taskIds as string[]) : [];
+          const set = (p.set as Record<string, unknown>) || {};
+          let n = 0;
+          for (const id of ids) if (applyTaskChanges(id, set)) n++;
+          results.push({ id: action.id, ok: true, message: `Updated ${n} of ${ids.length} task${ids.length === 1 ? '' : 's'}.` });
+          break;
+        }
+        case 'rename_category': {
+          const catId = findCategoryId(p.currentName);
+          if (!catId) { results.push(skip(action, `category “${p.currentName}” not found`)); break; }
+          store.renameCategory(catId, String(p.newName));
+          results.push({ id: action.id, ok: true, message: `Renamed to “${p.newName}”.` });
           break;
         }
 

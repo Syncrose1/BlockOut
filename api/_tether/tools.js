@@ -314,7 +314,8 @@ const crypto = require('crypto');
 const newId = () => (crypto.randomUUID ? crypto.randomUUID() : 'sa-' + Math.random().toString(36).slice(2));
 
 const WRITE_TOOLS = new Set([
-  'propose_create_task', 'propose_update_task', 'propose_create_category',
+  'propose_create_task', 'propose_update_task', 'propose_update_tasks',
+  'propose_rename_category', 'propose_create_category',
   'propose_create_subcategory', 'propose_assign_to_block', 'propose_create_block',
   // Task Chains (daily plans).
   'propose_add_chain_steps', 'propose_add_tasks_to_chain', 'propose_complete_chain_step',
@@ -331,6 +332,29 @@ const WRITE_TOOLS = new Set([
 function reqStr(v, label) {
   if (typeof v !== 'string' || !v.trim()) throw new Error(`${label} is required`);
   return v.trim();
+}
+
+// Shared parser for task-edit fields, used by both single (update_task) and bulk
+// (update_tasks). Returns { payload, changes } where changes[] is a human summary.
+// `allowTitle` is true only for single-task edits (title is per-task-unique).
+function parseTaskChanges(i, { allowTitle }) {
+  const payload = {};
+  const changes = [];
+  if (allowTitle && i.title != null) { payload.title = String(i.title); changes.push(`title → “${payload.title}”`); }
+  if (i.weight != null) { payload.weight = Math.max(1, Math.min(10, Math.round(Number(i.weight)))); changes.push(`weight → ${payload.weight}`); }
+  if (i.notes != null) { payload.notes = String(i.notes); changes.push('notes'); }
+  if (i.dueDate != null) { payload.dueDate = String(i.dueDate); changes.push(i.dueDate ? `due → ${i.dueDate}` : 'clear due date'); }
+  if (i.categoryName != null) { payload.categoryName = String(i.categoryName); changes.push(`category → ${payload.categoryName}`); }
+  if (i.subcategoryName != null) { payload.subcategoryName = String(i.subcategoryName); changes.push(`subcategory → ${payload.subcategoryName}`); }
+  if (i.completed != null) { payload.completed = !!i.completed; changes.push(payload.completed ? 'mark complete' : 'mark incomplete'); }
+  if (Array.isArray(i.addDependencies) && i.addDependencies.length) {
+    payload.addDependencies = i.addDependencies.map(String).filter(Boolean);
+    changes.push(`add ${payload.addDependencies.length} dependenc${payload.addDependencies.length > 1 ? 'ies' : 'y'}`);
+  }
+  if (i.clearDependencies) { payload.clearDependencies = true; changes.push('clear dependencies'); }
+  if (i.assignToBlock != null) { payload.assignToBlock = String(i.assignToBlock); changes.push(`add to block “${payload.assignToBlock}”`); }
+  if (i.removeFromBlock != null) { payload.removeFromBlock = String(i.removeFromBlock); changes.push(`remove from block “${payload.removeFromBlock}”`); }
+  return { payload, changes };
 }
 
 // Build a staged action {id, type, summary, payload}. Throws on invalid input.
@@ -353,17 +377,22 @@ function buildStagedAction(name, input) {
     }
     case 'propose_update_task': {
       const taskId = reqStr(i.taskId, 'taskId');
-      const payload = { taskId };
-      const changes = [];
-      if (i.title != null) { payload.title = String(i.title); changes.push(`title → “${payload.title}”`); }
-      if (i.weight != null) { payload.weight = Math.max(1, Math.min(10, Math.round(Number(i.weight)))); changes.push(`weight → ${payload.weight}`); }
-      if (i.notes != null) { payload.notes = String(i.notes); changes.push('notes'); }
-      if (i.dueDate != null) { payload.dueDate = String(i.dueDate); changes.push(`due → ${payload.dueDate}`); }
-      if (i.categoryName != null) { payload.categoryName = String(i.categoryName); changes.push(`category → ${payload.categoryName}`); }
-      if (i.subcategoryName != null) { payload.subcategoryName = String(i.subcategoryName); changes.push(`subcategory → ${payload.subcategoryName}`); }
-      if (i.completed != null) { payload.completed = !!i.completed; changes.push(payload.completed ? 'mark complete' : 'mark incomplete'); }
+      const { payload, changes } = parseTaskChanges(i, { allowTitle: true });
       if (changes.length === 0) throw new Error('No changes specified');
-      return { id: newId(), type: 'update_task', summary: `Update task: ${changes.join(', ')}`, payload, refTaskId: taskId };
+      return { id: newId(), type: 'update_task', summary: `Update task: ${changes.join(', ')}`, payload: { taskId, ...payload }, refTaskId: taskId };
+    }
+    case 'propose_update_tasks': {
+      const taskIds = Array.isArray(i.taskIds) ? i.taskIds.map(String).filter(Boolean) : [];
+      if (!taskIds.length) throw new Error('taskIds (a non-empty array) is required');
+      const { payload, changes } = parseTaskChanges(i, { allowTitle: false });
+      if (changes.length === 0) throw new Error('No changes specified');
+      const n = taskIds.length;
+      return { id: newId(), type: 'update_tasks', summary: `Update ${n} task${n > 1 ? 's' : ''}: ${changes.join(', ')}`, payload: { taskIds, set: payload } };
+    }
+    case 'propose_rename_category': {
+      const currentName = reqStr(i.currentName, 'currentName');
+      const newName = reqStr(i.newName, 'newName');
+      return { id: newId(), type: 'rename_category', summary: `Rename category “${currentName}” → “${newName}”`, payload: { currentName, newName } };
     }
     case 'propose_create_category': {
       const name2 = reqStr(i.name, 'name');
@@ -503,21 +532,57 @@ const writeToolDefinitions = [
     type: 'function',
     function: {
       name: 'propose_update_task',
-      description: 'PROPOSE updating an existing task (staged). Use a real taskId from a read tool. Only include fields to change.',
+      description: 'PROPOSE editing ONE existing task (staged). Use a real taskId from a read tool. Only include the fields you want to change. For the SAME change across many tasks, use propose_update_tasks instead.',
       parameters: {
         type: 'object',
         properties: {
           taskId: { type: 'string' },
           title: { type: 'string' },
-          weight: { type: 'number' },
-          notes: { type: 'string' },
-          dueDate: { type: 'string', description: 'ISO date YYYY-MM-DD.' },
+          notes: { type: 'string', description: 'The task description/notes.' },
+          weight: { type: 'number', description: 'Effort 1–10.' },
+          dueDate: { type: 'string', description: 'ISO date YYYY-MM-DD, or "" to clear.' },
           categoryName: { type: 'string' },
           subcategoryName: { type: 'string' },
-          completed: { type: 'boolean' },
+          completed: { type: 'boolean', description: 'Mark complete (true) or incomplete (false).' },
+          addDependencies: { type: 'array', items: { type: 'string' }, description: 'taskIds that must be completed BEFORE this task (prerequisites).' },
+          clearDependencies: { type: 'boolean', description: 'Remove all existing dependencies.' },
+          assignToBlock: { type: 'string', description: 'Add the task to this time block (by name).' },
+          removeFromBlock: { type: 'string', description: 'Remove the task from this time block (by name). To MOVE between blocks, set both removeFromBlock and assignToBlock.' },
         },
         required: ['taskId'],
       },
+    },
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'propose_update_tasks',
+      description: 'PROPOSE applying the SAME change to MANY tasks at once (staged, one approval). Prefer this over many propose_update_task calls. Get taskIds from list_tasks (e.g. all overdue, or all in a category). Does not change titles (those are per-task).',
+      parameters: {
+        type: 'object',
+        properties: {
+          taskIds: { type: 'array', items: { type: 'string' } },
+          weight: { type: 'number', description: 'Set effort 1–10 on all.' },
+          notes: { type: 'string' },
+          dueDate: { type: 'string', description: 'ISO date YYYY-MM-DD, or "" to clear, on all.' },
+          categoryName: { type: 'string', description: 'Move all to this category.' },
+          subcategoryName: { type: 'string' },
+          completed: { type: 'boolean', description: 'Mark all complete/incomplete.' },
+          addDependencies: { type: 'array', items: { type: 'string' }, description: 'taskIds to add as prerequisites of every listed task.' },
+          clearDependencies: { type: 'boolean' },
+          assignToBlock: { type: 'string', description: 'Add all to this time block.' },
+          removeFromBlock: { type: 'string', description: 'Remove all from this time block.' },
+        },
+        required: ['taskIds'],
+      },
+    },
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'propose_rename_category',
+      description: 'PROPOSE renaming a category (staged). Its tasks and subcategories are kept.',
+      parameters: { type: 'object', properties: { currentName: { type: 'string' }, newName: { type: 'string' } }, required: ['currentName', 'newName'] },
     },
   },
   {

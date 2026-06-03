@@ -489,6 +489,7 @@ function Bubble({ msg, streaming }: { msg: ChatMsg; streaming?: boolean }) {
 const TYPE_TINT: Record<string, string> = {
   create_task: '140,60%,45%', create_category: '140,60%,45%', create_subcategory: '140,60%,45%',
   create_block: '210,80%,55%', assign_to_block: '210,80%,55%', update_task: '35,85%,50%',
+  update_tasks: '35,85%,50%', rename_category: '35,85%,50%',
   add_chain_steps: '140,60%,45%', add_tasks_to_chain: '210,80%,55%', complete_chain_step: '35,85%,50%',
   apply_chain_template: '210,80%,55%', schedule_block: '270,60%,55%',
 };
