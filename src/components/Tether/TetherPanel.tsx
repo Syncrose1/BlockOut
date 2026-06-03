@@ -262,6 +262,13 @@ export function TetherPanel() {
         case 'staged_action':
           staged.push(e.data);
           break;
+        case 'retry':
+          // A hop died (timeout/hard-kill) and is auto-retrying. Discard the
+          // partial turn so it doesn't duplicate, and show a gentle note.
+          toolsUsed.length = 0; staged.length = 0; streamBuf = '';
+          setToolSteps([{ id: stepId++, label: 'Reconnecting', status: 'run' }]);
+          setStreamText('');
+          break;
         case 'complete':
           finalText = e.data.response || streamBuf || finalText;
           break;

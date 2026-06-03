@@ -25,10 +25,14 @@ const MAX_ITERATIONS = 10;
 // Hard ceiling across ALL hops of one turn — stops a looping model from running
 // away over the user's BYOK budget.
 const MAX_TOTAL_ITERATIONS = 30;
-// Hand off before Vercel's ~60s wall clock, leaving margin for one more model
-// round-trip. (A single model call can't be split, so the per-hop budget must
-// exceed expected call latency.)
-const SOFT_DEADLINE_MS = 45000;
+// Vercel's wall clock for this function (must match vercel.json maxDuration).
+const HARD_BUDGET_MS = 60000;
+// Fixed fallback soft deadline. The REAL guard is adaptive (below): we hand off
+// when the time already spent plus the longest model call seen this hop (×1.4)
+// would overrun HARD_BUDGET — so a slow BYOK model can't start a call that gets
+// hard-killed mid-flight (which would lose the turn with no checkpoint).
+const SOFT_DEADLINE_MS = 38000;
+const CALL_SAFETY = 1.4;
 const MAX_TOKENS = 2048;
 
 function createClient(endpoint) {
@@ -118,23 +122,31 @@ async function runAgentLoopStreaming(snapshot, endpoint, conversationHistory, on
   });
 
   const hopStart = Date.now();
+  let longestCallMs = 0; // longest model round-trip seen this hop (adaptive guard)
 
   for (let local = 0; local < MAX_ITERATIONS; local++) {
     const total = priorIterations + local;
+    const elapsed = Date.now() - hopStart;
 
     // Hard ceiling across all hops — stop a runaway/looping model.
     if (total >= MAX_TOTAL_ITERATIONS) {
       onEvent({ type: 'complete', data: { response: 'I went back and forth several times without finishing — let me know a narrower next step and I\'ll continue.' } });
       return;
     }
-    // Soft time deadline: hand off before the invocation is killed, leaving room
-    // for the client to resume seamlessly. (Checkpoint only BETWEEN iterations.)
-    if (local > 0 && (Date.now() - hopStart) > SOFT_DEADLINE_MS) {
-      onEvent({ type: 'needs_continuation', data: checkpoint(total) });
-      return;
+    // Hand off BETWEEN iterations (checkpoint only here) when continuing would
+    // risk a hard kill: either past the fixed soft deadline, OR the next call
+    // (estimated from the longest seen, with safety margin) wouldn't finish in
+    // the remaining wall-clock. Adaptive so slow BYOK models hand off in time.
+    if (local > 0) {
+      const projected = elapsed + Math.max(longestCallMs * CALL_SAFETY, 6000);
+      if (elapsed > SOFT_DEADLINE_MS || projected > HARD_BUDGET_MS) {
+        onEvent({ type: 'needs_continuation', data: checkpoint(total) });
+        return;
+      }
     }
 
     let assistant, finishReason;
+    const callStart = Date.now();
     try {
       // Stream the model: emit incremental `delta` text and accumulate tool-call
       // fragments into a final assistant message.
@@ -143,6 +155,7 @@ async function runAgentLoopStreaming(snapshot, endpoint, conversationHistory, on
         { model: endpoint.model_id, max_tokens: MAX_TOKENS, tools: toolsFor(binderCtx), messages },
         (text) => onEvent({ type: 'delta', data: text }),
       ));
+      longestCallMs = Math.max(longestCallMs, Date.now() - callStart);
     } catch (err) {
       onEvent({ type: 'error', data: { error: modelError(err) } });
       return;

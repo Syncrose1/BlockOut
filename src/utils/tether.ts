@@ -56,6 +56,7 @@ export type TetherEvent =
   | { type: 'tool_call'; data: { name: string; input: unknown } }
   | { type: 'tool_result'; data: { tool: string; error?: string } }
   | { type: 'staged_action'; data: StagedAction }
+  | { type: 'retry'; data: undefined } // hop died abnormally; auto-retrying
   | { type: 'complete'; data: { response: string } }
   | { type: 'error'; data: { error: string } };
 
@@ -67,14 +68,19 @@ export interface StreamResult {
 }
 
 // Cap on continuation hops the client will chase before giving up (backstop to
-// the server's MAX_TOTAL_ITERATIONS — bounds runaway models).
-const MAX_HOPS = 4;
+// the server's MAX_TOTAL_ITERATIONS — bounds runaway models). Generous because an
+// abnormal-death retry also consumes a hop.
+const MAX_HOPS = 8;
+// How many times we'll auto-retry a hop that DIED abnormally (Vercel hard-killed
+// mid-call, network drop) — i.e. the stream ended with no complete/error and no
+// checkpoint. This is the auto-"continue" that the user did by hand.
+const MAX_DEAD_RETRIES = 2;
 
 /**
  * POST a conversation to the Tether agent and dispatch SSE events as they arrive.
- * Transparently follows `needs_continuation` checkpoints across fresh
- * invocations (the resumable-loop fix for long turns) so the caller sees one
- * seamless stream. Resolves when the turn truly ends.
+ * Transparently follows `needs_continuation` checkpoints (resumable long turns)
+ * AND auto-retries a hop that dies abnormally (timeout/hard-kill), so the caller
+ * sees one seamless stream. Resolves when the turn truly ends.
  */
 export async function streamTether(
   messages: TetherMessage[],
@@ -87,6 +93,7 @@ export async function streamTether(
   // Capture the snapshot ONCE so it stays stable across continuation hops.
   const snapshot = buildSnapshot();
   let resume: unknown = undefined; // checkpoint from the previous hop
+  let deadRetries = 0;
 
   for (let hop = 0; hop < MAX_HOPS; hop++) {
     const body = resume ? { snapshot, resume } : { messages, snapshot };
@@ -100,6 +107,8 @@ export async function streamTether(
         signal,
       });
     } catch (e) {
+      // Network failure reaching the server: retry the same hop a couple of times.
+      if (deadRetries < MAX_DEAD_RETRIES) { deadRetries++; onEvent({ type: 'retry', data: undefined }); continue; }
       return { ok: false, reason: 'ERROR', error: e instanceof Error ? e.message : 'Network error' };
     }
 
@@ -107,6 +116,8 @@ export async function streamTether(
       const errBody = await res.json().catch(() => ({}));
       if (res.status === 503 && errBody.error === 'NO_ENDPOINT') return { ok: false, reason: 'NO_ENDPOINT' };
       if (res.status === 401) return { ok: false, reason: 'UNAUTHORIZED', error: errBody.error };
+      // 5xx (incl. a hard-kill surfacing as a server error): retry the hop.
+      if (res.status >= 500 && deadRetries < MAX_DEAD_RETRIES) { deadRetries++; onEvent({ type: 'retry', data: undefined }); continue; }
       return { ok: false, reason: 'ERROR', error: errBody.error || `HTTP ${res.status}` };
     }
 
@@ -116,9 +127,8 @@ export async function streamTether(
     const decoder = new TextDecoder();
     let buffer = '';
     let nextResume: unknown = undefined;
+    let sawTerminal = false; // a clean `complete` or `error` arrived
 
-    // Parse one SSE block. `needs_continuation` is intercepted (drives the next
-    // hop) rather than forwarded — the caller never sees the seam.
     const dispatch = (block: string) => {
       let type = '';
       let dataLine = '';
@@ -129,25 +139,44 @@ export async function streamTether(
       if (!type) return;
       let data: unknown = {};
       try { data = JSON.parse(dataLine || '{}'); } catch { /* keep {} */ }
+      // `needs_continuation` drives the next hop (never forwarded to the caller).
       if (type === 'needs_continuation') { nextResume = data; return; }
+      if (type === 'complete' || type === 'error') sawTerminal = true;
       onEvent({ type, data } as TetherEvent);
     };
 
-    while (true) {
-      const { done, value } = await reader.read();
-      if (done) break;
-      buffer += decoder.decode(value, { stream: true });
-      let sep;
-      while ((sep = buffer.indexOf('\n\n')) !== -1) {
-        const block = buffer.slice(0, sep);
-        buffer = buffer.slice(sep + 2);
-        if (block.trim()) dispatch(block);
+    let streamError = false;
+    try {
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        buffer += decoder.decode(value, { stream: true });
+        let sep;
+        while ((sep = buffer.indexOf('\n\n')) !== -1) {
+          const block = buffer.slice(0, sep);
+          buffer = buffer.slice(sep + 2);
+          if (block.trim()) dispatch(block);
+        }
       }
+      if (buffer.trim()) dispatch(buffer);
+    } catch {
+      streamError = true; // connection dropped mid-stream
     }
-    if (buffer.trim()) dispatch(buffer);
 
-    if (!nextResume) return { ok: true }; // turn finished
-    resume = nextResume;                  // continue in a fresh hop
+    if (nextResume) { resume = nextResume; continue; } // clean handoff → continue
+    if (sawTerminal && !streamError) return { ok: true }; // turn finished cleanly
+
+    // Abnormal death: stream ended with no checkpoint and no terminal event
+    // (timeout / hard-kill / dropped connection). Auto-retry — re-running reads is
+    // safe (idempotent) and writes were only staged, not applied. From the same
+    // resume point if we had one, else the original turn (what "continue" does).
+    if (deadRetries < MAX_DEAD_RETRIES) {
+      deadRetries++;
+      onEvent({ type: 'retry', data: undefined }); // UI resets transient turn state
+      continue;
+    }
+    onEvent({ type: 'complete', data: { response: 'That request kept timing out. Try again, or break it into a smaller step.' } });
+    return { ok: true };
   }
 
   // Exhausted hops — let the UI close out gracefully.
