@@ -266,8 +266,12 @@ export function TetherPanel() {
           </div>
           {gate === 'ready' && !showModels && (
             <>
-              <button className="btn btn-ghost btn-sm" title="New chat" onClick={startNewChat} style={{ flexShrink: 0, padding: '4px 8px' }}>＋</button>
-              <button className="btn btn-ghost btn-sm" title="Chat history" onClick={() => { setConversations(listConversations()); setShowHistory((v) => !v); }} style={{ flexShrink: 0, padding: '4px 8px' }}>🕘</button>
+              <button className="btn btn-ghost btn-sm" title="New chat" onClick={startNewChat} style={{ flexShrink: 0, padding: '5px 7px', display: 'flex', alignItems: 'center' }}>
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round"><path d="M12 5v14M5 12h14" /></svg>
+              </button>
+              <button className="btn btn-ghost btn-sm" title="Chat history" onClick={() => { setConversations(listConversations()); setShowHistory((v) => !v); }} style={{ flexShrink: 0, padding: '5px 7px', display: 'flex', alignItems: 'center' }}>
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="8.5" /><path d="M12 7.5V12l3 1.8" /></svg>
+              </button>
             </>
           )}
           {gate === 'ready' && (

@@ -34,8 +34,10 @@ if (typeof document !== 'undefined' && !document.getElementById('tether-face-kf'
       background-size: 100% 100%;
       filter: drop-shadow(0 1px 3px rgba(40, 20, 90, 0.16));
     }
-    /* Hero: drift the gradient through the palette + hover along an infinity path. */
-    .tether-face-hero { animation: tether-face-infinity 6.5s ease-in-out infinite; will-change: transform; }
+    /* Hero: drift the gradient through the palette + hover along an infinity path.
+       LINEAR timing so the motion is continuous (ease-in-out decelerated at every
+       waypoint, which read as a jerky step-stop-step). */
+    .tether-face-hero { animation: tether-face-infinity 7s linear infinite; will-change: transform; }
     .tether-face-hero .tether-face-mask {
       background-size: 280% 280%;
       animation: tether-face-hue 9s ease-in-out infinite;
@@ -45,17 +47,26 @@ if (typeof document !== 'undefined' && !document.getElementById('tether-face-kf'
       50% { background-position: 100% 50%; }
       100% { background-position: 0% 50%; }
     }
-    /* Figure-8 (∞): right loop then left loop, crossing at centre. No rotation. */
+    /* Smooth lemniscate (∞): 16 sampled points of x=A·sin t, y=-A·sin t·cos t so
+       the constant-speed (linear) sweep traces a curve, not an octagon. No rotation. */
     @keyframes tether-face-infinity {
-      0%   { transform: translate(0px, 0px); }
-      12.5%{ transform: translate(20px, -12px); }
-      25%  { transform: translate(28px, 0px); }
-      37.5%{ transform: translate(20px, 12px); }
-      50%  { transform: translate(0px, 0px); }
-      62.5%{ transform: translate(-20px, -12px); }
-      75%  { transform: translate(-28px, 0px); }
-      87.5%{ transform: translate(-20px, 12px); }
-      100% { transform: translate(0px, 0px); }
+      0%     { transform: translate(0px, 0px); }
+      6.25%  { transform: translate(11px, -10px); }
+      12.5%  { transform: translate(20px, -14px); }
+      18.75% { transform: translate(26px, -10px); }
+      25%    { transform: translate(28px, 0px); }
+      31.25% { transform: translate(26px, 10px); }
+      37.5%  { transform: translate(20px, 14px); }
+      43.75% { transform: translate(11px, 10px); }
+      50%    { transform: translate(0px, 0px); }
+      56.25% { transform: translate(-11px, -10px); }
+      62.5%  { transform: translate(-20px, -14px); }
+      68.75% { transform: translate(-26px, -10px); }
+      75%    { transform: translate(-28px, 0px); }
+      81.25% { transform: translate(-26px, 10px); }
+      87.5%  { transform: translate(-20px, 14px); }
+      93.75% { transform: translate(-11px, 10px); }
+      100%   { transform: translate(0px, 0px); }
     }
     @media (prefers-reduced-motion: reduce) {
       .tether-face-hero, .tether-face-hero .tether-face-mask { animation: none !important; }
