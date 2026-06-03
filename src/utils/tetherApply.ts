@@ -17,6 +17,8 @@ export type StagedActionType =
   | 'apply_chain_template' | 'schedule_block'
   // Destructive — gated behind a typed confirmation, never part of "apply all":
   | 'delete_tasks' | 'delete_category' | 'remove_chain_steps' | 'remove_schedule_blocks'
+  // Cross-app write — gated behind a cross-site confirmation, applied server-side:
+  | 'create_binder_page'
   // Immediate, reversible UI/settings/navigation actions (no approval gate):
   | 'set_theme' | 'set_synamon' | 'switch_view' | 'open_sync_settings';
 
@@ -29,6 +31,12 @@ export interface StagedAction {
   immediate?: boolean;
   /** Destructive actions route to the typed-confirmation deletion modal. */
   destructive?: boolean;
+  /** Cross-app writes (e.g. to Binder) route to a cross-site confirmation modal. */
+  crossApp?: boolean;
+}
+
+export function isCrossApp(a: StagedAction): boolean {
+  return !!a.crossApp || a.type === 'create_binder_page';
 }
 
 // Reversible UI/preference/navigation actions that apply without the approval gate.

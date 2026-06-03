@@ -16,9 +16,10 @@ import { TetherEndpoints } from './TetherEndpoints';
 import { TetherMarkdown } from './TetherMarkdown';
 import { AnimatePresence, motion } from 'framer-motion';
 import {
-  applyStagedActions, isImmediate, isDestructive, resolveDeleteTargets, requiredDeletePhrase,
+  applyStagedActions, isImmediate, isDestructive, isCrossApp, resolveDeleteTargets, requiredDeletePhrase,
   type StagedAction, type ApplyResult,
 } from '../../utils/tetherApply';
+import { createBinderPage } from '../../utils/tether';
 import {
   type ChatMsg, type TetherConversation,
   newConversationId, listConversations, getActiveId, setActiveId,
@@ -95,6 +96,9 @@ export function TetherPanel() {
   // Destructive actions are handled one at a time via a typed-confirmation modal —
   // never bundled into "apply all".
   const [deleteQueue, setDeleteQueue] = useState<StagedAction[]>([]);
+  // Cross-app writes (e.g. Binder pages) — confirmed one at a time, applied async.
+  const [crossAppQueue, setCrossAppQueue] = useState<StagedAction[]>([]);
+  const [crossAppBusy, setCrossAppBusy] = useState(false);
   const [showModels, setShowModels] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
 
@@ -141,13 +145,13 @@ export function TetherPanel() {
   const startNewChat = () => {
     const id = newConversationId();
     setConvoId(id); setActiveId(id);
-    setMessages([]); setPending([]); setApplyResults(null); setDeleteQueue([]);
+    setMessages([]); setPending([]); setApplyResults(null); setDeleteQueue([]); setCrossAppQueue([]);
     setError(null); setShowHistory(false); setShowModels(false);
   };
   const switchChat = (id: string) => {
     setConvoId(id); setActiveId(id);
     setMessages(loadConversation(id));
-    setPending([]); setApplyResults(null); setDeleteQueue([]); setError(null); setShowHistory(false);
+    setPending([]); setApplyResults(null); setDeleteQueue([]); setCrossAppQueue([]); setError(null); setShowHistory(false);
   };
   const removeChat = (id: string) => {
     deleteConversation(id);
@@ -169,6 +173,26 @@ export function TetherPanel() {
     setDeleteQueue(rest);
   };
 
+  // Confirm/skip the head of the cross-app queue. Applied SERVER-SIDE (async).
+  const resolveCrossApp = async (apply: boolean) => {
+    const head = crossAppQueue[0];
+    if (apply && head && head.type === 'create_binder_page') {
+      setCrossAppBusy(true);
+      const p = head.payload;
+      const r = await createBinderPage({
+        title: String(p.title), slug: String(p.slug),
+        content_md: p.content_md != null ? String(p.content_md) : '',
+        icon: p.icon != null ? String(p.icon) : undefined,
+      });
+      setCrossAppBusy(false);
+      setApplyResults((prev) => [...(prev || []), {
+        id: head.id, ok: r.ok,
+        message: r.ok ? `Created Binder page${r.url ? ` (${r.url})` : ''}.` : `Skipped — ${r.error || 'Binder write failed'}.`,
+      }]);
+    }
+    setCrossAppQueue((q) => q.slice(1));
+  };
+
   const send = async () => {
     const text = input.trim();
     if (!text || streaming) return;
@@ -177,7 +201,7 @@ export function TetherPanel() {
     // Moving on abandons any unresolved proposals from the previous turn.
     setPending([]);
     setApplyResults(null);
-    setDeleteQueue([]);
+    setDeleteQueue([]); setCrossAppQueue([]);
 
     const history: TetherMessage[] = [
       ...messages.map((m) => ({ role: m.role, content: m.content })),
@@ -223,17 +247,19 @@ export function TetherPanel() {
     // Light: red+flashing on failure/timeout (needs the user); blue otherwise.
     setTetherStatus(!res.ok || sawError ? 'error' : 'ready');
 
-    // Three lanes: immediate (apply now), destructive (typed-confirmation modal,
-    // one at a time), and ordinary data mutations (tickbox approval batch).
+    // Lanes: immediate (apply now), cross-app (cross-site confirm, one at a time),
+    // destructive (typed-confirmation modal), and ordinary mutations (tickbox batch).
     const immediate = staged.filter(isImmediate);
-    const destructive = staged.filter((a) => !isImmediate(a) && isDestructive(a));
-    const needsApproval = staged.filter((a) => !isImmediate(a) && !isDestructive(a));
+    const crossApp = staged.filter((a) => !isImmediate(a) && isCrossApp(a));
+    const destructive = staged.filter((a) => !isImmediate(a) && !isCrossApp(a) && isDestructive(a));
+    const needsApproval = staged.filter((a) => !isImmediate(a) && !isCrossApp(a) && !isDestructive(a));
     if (immediate.length) setApplyResults(applyStagedActions(immediate));
     if (needsApproval.length) {
       setPending(needsApproval);
       setChecked(Object.fromEntries(needsApproval.map((a) => [a.id, true])));
     }
     if (destructive.length) setDeleteQueue(destructive);
+    if (crossApp.length) setCrossAppQueue(crossApp);
 
     if (!res.ok) {
       if (res.reason === 'NO_ENDPOINT') { setGate('no-endpoint'); return; }
@@ -351,6 +377,16 @@ export function TetherPanel() {
             remaining={deleteQueue.length}
             onConfirm={() => resolveDelete(true)}
             onCancel={() => resolveDelete(false)}
+          />
+        )}
+
+        {crossAppQueue.length > 0 && (
+          <CrossAppModal
+            action={crossAppQueue[0]}
+            remaining={crossAppQueue.length}
+            busy={crossAppBusy}
+            onConfirm={() => resolveCrossApp(true)}
+            onCancel={() => resolveCrossApp(false)}
           />
         )}
 
@@ -530,6 +566,54 @@ function ApprovalCard({ actions, checked, onToggle, onApply, onDiscard }: {
           Apply {count > 0 ? count : ''}
         </button>
         <button className="btn btn-ghost btn-sm" onClick={onDiscard}>Discard</button>
+      </div>
+    </div>
+  );
+}
+
+// Cross-site confirmation for a single cross-app write (e.g. a Binder page).
+// Emphasises that this leaves BlockOut and writes to another Syncratic app, so the
+// user is certain what Tether is about to do.
+function CrossAppModal({ action, remaining, busy, onConfirm, onCancel }: {
+  action: StagedAction;
+  remaining: number;
+  busy: boolean;
+  onConfirm: () => void;
+  onCancel: () => void;
+}) {
+  const p = action.payload || {};
+  const accent = 'hsl(250,84%,62%)';
+  const content = String(p.content_md || '');
+  return (
+    <div style={{ position: 'absolute', inset: 0, background: 'rgba(0,0,0,0.45)', zIndex: 5, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }}>
+      <div style={{ background: 'var(--bg-primary)', border: `1px solid ${accent}`, borderRadius: 12, padding: 16, width: '100%', maxWidth: 380, maxHeight: '90%', overflowY: 'auto' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 7, marginBottom: 4 }}>
+          <span style={{ width: 9, height: 9, borderRadius: '50%', background: accent, boxShadow: `0 0 7px ${accent}` }} />
+          <span style={{ fontWeight: 700, fontSize: 14, color: accent }}>Cross-app action</span>
+        </div>
+        <div style={{ fontSize: 12.5, color: 'var(--text-secondary)', lineHeight: 1.5, margin: '6px 0 10px' }}>
+          This leaves BlockOut and writes to your <strong>Binder</strong> app. Make sure you want this before confirming.
+        </div>
+        {remaining > 1 && <div style={{ fontSize: 11, color: 'var(--text-tertiary)', marginBottom: 8 }}>{remaining} cross-app actions queued · confirming one at a time.</div>}
+
+        <div style={{ border: '1px solid var(--border)', borderRadius: 8, padding: 10, background: 'var(--bg-secondary)' }}>
+          <div style={{ fontSize: 11, color: 'var(--text-tertiary)', textTransform: 'uppercase', letterSpacing: 0.5 }}>New Binder page</div>
+          <div style={{ fontSize: 14, fontWeight: 600, margin: '3px 0' }}>{String(p.title || '')}</div>
+          <div style={{ fontSize: 11, fontFamily: 'var(--font-mono, monospace)', color: 'var(--text-tertiary)' }}>/{String(p.slug || '')}</div>
+          {content && (
+            <div style={{ marginTop: 8, fontSize: 11.5, color: 'var(--text-secondary)', whiteSpace: 'pre-wrap', maxHeight: 140, overflowY: 'auto', borderTop: '1px solid var(--border)', paddingTop: 6 }}>
+              {content.length > 600 ? content.slice(0, 600) + '…' : content}
+            </div>
+          )}
+        </div>
+
+        <div style={{ display: 'flex', gap: 8, marginTop: 12 }}>
+          <button className="btn btn-sm" onClick={onConfirm} disabled={busy}
+            style={{ background: accent, color: '#fff', border: 'none', cursor: busy ? 'wait' : 'pointer' }}>
+            {busy ? 'Creating…' : 'Create in Binder'}
+          </button>
+          <button className="btn btn-ghost btn-sm" onClick={onCancel} disabled={busy}>Cancel</button>
+        </div>
       </div>
     </div>
   );

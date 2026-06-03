@@ -225,3 +225,17 @@ export async function deleteEndpoint(id: string): Promise<boolean> {
   const res = await authedFetch(`/api/tether-endpoints?id=${encodeURIComponent(id)}`, { method: 'DELETE' });
   return res.ok;
 }
+
+// ── Cross-app write: create a Binder wiki page (server proxies to Binder's API) ──
+export async function createBinderPage(payload: {
+  title: string; slug: string; content_md?: string; icon?: string;
+}): Promise<{ ok: boolean; error?: string; url?: string }> {
+  const res = await authedFetch('/api/tether-binder', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
+  });
+  const body = await res.json().catch(() => ({}));
+  if (!res.ok) return { ok: false, error: body.error || `HTTP ${res.status}` };
+  return { ok: true, url: body.url };
+}

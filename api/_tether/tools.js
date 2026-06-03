@@ -330,6 +330,8 @@ const WRITE_TOOLS = new Set([
   'propose_create_task', 'propose_update_task', 'propose_update_tasks',
   'propose_rename_category', 'propose_create_category',
   'propose_create_subcategory', 'propose_assign_to_block', 'propose_create_block',
+  // Cross-app write (gated behind a cross-site confirmation on the client).
+  'propose_create_binder_page',
   // Task Chains (daily plans).
   'propose_add_chain_steps', 'propose_add_tasks_to_chain', 'propose_complete_chain_step',
   'propose_apply_chain_template',
@@ -409,6 +411,20 @@ function buildStagedAction(name, input) {
       const currentName = reqStr(i.currentName, 'currentName');
       const newName = reqStr(i.newName, 'newName');
       return { id: newId(), type: 'rename_category', summary: `Rename category “${currentName}” → “${newName}”`, payload: { currentName, newName } };
+    }
+    case 'propose_create_binder_page': {
+      const title = reqStr(i.title, 'title');
+      // Slug: given, or derived from the title (lowercase, hyphenated).
+      const slug = (i.slug ? String(i.slug) : title).toLowerCase().trim()
+        .replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 80) || 'page';
+      const content_md = i.content_md != null ? String(i.content_md) : '';
+      return {
+        id: newId(),
+        type: 'create_binder_page',
+        crossApp: true,
+        summary: `Create a Binder wiki page “${title}”`,
+        payload: { title, slug, content_md, icon: i.icon ? String(i.icon) : undefined },
+      };
     }
     case 'propose_create_category': {
       const name2 = reqStr(i.name, 'name');
@@ -919,7 +935,30 @@ function requireReadBeforeWrite(seen, name, input) {
   return null;
 }
 
+// Cross-app write tool definitions — kept SEPARATE so the agent only exposes them
+// when cross-app is enabled (loose coupling: cross-app could become a Pro feature
+// behind a single server-side gate). buildStagedAction/WRITE_TOOLS still handle it.
+const binderWriteToolDefinitions = [
+  {
+    type: 'function',
+    function: {
+      name: 'propose_create_binder_page',
+      description: "PROPOSE creating a page in the user's Binder wiki (a CROSS-APP write to their sibling notes app). Staged — the user must confirm a cross-site action before it's created. Write the page body as markdown. Use when the user explicitly asks to save/create something in Binder.",
+      parameters: {
+        type: 'object',
+        properties: {
+          title: { type: 'string' },
+          slug: { type: 'string', description: 'Optional URL slug (lowercase-hyphenated); derived from title if omitted.' },
+          content_md: { type: 'string', description: 'The page content as markdown.' },
+          icon: { type: 'string' },
+        },
+        required: ['title'],
+      },
+    },
+  },
+];
+
 module.exports = {
-  toolDefinitions, executeReadTool, writeToolDefinitions, buildStagedAction, WRITE_TOOLS,
-  recordRead, requireReadBeforeWrite,
+  toolDefinitions, executeReadTool, writeToolDefinitions, binderWriteToolDefinitions,
+  buildStagedAction, WRITE_TOOLS, recordRead, requireReadBeforeWrite,
 };

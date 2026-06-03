@@ -52,6 +52,14 @@ function setCors(res) {
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
 }
 
+// Whether cross-app (Binder) interop is enabled for this user. Currently on for
+// everyone; this is the single hook to gate behind Syncratic Pro later
+// (e.g. look up the user's subscription here).
+function crossAppEnabled(_user) {
+  if (process.env.TETHER_CROSS_APP === 'off') return false;
+  return true;
+}
+
 module.exports = async (req, res) => {
   setCors(res);
   if (req.method === 'OPTIONS') return res.status(200).end();
@@ -94,9 +102,11 @@ module.exports = async (req, res) => {
     try { res.write(`event: ${event.type}\ndata: ${JSON.stringify(event.data)}\n\n`); } catch { /* client gone */ }
   };
 
-  // Cross-app context: the same service-role client (owner-scoped in the tools)
-  // lets Tether read the user's Binder wiki from the shared Supabase.
-  const binderCtx = { supabase: sb, ownerId: user.id };
+  // Cross-app gate — the SINGLE place that enables Binder interop. Loosely
+  // coupled: cross-app may become a Syncratic Pro feature, so this is the one
+  // check to turn into a subscription lookup. When disabled, the agent never even
+  // exposes the Binder tools (binderCtx is null).
+  const binderCtx = crossAppEnabled(user) ? { supabase: sb, ownerId: user.id } : null;
 
   try {
     await runAgentLoopStreaming(snapshot, endpoint, messages, send, resume, binderCtx);

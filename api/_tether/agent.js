@@ -5,10 +5,17 @@
 
 const OpenAI = require('openai');
 const { SYSTEM_PROMPT } = require('./prompt');
-const { toolDefinitions, executeReadTool, writeToolDefinitions, buildStagedAction, WRITE_TOOLS, recordRead, requireReadBeforeWrite } = require('./tools');
+const { toolDefinitions, executeReadTool, writeToolDefinitions, binderWriteToolDefinitions, buildStagedAction, WRITE_TOOLS, recordRead, requireReadBeforeWrite } = require('./tools');
 const { BINDER_READ_TOOLS, binderToolDefinitions, executeBinderRead } = require('./binder');
 
-const ALL_TOOLS = [...toolDefinitions, ...binderToolDefinitions, ...writeToolDefinitions];
+const BASE_TOOLS = [...toolDefinitions, ...writeToolDefinitions];
+// Cross-app write tool names — rejected at staging time when cross-app is off.
+const CROSS_APP_WRITE_TOOLS = new Set(['propose_create_binder_page']);
+// Cross-app (Binder) tools are exposed ONLY when binderCtx is supplied — the
+// single gate (the route decides via crossAppEnabled, ready to become a Pro flag).
+function toolsFor(binderCtx) {
+  return binderCtx ? [...BASE_TOOLS, ...binderToolDefinitions, ...binderWriteToolDefinitions] : BASE_TOOLS;
+}
 
 // Per-hop tool-iteration budget — kept MODEST on purpose: a weak BYOK model can
 // flail, and a tight cap bounds the damage per invocation. Genuine long work
@@ -98,7 +105,7 @@ async function runAgentLoopStreaming(snapshot, endpoint, conversationHistory, on
       response = await client.chat.completions.create({
         model: endpoint.model_id,
         max_tokens: MAX_TOKENS,
-        tools: ALL_TOOLS,
+        tools: toolsFor(binderCtx),
         messages,
       });
     } catch (err) {
@@ -132,6 +139,15 @@ async function runAgentLoopStreaming(snapshot, endpoint, conversationHistory, on
 
       let result, isError = false;
       if (WRITE_TOOLS.has(call.function.name)) {
+        // Cross-app writes are off unless cross-app is enabled — don't stage even
+        // if a model hallucinates the (un-exposed) tool name.
+        if (CROSS_APP_WRITE_TOOLS.has(call.function.name) && !binderCtx) {
+          isError = true;
+          result = { error: 'Cross-app (Binder) actions are not enabled for this user.' };
+          messages.push({ role: 'tool', tool_call_id: call.id, content: JSON.stringify(result) });
+          onEvent({ type: 'tool_result', data: { tool: call.function.name, error: result.error } });
+          continue;
+        }
         // Read-before-edit: chain/Weekview writes must follow the matching read.
         const gate = requireReadBeforeWrite(seen, call.function.name, args);
         if (gate) {
@@ -154,7 +170,9 @@ async function runAgentLoopStreaming(snapshot, endpoint, conversationHistory, on
                 summary: action.summary,
                 note: action.destructive
                   ? 'Queued — the user must confirm this DELETION by typing a confirmation phrase. Not yet applied.'
-                  : 'Queued for the user to approve. Not yet applied.',
+                  : action.crossApp
+                    ? 'Queued — this is a CROSS-APP write to Binder; the user must confirm a cross-site action before it happens. Not yet applied.'
+                    : 'Queued for the user to approve. Not yet applied.',
               };
         } catch (e) {
           isError = true;
