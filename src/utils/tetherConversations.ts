@@ -5,9 +5,12 @@
 // Binder's copy — deferred).
 
 export interface ChatMsg {
-  role: 'user' | 'assistant';
+  // 'applied' = an outcome record of changes Tether applied (persisted so the
+  // history of what changed survives across messages/reloads).
+  role: 'user' | 'assistant' | 'applied';
   content: string;
   tools?: string[];
+  applied?: { ok: boolean; message: string }[];
 }
 
 export interface TetherConversation {

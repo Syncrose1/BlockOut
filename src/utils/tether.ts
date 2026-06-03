@@ -51,6 +51,7 @@ export interface TetherMessage {
 }
 
 export type TetherEvent =
+  | { type: 'delta'; data: string }
   | { type: 'thinking'; data: string }
   | { type: 'tool_call'; data: { name: string; input: unknown } }
   | { type: 'tool_result'; data: { tool: string; error?: string } }

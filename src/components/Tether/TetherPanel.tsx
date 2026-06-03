@@ -43,6 +43,8 @@ if (typeof document !== 'undefined' && !document.getElementById('tether-pulse-kf
       100% { box-shadow: 0 0 54px 30px hsla(250,84%,62%,0); }
     }
     @media (prefers-reduced-motion: reduce) { .tether-glow { animation: none !important; box-shadow: none !important; } }
+    @keyframes tether-spin { to { transform: rotate(360deg); } }
+    @keyframes tether-bounce { 0%,100% { opacity: 0.3; transform: translateY(0); } 50% { opacity: 1; transform: translateY(-3px); } }
   `;
   document.head.appendChild(el);
 }
@@ -87,12 +89,12 @@ export function TetherPanel() {
   const [input, setInput] = useState('');
   const [streaming, setStreaming] = useState(false);
   const [streamText, setStreamText] = useState('');
-  const [activeTools, setActiveTools] = useState<string[]>([]);
+  // Live tool-call boxes: each step shows running → done/error.
+  const [toolSteps, setToolSteps] = useState<{ id: number; label: string; status: 'run' | 'done' | 'error' }[]>([]);
   const [error, setError] = useState<string | null>(null);
   // Staged proposals awaiting approval (batch + per-item tickboxes).
   const [pending, setPending] = useState<StagedAction[]>([]);
   const [checked, setChecked] = useState<Record<string, boolean>>({});
-  const [applyResults, setApplyResults] = useState<ApplyResult[] | null>(null);
   // Destructive actions are handled one at a time via a typed-confirmation modal —
   // never bundled into "apply all".
   const [deleteQueue, setDeleteQueue] = useState<StagedAction[]>([]);
@@ -123,7 +125,7 @@ export function TetherPanel() {
 
   useEffect(() => {
     scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: 'smooth' });
-  }, [messages, streamText, activeTools, pending, applyResults]);
+  }, [messages, streamText, toolSteps, pending]);
 
   // ── Conversation persistence (localStorage) ──
   // On open, restore the active conversation's messages.
@@ -145,13 +147,13 @@ export function TetherPanel() {
   const startNewChat = () => {
     const id = newConversationId();
     setConvoId(id); setActiveId(id);
-    setMessages([]); setPending([]); setApplyResults(null); setDeleteQueue([]); setCrossAppQueue([]);
+    setMessages([]); setPending([]); setDeleteQueue([]); setCrossAppQueue([]);
     setError(null); setShowHistory(false); setShowModels(false);
   };
   const switchChat = (id: string) => {
     setConvoId(id); setActiveId(id);
     setMessages(loadConversation(id));
-    setPending([]); setApplyResults(null); setDeleteQueue([]); setCrossAppQueue([]); setError(null); setShowHistory(false);
+    setPending([]); setDeleteQueue([]); setCrossAppQueue([]); setError(null); setShowHistory(false);
   };
   const removeChat = (id: string) => {
     deleteConversation(id);
@@ -159,17 +161,24 @@ export function TetherPanel() {
     if (id === convoId) startNewChat();
   };
 
+  // Apply outcomes are appended to the conversation as 'applied' messages so the
+  // record of what changed PERSISTS (it used to live in transient state that was
+  // wiped on the next send).
+  const appendApplied = (results: ApplyResult[]) => {
+    if (!results.length) return;
+    setMessages((prev) => [...prev, { role: 'applied', content: '', applied: results.map((r) => ({ ok: r.ok, message: r.message })) }]);
+  };
+
   const applyApproved = () => {
     const approved = pending.filter((a) => checked[a.id]);
-    const results = approved.length ? applyStagedActions(approved) : [];
-    setApplyResults((prev) => [...(prev || []), ...results]);
+    if (approved.length) appendApplied(applyStagedActions(approved));
     setPending([]);
   };
 
   // Confirm (apply) or skip the head of the destructive queue, then advance.
   const resolveDelete = (apply: boolean) => {
     const [head, ...rest] = deleteQueue;
-    if (apply && head) setApplyResults((prev) => [...(prev || []), ...applyStagedActions([head])]);
+    if (apply && head) appendApplied(applyStagedActions([head]));
     setDeleteQueue(rest);
   };
 
@@ -185,7 +194,7 @@ export function TetherPanel() {
         icon: p.icon != null ? String(p.icon) : undefined,
       });
       setCrossAppBusy(false);
-      setApplyResults((prev) => [...(prev || []), {
+      appendApplied([{
         id: head.id, ok: r.ok,
         message: r.ok ? `Created Binder page${r.url ? ` (${r.url})` : ''}.` : `Skipped — ${r.error || 'Binder write failed'}.`,
       }]);
@@ -200,39 +209,61 @@ export function TetherPanel() {
     setInput('');
     // Moving on abandons any unresolved proposals from the previous turn.
     setPending([]);
-    setApplyResults(null);
+
     setDeleteQueue([]); setCrossAppQueue([]);
 
     const history: TetherMessage[] = [
-      ...messages.map((m) => ({ role: m.role, content: m.content })),
+      // Only real dialogue goes to the model; 'applied' records are UI-only.
+      ...messages
+        .filter((m): m is ChatMsg & { role: 'user' | 'assistant' } => m.role === 'user' || m.role === 'assistant')
+        .map((m) => ({ role: m.role, content: m.content })),
       { role: 'user', content: text },
     ];
     setMessages((prev) => [...prev, { role: 'user', content: text }]);
     setStreaming(true);
     setStreamText('');
-    setActiveTools([]);
+    setToolSteps([]);
     setTetherStatus('working'); // blue + flashing while the request runs
 
     const toolsUsed: string[] = [];
     const staged: StagedAction[] = [];
     let finalText = '';
+    let streamBuf = '';
+    let stepId = 0;
     let sawError = false;
 
     const res = await streamTether(history, (e: TetherEvent) => {
       switch (e.type) {
-        case 'thinking':
-          finalText = e.data;
-          setStreamText(e.data);
+        case 'delta':
+          streamBuf += e.data;
+          setStreamText(streamBuf);
           break;
-        case 'tool_call':
+        case 'thinking': // legacy non-streaming fallback
+          streamBuf = e.data;
+          setStreamText(streamBuf);
+          break;
+        case 'tool_call': {
           toolsUsed.push(e.data.name);
-          setActiveTools((t) => [...t, e.data.name]);
+          const id = stepId++;
+          setToolSteps((s) => [...s, { id, label: toolLabel(e.data.name), status: 'run' }]);
+          break;
+        }
+        case 'tool_result':
+          // Mark the most recent running step for this tool as done/error.
+          setToolSteps((s) => {
+            const i = [...s].reverse().findIndex((x) => x.status === 'run' && x.label === toolLabel(e.data.tool));
+            if (i < 0) return s;
+            const idx = s.length - 1 - i;
+            const next = [...s];
+            next[idx] = { ...next[idx], status: e.data.error ? 'error' : 'done' };
+            return next;
+          });
           break;
         case 'staged_action':
           staged.push(e.data);
           break;
         case 'complete':
-          finalText = e.data.response || finalText;
+          finalText = e.data.response || streamBuf || finalText;
           break;
         case 'error':
           sawError = true;
@@ -243,23 +274,9 @@ export function TetherPanel() {
 
     setStreaming(false);
     setStreamText('');
-    setActiveTools([]);
+    setToolSteps([]);
     // Light: red+flashing on failure/timeout (needs the user); blue otherwise.
     setTetherStatus(!res.ok || sawError ? 'error' : 'ready');
-
-    // Lanes: immediate (apply now), cross-app (cross-site confirm, one at a time),
-    // destructive (typed-confirmation modal), and ordinary mutations (tickbox batch).
-    const immediate = staged.filter(isImmediate);
-    const crossApp = staged.filter((a) => !isImmediate(a) && isCrossApp(a));
-    const destructive = staged.filter((a) => !isImmediate(a) && !isCrossApp(a) && isDestructive(a));
-    const needsApproval = staged.filter((a) => !isImmediate(a) && !isCrossApp(a) && !isDestructive(a));
-    if (immediate.length) setApplyResults(applyStagedActions(immediate));
-    if (needsApproval.length) {
-      setPending(needsApproval);
-      setChecked(Object.fromEntries(needsApproval.map((a) => [a.id, true])));
-    }
-    if (destructive.length) setDeleteQueue(destructive);
-    if (crossApp.length) setCrossAppQueue(crossApp);
 
     if (!res.ok) {
       if (res.reason === 'NO_ENDPOINT') { setGate('no-endpoint'); return; }
@@ -267,9 +284,26 @@ export function TetherPanel() {
       if (!error) setError(res.error || 'Tether request failed.');
       return;
     }
+
+    // Assistant text first, then the lanes (so an "I switched the theme" line
+    // precedes its applied-outcome record).
     if (finalText) {
       setMessages((prev) => [...prev, { role: 'assistant', content: finalText, tools: toolsUsed.length ? toolsUsed : undefined }]);
     }
+
+    // Lanes: immediate (apply now), cross-app (cross-site confirm, one at a time),
+    // destructive (typed-confirmation modal), and ordinary mutations (tickbox batch).
+    const immediate = staged.filter(isImmediate);
+    const crossApp = staged.filter((a) => !isImmediate(a) && isCrossApp(a));
+    const destructive = staged.filter((a) => !isImmediate(a) && !isCrossApp(a) && isDestructive(a));
+    const needsApproval = staged.filter((a) => !isImmediate(a) && !isCrossApp(a) && !isDestructive(a));
+    if (immediate.length) appendApplied(applyStagedActions(immediate));
+    if (needsApproval.length) {
+      setPending(needsApproval);
+      setChecked(Object.fromEntries(needsApproval.map((a) => [a.id, true])));
+    }
+    if (destructive.length) setDeleteQueue(destructive);
+    if (crossApp.length) setCrossAppQueue(crossApp);
   };
 
   return (
@@ -412,7 +446,9 @@ export function TetherPanel() {
                   Ask about your tasks, plan your week, or have me tidy things up. Just say the word.
                 </div>
               </div>
-              {messages.map((m, i) => <Bubble key={i} msg={m} />)}
+              {messages.map((m, i) => m.role === 'applied'
+                ? <AppliedCard key={i} results={m.applied || []} />
+                : <Bubble key={i} msg={m} />)}
 
               {pending.length > 0 && (
                 <ApprovalCard
@@ -424,27 +460,16 @@ export function TetherPanel() {
                 />
               )}
 
-              {applyResults && applyResults.length > 0 && (
-                <div style={{ border: '1px solid var(--border)', borderRadius: 10, padding: 12, background: 'var(--bg-secondary)' }}>
-                  <div style={{ fontSize: 12, fontWeight: 700, marginBottom: 8 }}>
-                    Applied {applyResults.filter((r) => r.ok).length}/{applyResults.length}
-                  </div>
-                  {applyResults.map((r) => (
-                    <div key={r.id} style={{ fontSize: 12, color: r.ok ? 'var(--text-secondary)' : 'hsl(35,90%,45%)', display: 'flex', gap: 6, marginBottom: 3 }}>
-                      <span>{r.ok ? '✓' : '⚠'}</span><span>{r.message}</span>
-                    </div>
-                  ))}
-                </div>
-              )}
-
               {streaming && (
                 <div>
-                  {activeTools.length > 0 && (
-                    <div style={{ fontSize: 11, color: 'var(--text-tertiary)', marginBottom: 6, fontStyle: 'italic' }}>
-                      {toolLabels(activeTools).join(' · ')}…
+                  {toolSteps.length > 0 && (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 4, marginBottom: 8 }}>
+                      {toolSteps.map((s) => <ToolStepBox key={s.id} label={s.label} status={s.status} />)}
                     </div>
                   )}
-                  <Bubble msg={{ role: 'assistant', content: streamText || '…' }} streaming />
+                  {streamText
+                    ? <Bubble msg={{ role: 'assistant', content: streamText }} streaming />
+                    : toolSteps.length === 0 && <ThinkingDots />}
                 </div>
               )}
               {error && <div style={{ fontSize: 12, color: 'hsl(0,72%,55%)' }}>{error}</div>}
@@ -476,6 +501,35 @@ export function TetherPanel() {
   );
 }
 
+// A live tool-call box: spinner while running, check when done, warning on error.
+function ToolStepBox({ label, status }: { label: string; status: 'run' | 'done' | 'error' }) {
+  const color = status === 'error' ? 'hsl(35,90%,45%)' : status === 'done' ? 'hsl(140,55%,45%)' : 'var(--accent)';
+  return (
+    <div style={{
+      display: 'flex', alignItems: 'center', gap: 8, padding: '6px 10px',
+      borderRadius: 8, border: '1px solid var(--border)', background: 'var(--bg-secondary)',
+      fontSize: 12, color: 'var(--text-secondary)', alignSelf: 'flex-start', maxWidth: '90%',
+    }}>
+      {status === 'run' ? (
+        <span style={{ width: 12, height: 12, flexShrink: 0, border: '2px solid var(--border)', borderTopColor: color, borderRadius: '50%', animation: 'tether-spin 0.7s linear infinite' }} />
+      ) : (
+        <span style={{ flexShrink: 0, color, fontSize: 12, fontWeight: 700, width: 12, textAlign: 'center' }}>{status === 'done' ? '✓' : '⚠'}</span>
+      )}
+      <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{label}</span>
+    </div>
+  );
+}
+
+function ThinkingDots() {
+  return (
+    <div style={{ display: 'flex', gap: 4, padding: '8px 12px', alignSelf: 'flex-start' }}>
+      {[0, 1, 2].map((i) => (
+        <span key={i} style={{ width: 6, height: 6, borderRadius: '50%', background: 'var(--text-tertiary)', animation: `tether-bounce 1.2s ease-in-out ${i * 0.15}s infinite` }} />
+      ))}
+    </div>
+  );
+}
+
 // Consistent square ghost icon button for the header (stroke="currentColor").
 function IconBtn({ title, onClick, children, round }: {
   title: string; onClick: () => void; children: React.ReactNode; round?: boolean;
@@ -495,6 +549,24 @@ function Centered({ children }: { children: React.ReactNode }) {
   return (
     <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24, textAlign: 'center', color: 'var(--text-secondary)', fontSize: 13, lineHeight: 1.6 }}>
       {children}
+    </div>
+  );
+}
+
+// Persisted record of changes Tether applied (survives across messages/reloads).
+function AppliedCard({ results }: { results: { ok: boolean; message: string }[] }) {
+  if (!results.length) return null;
+  const ok = results.filter((r) => r.ok).length;
+  return (
+    <div style={{ border: '1px solid var(--border)', borderRadius: 10, padding: 12, background: 'var(--bg-secondary)' }}>
+      <div style={{ fontSize: 12, fontWeight: 700, marginBottom: 8, color: 'hsl(140,55%,42%)' }}>
+        ✓ Applied {ok}/{results.length}
+      </div>
+      {results.map((r, i) => (
+        <div key={i} style={{ fontSize: 12, color: r.ok ? 'var(--text-secondary)' : 'hsl(35,90%,45%)', display: 'flex', gap: 6, marginBottom: 3 }}>
+          <span>{r.ok ? '✓' : '⚠'}</span><span>{r.message}</span>
+        </div>
+      ))}
     </div>
   );
 }

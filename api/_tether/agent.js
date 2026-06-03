@@ -35,6 +35,40 @@ function createClient(endpoint) {
   return new OpenAI({ apiKey: endpoint.api_key, baseURL: endpoint.base_url });
 }
 
+// Stream a chat completion, calling onDelta(text) for each content chunk, and
+// reconstruct the final assistant message (content + tool_calls). Tool-call
+// fragments arrive piecemeal across chunks and are stitched by index.
+async function streamCompletion(client, params, onDelta) {
+  const stream = await client.chat.completions.create({ ...params, stream: true });
+  let content = '';
+  const toolCallsByIndex = new Map(); // index -> { id, type, function: { name, arguments } }
+  let finishReason = null;
+
+  for await (const chunk of stream) {
+    const choice = chunk.choices && chunk.choices[0];
+    if (!choice) continue;
+    const delta = choice.delta || {};
+    if (delta.content) { content += delta.content; onDelta(delta.content); }
+    if (Array.isArray(delta.tool_calls)) {
+      for (const tc of delta.tool_calls) {
+        const idx = tc.index ?? 0;
+        const acc = toolCallsByIndex.get(idx) || { id: undefined, type: 'function', function: { name: '', arguments: '' } };
+        if (tc.id) acc.id = tc.id;
+        if (tc.type) acc.type = tc.type;
+        if (tc.function?.name) acc.function.name += tc.function.name;
+        if (tc.function?.arguments) acc.function.arguments += tc.function.arguments;
+        toolCallsByIndex.set(idx, acc);
+      }
+    }
+    if (choice.finish_reason) finishReason = choice.finish_reason;
+  }
+
+  const tool_calls = [...toolCallsByIndex.entries()].sort((a, b) => a[0] - b[0]).map(([, v]) => v);
+  const assistant = { role: 'assistant', content: content || null };
+  if (tool_calls.length) assistant.tool_calls = tool_calls;
+  return { assistant, finishReason };
+}
+
 // Inject the data snapshot summary once, before the first user message, so the
 // model knows the shape/scale without us dumping every record.
 function snapshotPreamble(snapshot) {
@@ -100,32 +134,24 @@ async function runAgentLoopStreaming(snapshot, endpoint, conversationHistory, on
       return;
     }
 
-    let response;
+    let assistant, finishReason;
     try {
-      response = await client.chat.completions.create({
-        model: endpoint.model_id,
-        max_tokens: MAX_TOKENS,
-        tools: toolsFor(binderCtx),
-        messages,
-      });
+      // Stream the model: emit incremental `delta` text and accumulate tool-call
+      // fragments into a final assistant message.
+      ({ assistant, finishReason } = await streamCompletion(
+        client,
+        { model: endpoint.model_id, max_tokens: MAX_TOKENS, tools: toolsFor(binderCtx), messages },
+        (text) => onEvent({ type: 'delta', data: text }),
+      ));
     } catch (err) {
       onEvent({ type: 'error', data: { error: modelError(err) } });
       return;
     }
 
-    const choice = response.choices && response.choices[0];
-    if (!choice) {
-      onEvent({ type: 'error', data: { error: 'No response from model.' } });
-      return;
-    }
-
-    const assistant = choice.message;
     messages.push(assistant);
 
-    if (assistant.content) onEvent({ type: 'thinking', data: assistant.content });
-
     const toolCalls = assistant.tool_calls;
-    if (!toolCalls || toolCalls.length === 0 || choice.finish_reason === 'stop') {
+    if (!toolCalls || toolCalls.length === 0 || finishReason === 'stop') {
       onEvent({ type: 'complete', data: { response: assistant.content || '' } });
       return;
     }
