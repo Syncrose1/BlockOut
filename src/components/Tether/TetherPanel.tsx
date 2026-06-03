@@ -25,6 +25,23 @@ import {
   saveConversation, loadConversation, deleteConversation,
 } from '../../utils/tetherConversations';
 
+// Border wave-pulse keyframes (injected once). A faint blue-purple ring expands
+// from the panel edge and fades within the first ~half of the cycle, then rests.
+if (typeof document !== 'undefined' && !document.getElementById('tether-pulse-kf')) {
+  const el = document.createElement('style');
+  el.id = 'tether-pulse-kf';
+  el.textContent = `
+    .tether-pulse { animation: tether-pulse 3.4s ease-out infinite; }
+    @keyframes tether-pulse {
+      0%   { box-shadow: 0 0 0 0 hsla(250,84%,62%,0.26); }
+      45%  { box-shadow: 0 0 0 16px hsla(250,84%,62%,0); }
+      100% { box-shadow: 0 0 0 16px hsla(250,84%,62%,0); }
+    }
+    @media (prefers-reduced-motion: reduce) { .tether-pulse { animation: none !important; } }
+  `;
+  document.head.appendChild(el);
+}
+
 type Gate = 'loading' | 'signed-out' | 'no-endpoint' | 'ready';
 
 // Vague, friendly activity labels so raw tool names never leak into the UI.
@@ -233,6 +250,20 @@ export function TetherPanel() {
         transition={{ duration: 0.2 }}
         style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.28)', backdropFilter: 'blur(1.5px)', zIndex: 1400 }}
       />
+      {/* Border wave-pulse: a faint ring that emanates outward from the panel's
+          edge and fades quickly, on a loop. A separate fixed element (NOT inside
+          the panel's overflow:hidden) so its expanding box-shadow isn't clipped;
+          sits just behind the panel. */}
+      <motion.div
+        initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+        transition={{ duration: 0.2 }}
+        className="tether-pulse"
+        style={{
+          position: 'fixed', top: 16, right: 16, bottom: 16,
+          width: 'min(420px, calc(100vw - 32px))',
+          borderRadius: 'var(--radius-lg, 16px)', zIndex: 1401, pointerEvents: 'none',
+        }}
+      />
       <motion.div
         // Fade + gentle scale/slide, matching BlockOut's modal motion.
         initial={{ opacity: 0, scale: 0.96, x: 12 }}
@@ -246,40 +277,42 @@ export function TetherPanel() {
         width: 'min(420px, calc(100vw - 32px))',
         background: 'var(--bg-primary)', border: '1px solid var(--border)',
         borderRadius: 'var(--radius-lg, 16px)', overflow: 'hidden',
-        boxShadow: '0 24px 64px rgba(0,0,0,0.22)', zIndex: 1401,
+        boxShadow: '0 24px 64px rgba(0,0,0,0.22)', zIndex: 1402,
         display: 'flex', flexDirection: 'column',
       }}>
-        {/* Header — lively hero band */}
+        {/* Header — slim single-row band */}
         <div style={{
-          position: 'relative', overflow: 'hidden',
-          display: 'flex', alignItems: 'center', gap: 12, padding: '16px 14px 16px 18px',
+          position: 'relative',
+          display: 'flex', alignItems: 'center', gap: 10, padding: '12px 12px 12px 16px',
           borderBottom: '1px solid var(--border)',
-          background: 'radial-gradient(120% 140% at 0% 0%, var(--bg-secondary), var(--bg-primary) 70%)',
+          background: 'radial-gradient(130% 160% at 0% 0%, var(--bg-secondary), var(--bg-primary) 72%)',
         }}>
-          <TetherFace size={42} />
-          <div style={{ flex: 1, minWidth: 0 }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
-              <span style={{ fontWeight: 700, fontSize: 16, letterSpacing: '-0.01em' }}>{showModels ? 'Tether models' : 'Tether'}</span>
-              <TetherLight size={8} />
-            </div>
-            <div style={{ fontSize: 11.5, color: 'var(--text-tertiary)', marginTop: 1 }}>{showModels ? 'Your connected AI models' : 'Your Syncratic AI assistant'}</div>
-          </div>
+          <TetherFace size={32} />
+          <span style={{ fontWeight: 700, fontSize: 15.5, letterSpacing: '-0.01em' }}>{showModels ? 'Tether models' : 'Tether'}</span>
+          <TetherLight size={7} />
+          <div style={{ flex: 1 }} />
+          {/* Action cluster */}
           {gate === 'ready' && !showModels && (
             <>
-              <button className="btn btn-ghost btn-sm" title="New chat" onClick={startNewChat} style={{ flexShrink: 0, padding: '5px 7px', display: 'flex', alignItems: 'center' }}>
-                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round"><path d="M12 5v14M5 12h14" /></svg>
-              </button>
-              <button className="btn btn-ghost btn-sm" title="Chat history" onClick={() => { setConversations(listConversations()); setShowHistory((v) => !v); }} style={{ flexShrink: 0, padding: '5px 7px', display: 'flex', alignItems: 'center' }}>
-                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="8.5" /><path d="M12 7.5V12l3 1.8" /></svg>
-              </button>
+              <IconBtn title="New chat" onClick={startNewChat}>
+                <path d="M12 5v14M5 12h14" />
+              </IconBtn>
+              <IconBtn title="Chat history" onClick={() => { setConversations(listConversations()); setShowHistory((v) => !v); }} round>
+                <circle cx="12" cy="12" r="8.5" /><path d="M12 7.5V12l3 1.8" />
+              </IconBtn>
             </>
           )}
           {gate === 'ready' && (
-            <button className="btn btn-ghost btn-sm" title="Manage models" onClick={() => { setShowModels((v) => !v); setShowHistory(false); }} style={{ flexShrink: 0 }}>
-              {showModels ? '← Chat' : 'Models'}
-            </button>
+            <IconBtn title={showModels ? 'Back to chat' : 'Manage models'} onClick={() => { setShowModels((v) => !v); setShowHistory(false); }}>
+              {showModels
+                ? <path d="M15 18l-6-6 6-6" />
+                : <><circle cx="12" cy="12" r="2.6" /><path d="M19.4 13.5a1.7 1.7 0 0 0 .34 1.87l.05.05a2 2 0 1 1-2.83 2.83l-.05-.05a1.7 1.7 0 0 0-2.87 1.2V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-2.87-1.2l-.05.05a2 2 0 1 1-2.83-2.83l.05-.05A1.7 1.7 0 0 0 4.6 13.5H4.5a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.2-2.87l-.05-.05A2 2 0 1 1 8.58 3.8l.05.05a1.7 1.7 0 0 0 1.87.34H10.6a1.7 1.7 0 0 0 1-1.55V2.5a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 2.87 1.2l.05-.05a2 2 0 1 1 2.83 2.83l-.05.05a1.7 1.7 0 0 0-.34 1.87V8.6a1.7 1.7 0 0 0 1.55 1H21.5a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.55 1z" /></>}
+            </IconBtn>
           )}
-          <button className="btn btn-ghost btn-sm" onClick={() => setOpen(false)} style={{ flexShrink: 0 }}>✕</button>
+          <div style={{ width: 1, height: 20, background: 'var(--border)', margin: '0 2px', flexShrink: 0 }} />
+          <IconBtn title="Close" onClick={() => setOpen(false)}>
+            <path d="M18 6 6 18M6 6l12 12" />
+          </IconBtn>
         </div>
 
         {/* Chat history dropdown */}
@@ -313,7 +346,7 @@ export function TetherPanel() {
 
         {/* Body */}
         {gate === 'loading' && <Centered>Loading…</Centered>}
-        {gate === 'signed-out' && <Centered>Sign in (Cloud Sync) to use Tether — it uses your own AI model + key.</Centered>}
+        {gate === 'signed-out' && <Centered>Sign in (Cloud Sync) to use Tether. It uses your own AI model + key.</Centered>}
         {gate === 'no-endpoint' && <TetherEndpoints onChanged={refreshGate} />}
         {gate === 'ready' && showModels && <TetherEndpoints onChanged={refreshGate} />}
         {gate === 'ready' && !showModels && (
@@ -330,7 +363,7 @@ export function TetherPanel() {
               }}>
                 <TetherFace size={96} variant="hero" />
                 <div style={{ color: 'var(--text-tertiary)', fontSize: 12.5, textAlign: 'center', maxWidth: 250, lineHeight: 1.6 }}>
-                  Ask about your tasks, plan your week, or have me tidy things up — just say the word.
+                  Ask about your tasks, plan your week, or have me tidy things up. Just say the word.
                 </div>
               </div>
               {messages.map((m, i) => <Bubble key={i} msg={m} />)}
@@ -397,6 +430,21 @@ export function TetherPanel() {
   );
 }
 
+// Consistent square ghost icon button for the header (stroke="currentColor").
+function IconBtn({ title, onClick, children, round }: {
+  title: string; onClick: () => void; children: React.ReactNode; round?: boolean;
+}) {
+  return (
+    <button className="btn btn-ghost btn-sm" title={title} onClick={onClick}
+      style={{ flexShrink: 0, width: 30, height: 30, padding: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+        strokeWidth={round ? 1.7 : 1.8} strokeLinecap="round" strokeLinejoin="round">
+        {children}
+      </svg>
+    </button>
+  );
+}
+
 function Centered({ children }: { children: React.ReactNode }) {
   return (
     <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24, textAlign: 'center', color: 'var(--text-secondary)', fontSize: 13, lineHeight: 1.6 }}>
@@ -448,7 +496,7 @@ function ApprovalCard({ actions, checked, onToggle, onApply, onDiscard }: {
   return (
     <div style={{ border: '1px solid var(--accent)', borderRadius: 12, padding: 12, background: 'var(--bg-secondary)' }}>
       <div style={{ fontSize: 12, fontWeight: 700, marginBottom: 10 }}>
-        Tether proposes {actions.length} change{actions.length > 1 ? 's' : ''} — review &amp; approve
+        Tether proposes {actions.length} change{actions.length > 1 ? 's' : ''} · review &amp; approve
       </div>
       <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
         {actions.map((a) => {
@@ -495,7 +543,7 @@ function DeletionModal({ action, remaining, onConfirm, onCancel }: {
     <div style={{ position: 'absolute', inset: 0, background: 'rgba(0,0,0,0.45)', zIndex: 5, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }}>
       <div style={{ background: 'var(--bg-primary)', border: `1px solid ${danger}`, borderRadius: 12, padding: 16, width: '100%', maxWidth: 360, maxHeight: '90%', overflowY: 'auto' }}>
         <div style={{ fontWeight: 700, fontSize: 14, color: danger, marginBottom: 4 }}>Confirm deletion</div>
-        {remaining > 1 && <div style={{ fontSize: 11, color: 'var(--text-tertiary)', marginBottom: 8 }}>{remaining} deletions queued — confirming one at a time.</div>}
+        {remaining > 1 && <div style={{ fontSize: 11, color: 'var(--text-tertiary)', marginBottom: 8 }}>{remaining} deletions queued · confirming one at a time.</div>}
 
         <div style={{ fontSize: 12.5, color: 'var(--text-secondary)', margin: '8px 0 4px' }}>
           This will permanently delete:

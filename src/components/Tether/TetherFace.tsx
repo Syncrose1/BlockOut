@@ -47,26 +47,58 @@ if (typeof document !== 'undefined' && !document.getElementById('tether-face-kf'
       50% { background-position: 100% 50%; }
       100% { background-position: 0% 50%; }
     }
-    /* Smooth lemniscate (∞): 16 sampled points of x=A·sin t, y=-A·sin t·cos t so
-       the constant-speed (linear) sweep traces a curve, not an octagon. No rotation. */
+    /* Smooth lemniscate (∞): 48 sampled points of x=28·sin(2πs), y=-14·sin(4πs)
+       so the constant-speed (linear) sweep traces a clean curve. No rotation. */
     @keyframes tether-face-infinity {
-      0%     { transform: translate(0px, 0px); }
-      6.25%  { transform: translate(11px, -10px); }
-      12.5%  { transform: translate(20px, -14px); }
-      18.75% { transform: translate(26px, -10px); }
-      25%    { transform: translate(28px, 0px); }
-      31.25% { transform: translate(26px, 10px); }
-      37.5%  { transform: translate(20px, 14px); }
-      43.75% { transform: translate(11px, 10px); }
-      50%    { transform: translate(0px, 0px); }
-      56.25% { transform: translate(-11px, -10px); }
-      62.5%  { transform: translate(-20px, -14px); }
-      68.75% { transform: translate(-26px, -10px); }
-      75%    { transform: translate(-28px, 0px); }
-      81.25% { transform: translate(-26px, 10px); }
-      87.5%  { transform: translate(-20px, 14px); }
-      93.75% { transform: translate(-11px, 10px); }
-      100%   { transform: translate(0px, 0px); }
+      0% { transform: translate(0.00px, -0.00px); }
+      2.0833% { transform: translate(3.65px, -3.62px); }
+      4.1667% { transform: translate(7.25px, -7.00px); }
+      6.25% { transform: translate(10.72px, -9.90px); }
+      8.3333% { transform: translate(14.00px, -12.12px); }
+      10.4167% { transform: translate(17.05px, -13.52px); }
+      12.5% { transform: translate(19.80px, -14.00px); }
+      14.5833% { transform: translate(22.21px, -13.52px); }
+      16.6667% { transform: translate(24.25px, -12.12px); }
+      18.75% { transform: translate(25.87px, -9.90px); }
+      20.8333% { transform: translate(27.05px, -7.00px); }
+      22.9167% { transform: translate(27.76px, -3.62px); }
+      25% { transform: translate(28.00px, -0.00px); }
+      27.0833% { transform: translate(27.76px, 3.62px); }
+      29.1667% { transform: translate(27.05px, 7.00px); }
+      31.25% { transform: translate(25.87px, 9.90px); }
+      33.3333% { transform: translate(24.25px, 12.12px); }
+      35.4167% { transform: translate(22.21px, 13.52px); }
+      37.5% { transform: translate(19.80px, 14.00px); }
+      39.5833% { transform: translate(17.05px, 13.52px); }
+      41.6667% { transform: translate(14.00px, 12.12px); }
+      43.75% { transform: translate(10.72px, 9.90px); }
+      45.8333% { transform: translate(7.25px, 7.00px); }
+      47.9167% { transform: translate(3.65px, 3.62px); }
+      50% { transform: translate(0.00px, 0.00px); }
+      52.0833% { transform: translate(-3.65px, -3.62px); }
+      54.1667% { transform: translate(-7.25px, -7.00px); }
+      56.25% { transform: translate(-10.72px, -9.90px); }
+      58.3333% { transform: translate(-14.00px, -12.12px); }
+      60.4167% { transform: translate(-17.05px, -13.52px); }
+      62.5% { transform: translate(-19.80px, -14.00px); }
+      64.5833% { transform: translate(-22.21px, -13.52px); }
+      66.6667% { transform: translate(-24.25px, -12.12px); }
+      68.75% { transform: translate(-25.87px, -9.90px); }
+      70.8333% { transform: translate(-27.05px, -7.00px); }
+      72.9167% { transform: translate(-27.76px, -3.62px); }
+      75% { transform: translate(-28.00px, -0.00px); }
+      77.0833% { transform: translate(-27.76px, 3.62px); }
+      79.1667% { transform: translate(-27.05px, 7.00px); }
+      81.25% { transform: translate(-25.87px, 9.90px); }
+      83.3333% { transform: translate(-24.25px, 12.12px); }
+      85.4167% { transform: translate(-22.21px, 13.52px); }
+      87.5% { transform: translate(-19.80px, 14.00px); }
+      89.5833% { transform: translate(-17.05px, 13.52px); }
+      91.6667% { transform: translate(-14.00px, 12.12px); }
+      93.75% { transform: translate(-10.72px, 9.90px); }
+      95.8333% { transform: translate(-7.25px, 7.00px); }
+      97.9167% { transform: translate(-3.65px, 3.62px); }
+      100% { transform: translate(-0.00px, 0.00px); }
     }
     @media (prefers-reduced-motion: reduce) {
       .tether-face-hero, .tether-face-hero .tether-face-mask { animation: none !important; }
