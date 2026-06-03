@@ -229,6 +229,21 @@ function addDays(iso: string, n: number): string {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 }
 
+// The Weekview (Overview) filters blocks by getWeekStart(localMonday)
+// .toISOString().slice(0,10) — the LOCAL-midnight Monday converted to a UTC date,
+// which in timezones ahead of UTC is the PREVIOUS calendar day. A block's weekDate
+// must match this exact string or it won't render. Derive it from the block's
+// actual local day.
+function overviewWeekDateFor(localDateStr: string): string {
+  const base = new Date(localDateStr + 'T12:00:00'); // local noon, TZ-edge-safe
+  const day = base.getDay();
+  const diff = base.getDate() - day + (day === 0 ? -6 : 1); // back to Monday
+  const monday = new Date(base);
+  monday.setDate(diff);
+  monday.setHours(0, 0, 0, 0);
+  return monday.toISOString().slice(0, 10);
+}
+
 /** Top-level chain links of a date, with their resolved titles (for title→index). */
 function chainLinkTitles(date: string): { index: number; title: string; ctId?: string; type: string }[] {
   const chain = useStore.getState().taskChains[date];
@@ -436,7 +451,8 @@ export function applyStagedActions(actions: StagedAction[]): ApplyResult[] {
             type: blockType,
             name,
             ...(blockTaskId ? { taskId: blockTaskId } : {}),
-            weekDate: week,
+            // Match the Weekview's timezone-shifted week key (derive from the day).
+            weekDate: overviewWeekDateFor(dateStr),
             createdAt: now, updatedAt: now,
           };
           store.setOverviewBlocks([...useStore.getState().overviewBlocks, block]);
