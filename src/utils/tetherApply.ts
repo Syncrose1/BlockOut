@@ -222,6 +222,13 @@ function weekMonday(date?: Date): string {
   return `${monday.getFullYear()}-${String(monday.getMonth() + 1).padStart(2, '0')}-${String(monday.getDate()).padStart(2, '0')}`;
 }
 
+// ISO date string (YYYY-MM-DD) `n` days after `iso`.
+function addDays(iso: string, n: number): string {
+  const d = new Date(iso + 'T00:00:00');
+  d.setDate(d.getDate() + n);
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+}
+
 /** Top-level chain links of a date, with their resolved titles (for title→index). */
 function chainLinkTitles(date: string): { index: number; title: string; ctId?: string; type: string }[] {
   const chain = useStore.getState().taskChains[date];
@@ -413,19 +420,27 @@ export function applyStagedActions(actions: StagedAction[]): ApplyResult[] {
           if (dayIndex < 0) { results.push(skip(action, `invalid day “${p.day}”`)); break; }
           if (startSlot < 0 || endSlot < 0 || endSlot <= startSlot) { results.push(skip(action, 'invalid time range (06:00–23:30, 30-min steps)')); break; }
           const week = p.weekDate ? String(p.weekDate) : weekMonday();
+          const dateStr = addDays(week, dayIndex); // the block's actual day, for the chain
           const taskId = p.taskTitle ? findTaskIdByTitle(p.taskTitle) : undefined;
+          const name = String(p.name || 'Block');
           const now = Date.now();
+          // Cross-talk (mirrors the Weekview UI): a scheduled block also lands in
+          // that day's Task Chain — a real task (mt) or a standalone step (ct).
+          let blockTaskId: string | undefined = taskId;
+          let blockType: 'mt' | 'ct';
+          if (taskId) { blockType = 'mt'; store.addRealTaskToChain(dateStr, taskId); }
+          else { blockType = 'ct'; blockTaskId = store.addChainTask(dateStr, name); }
           const block = {
             id: Math.random().toString(36).substr(2, 9),
             dayIndex, startSlot, endSlot,
-            type: (taskId ? 'mt' : 'placeholder') as 'mt' | 'placeholder',
-            name: String(p.name || 'Block'),
-            ...(taskId ? { taskId } : {}),
+            type: blockType,
+            name,
+            ...(blockTaskId ? { taskId: blockTaskId } : {}),
             weekDate: week,
             createdAt: now, updatedAt: now,
           };
           store.setOverviewBlocks([...useStore.getState().overviewBlocks, block]);
-          results.push({ id: action.id, ok: true, message: `Scheduled “${block.name}” on ${p.day} ${p.startTime}–${p.endTime}.` });
+          results.push({ id: action.id, ok: true, message: `Scheduled “${name}” on ${p.day} ${p.startTime}–${p.endTime} (added to the chain too).` });
           break;
         }
 

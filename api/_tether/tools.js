@@ -149,9 +149,18 @@ function listTasks(snapshot, input) {
   }
 
   const total = tasks.length;
-  const limit = Math.min(typeof f.limit === 'number' ? f.limit : 50, 200);
-  const projected = tasks.slice(0, limit).map((t) => projectTask(t, maps, blocks));
-  return { total, returned: projected.length, truncated: total > projected.length, tasks: projected };
+  const limit = Math.min(typeof f.limit === 'number' ? f.limit : 50, 100);
+  const offset = Math.max(0, typeof f.offset === 'number' ? f.offset : 0);
+  const page = tasks.slice(offset, offset + limit);
+  const projected = page.map((t) => projectTask(t, maps, blocks));
+  const nextOffset = offset + projected.length;
+  const hasMore = nextOffset < total;
+  return {
+    total, offset, returned: projected.length, hasMore,
+    // When paginating a big set, the model should fetch the next page with this.
+    nextOffset: hasMore ? nextOffset : undefined,
+    tasks: projected,
+  };
 }
 
 function listTimeBlocks(snapshot) {
@@ -313,6 +322,10 @@ function executeReadTool(snapshot, name, input) {
 const crypto = require('crypto');
 const newId = () => (crypto.randomUUID ? crypto.randomUUID() : 'sa-' + Math.random().toString(36).slice(2));
 
+// Max tasks per bulk update. Beyond this, the tool errors with a readable message
+// telling the model to batch — keeps a single approved action manageable.
+const BULK_UPDATE_LIMIT = 100;
+
 const WRITE_TOOLS = new Set([
   'propose_create_task', 'propose_update_task', 'propose_update_tasks',
   'propose_rename_category', 'propose_create_category',
@@ -384,6 +397,9 @@ function buildStagedAction(name, input) {
     case 'propose_update_tasks': {
       const taskIds = Array.isArray(i.taskIds) ? i.taskIds.map(String).filter(Boolean) : [];
       if (!taskIds.length) throw new Error('taskIds (a non-empty array) is required');
+      if (taskIds.length > BULK_UPDATE_LIMIT) {
+        throw new Error(`Updating ${taskIds.length} tasks exceeds the ${BULK_UPDATE_LIMIT}-per-call limit. Split it into batches of ${BULK_UPDATE_LIMIT} (e.g. call propose_update_tasks several times). Tell the user you're doing it in batches.`);
+      }
       const { payload, changes } = parseTaskChanges(i, { allowTitle: false });
       if (changes.length === 0) throw new Error('No changes specified');
       const n = taskIds.length;
@@ -819,7 +835,8 @@ const toolDefinitions = [
           assignedToBlockId: { type: 'string', description: 'Only tasks in this time block.' },
           unassigned: { type: 'boolean', description: 'Only tasks not in any time block.' },
           query: { type: 'string', description: 'Case-insensitive substring on title/notes.' },
-          limit: { type: 'number', description: 'Max tasks to return (default 50, cap 200).' },
+          limit: { type: 'number', description: 'Max tasks to return (default 50, cap 100).' },
+          offset: { type: 'number', description: 'Skip this many (for pagination). The result has total/hasMore/nextOffset — fetch the next page with offset=nextOffset to walk a large set.' },
         },
       },
     },

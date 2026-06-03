@@ -695,7 +695,7 @@ export function Overview() {
       <div style={{ marginBottom: 16 }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: 8, marginBottom: 8 }}>
           <div>
-            <h2 style={{ margin: 0, fontSize: isMobile ? 16 : 20, fontWeight: 600 }}>Weekly Schedule</h2>
+            <h2 style={{ margin: 0, fontSize: isMobile ? 16 : 20, fontWeight: 600 }}>Weekview</h2>
             <p style={{ margin: '2px 0 0 0', fontSize: 12, color: 'var(--text-secondary)' }}>{weekRangeText}</p>
           </div>
           {/* Primary nav: Prev/Next/Current */}
