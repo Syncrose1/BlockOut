@@ -25,19 +25,29 @@ import {
   saveConversation, loadConversation, deleteConversation,
 } from '../../utils/tetherConversations';
 
-// Border wave-pulse keyframes (injected once). A faint blue-purple ring expands
-// from the panel edge and fades within the first ~half of the cycle, then rests.
+// Border wave-pulse keyframes (injected once). Layered ring OUTLINES that expand
+// outward from the panel edge. Each ring's weight (opacity) builds as it travels,
+// peaking when it's DISTAL — so it reads as force being pushed out of the panel —
+// then dissolves at its furthest reach. Three staggered layers = a rolling ripple.
 if (typeof document !== 'undefined' && !document.getElementById('tether-pulse-kf')) {
   const el = document.createElement('style');
   el.id = 'tether-pulse-kf';
   el.textContent = `
-    .tether-pulse { animation: tether-pulse 3.4s ease-out infinite; }
-    @keyframes tether-pulse {
-      0%   { box-shadow: 0 0 0 0 hsla(250,84%,62%,0.26); }
-      45%  { box-shadow: 0 0 0 16px hsla(250,84%,62%,0); }
-      100% { box-shadow: 0 0 0 16px hsla(250,84%,62%,0); }
+    .tether-ring {
+      border: 1.5px solid hsl(250 84% 62%);
+      transform-origin: center center;
+      opacity: 0;
+      animation: tether-ring 3.6s ease-out infinite;
     }
-    @media (prefers-reduced-motion: reduce) { .tether-pulse { animation: none !important; } }
+    .tether-ring.r2 { animation-delay: 1.2s; }
+    .tether-ring.r3 { animation-delay: 2.4s; }
+    @keyframes tether-ring {
+      0%   { transform: scale(1);     opacity: 0; }
+      30%  { transform: scale(1.012); opacity: 0.16; }
+      68%  { transform: scale(1.035); opacity: 0.30; }
+      100% { transform: scale(1.055); opacity: 0; }
+    }
+    @media (prefers-reduced-motion: reduce) { .tether-ring { animation: none !important; opacity: 0 !important; } }
   `;
   document.head.appendChild(el);
 }
@@ -250,20 +260,23 @@ export function TetherPanel() {
         transition={{ duration: 0.2 }}
         style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.28)', backdropFilter: 'blur(1.5px)', zIndex: 1400 }}
       />
-      {/* Border wave-pulse: a faint ring that emanates outward from the panel's
-          edge and fades quickly, on a loop. A separate fixed element (NOT inside
-          the panel's overflow:hidden) so its expanding box-shadow isn't clipped;
-          sits just behind the panel. */}
+      {/* Border wave-pulse: three expanding ring outlines that emanate outward from
+          the panel, heaviest when distal. Separate fixed elements (outside the
+          panel's overflow:hidden), behind it, non-interactive. */}
       <motion.div
         initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
         transition={{ duration: 0.2 }}
-        className="tether-pulse"
-        style={{
-          position: 'fixed', top: 16, right: 16, bottom: 16,
-          width: 'min(420px, calc(100vw - 32px))',
-          borderRadius: 'var(--radius-lg, 16px)', zIndex: 1401, pointerEvents: 'none',
-        }}
-      />
+        aria-hidden
+        style={{ position: 'fixed', inset: 0, zIndex: 1401, pointerEvents: 'none' }}
+      >
+        {['r1', 'r2', 'r3'].map((r) => (
+          <div key={r} className={`tether-ring ${r}`} style={{
+            position: 'fixed', top: 16, right: 16, bottom: 16,
+            width: 'min(420px, calc(100vw - 32px))',
+            borderRadius: 'var(--radius-lg, 16px)',
+          }} />
+        ))}
+      </motion.div>
       <motion.div
         // Fade + gentle scale/slide, matching BlockOut's modal motion.
         initial={{ opacity: 0, scale: 0.96, x: 12 }}
