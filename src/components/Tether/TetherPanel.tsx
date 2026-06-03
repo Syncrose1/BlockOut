@@ -13,6 +13,8 @@ import {
 import { TetherLight } from './TetherLight';
 import { TetherFace } from './TetherFace';
 import { TetherEndpoints } from './TetherEndpoints';
+import { TetherMarkdown } from './TetherMarkdown';
+import { AnimatePresence, motion } from 'framer-motion';
 import {
   applyStagedActions, isImmediate, isDestructive, resolveDeleteTargets, requiredDeletePhrase,
   type StagedAction, type ApplyResult,
@@ -221,12 +223,23 @@ export function TetherPanel() {
     }
   };
 
-  if (!open) return null;
-
   return (
-    <>
-      <div onClick={() => setOpen(false)} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.28)', backdropFilter: 'blur(1.5px)', zIndex: 1400 }} />
-      <div style={{
+    <AnimatePresence>
+      {open && (
+        <>
+      <motion.div
+        onClick={() => setOpen(false)}
+        initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+        transition={{ duration: 0.2 }}
+        style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.28)', backdropFilter: 'blur(1.5px)', zIndex: 1400 }}
+      />
+      <motion.div
+        // Fade + gentle scale/slide, matching BlockOut's modal motion.
+        initial={{ opacity: 0, scale: 0.96, x: 12 }}
+        animate={{ opacity: 1, scale: 1, x: 0 }}
+        exit={{ opacity: 0, scale: 0.96, x: 12 }}
+        transition={{ type: 'spring', damping: 28, stiffness: 380 }}
+        style={{
         // Floating card: detached from the edges with rounded corners, matching
         // BlockOut's modal feel (lighter weight than an edge-to-edge drawer).
         position: 'fixed', top: 16, right: 16, bottom: 16,
@@ -373,8 +386,10 @@ export function TetherPanel() {
             </div>
           </>
         )}
-      </div>
-    </>
+      </motion.div>
+        </>
+      )}
+    </AnimatePresence>
   );
 }
 
@@ -391,13 +406,15 @@ function Bubble({ msg, streaming }: { msg: ChatMsg; streaming?: boolean }) {
   return (
     <div style={{ alignSelf: isUser ? 'flex-end' : 'flex-start', maxWidth: '85%' }}>
       <div style={{
-        padding: '8px 12px', borderRadius: 12, fontSize: 13, lineHeight: 1.5, whiteSpace: 'pre-wrap',
+        padding: '8px 12px', borderRadius: 12, fontSize: 13, lineHeight: 1.5,
+        whiteSpace: isUser ? 'pre-wrap' : 'normal',
         background: isUser ? 'var(--accent)' : 'var(--bg-secondary)',
         color: isUser ? '#fff' : 'var(--text-primary)',
         border: isUser ? 'none' : '1px solid var(--border)',
         opacity: streaming ? 0.85 : 1,
       }}>
-        {msg.content}
+        {/* Assistant output is markdown; user text stays literal. */}
+        {isUser ? msg.content : <TetherMarkdown content={msg.content} />}
       </div>
       {msg.tools && msg.tools.length > 0 && (
         <div style={{ fontSize: 10, color: 'var(--text-tertiary)', marginTop: 3, fontStyle: 'italic' }}>{toolLabels(msg.tools).join(' · ')}</div>
