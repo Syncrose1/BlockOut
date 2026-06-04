@@ -119,3 +119,26 @@ memory store resets on cold start — don't rely on it.
 - A ~150-line legacy "Dropbox → BlockOut Account Sync" confirm modal in
   Modals.tsx is now unreachable (superseded by the restore picker) — safe to
   delete in a future cleanup.
+
+## Syncra secure tunnel (`api/syncra-llm.js` + `api/_syncra/tunnel.js`)
+
+**External integration — added for Syncra (the cross-app Android agent), not for
+BlockOut itself.** Syncra runs its agent loop ON-DEVICE (its tools act on the phone,
+which a serverless fn can't), but the BYOK `api_key` in the shared `model_endpoints`
+table is server-side only. The tunnel is a thin authenticated **LLM proxy** that lets
+Syncra reach the model without ever holding the key:
+
+- `api/_syncra/tunnel.js` — self-contained, droppable module: verifies the caller's
+  Supabase JWT, resolves THAT user's endpoint (service-role, owner-scoped, same as
+  Tether), forwards ONE OpenAI-style chat-completion to their provider with the
+  `api_key` injected, and streams it back as SSE (`delta` / `final{message,
+  finish_reason}` / `error`). **No agent loop, no tools** — the loop + tool execution
+  live in Syncra (the client). Server controls model/base_url/api_key; the client
+  controls only the conversation + its own tool surface.
+- `api/syncra-llm.js` — one-line endpoint exposing it (`maxDuration` 60 in
+  `vercel.json`). Prod: `https://syncratic.app/blockout/api/syncra-llm`.
+- Reuses Tether's auth + endpoint-resolution + `openai` SDK; depends only on
+  `@supabase/supabase-js` + `openai` (already present). Binder exposes the identical
+  tunnel (Next.js route) — the module is meant to be mirrored across Syncratic apps.
+- Endpoint **listing** for Syncra's picker = the existing `api/tether-endpoints.js`
+  GET (safe columns, no `api_key`).
