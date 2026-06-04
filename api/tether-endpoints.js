@@ -11,7 +11,18 @@ const SUPABASE_ANON_KEY = process.env.VITE_SUPABASE_ANON_KEY || process.env.SUPA
 
 const URL_REGEX = /^https?:\/\/.+/;
 const MAX_ENDPOINTS = 20;
-const SAFE_COLUMNS = 'id, name, base_url, model_id, is_default, created_at'; // no api_key
+const SAFE_COLUMNS = 'id, name, base_url, model_id, is_default, created_at, capabilities, probed_at, probe_note'; // no api_key
+const VALID_CAPS = ['chat', 'vision', 'tools', 'image', 'embeddings', 'streaming'];
+
+// Normalise a user-supplied capabilities list → a clean, de-duped array of known flags.
+function cleanCapabilities(raw) {
+  if (!Array.isArray(raw)) return null;
+  const set = new Set();
+  for (const c of raw) {
+    if (typeof c === 'string' && VALID_CAPS.includes(c)) set.add(c);
+  }
+  return Array.from(set);
+}
 
 let supabase = null;
 function getSupabase() {
@@ -77,6 +88,7 @@ module.exports = async (req, res) => {
       await sb.from('model_endpoints').update({ is_default: false }).eq('owner_id', user.id);
     }
 
+    const caps = cleanCapabilities(body.capabilities);
     const { data, error } = await sb.from('model_endpoints').insert({
       owner_id: user.id,
       name: name.trim(),
@@ -84,6 +96,7 @@ module.exports = async (req, res) => {
       api_key,
       model_id: model_id.trim(),
       is_default,
+      ...(caps ? { capabilities: caps } : {}),
     }).select(SAFE_COLUMNS).single();
     if (error) return res.status(500).json({ error: 'Failed to create endpoint.' });
     return res.status(201).json(data);
@@ -113,6 +126,11 @@ module.exports = async (req, res) => {
       patch.model_id = body.model_id.trim();
     }
     if (typeof body.api_key === 'string' && body.api_key.trim()) patch.api_key = body.api_key;
+    if (body.capabilities != null) {
+      const caps = cleanCapabilities(body.capabilities);
+      if (caps == null) return res.status(400).json({ error: 'capabilities must be an array.' });
+      patch.capabilities = caps;
+    }
 
     if (body.is_default === true) {
       await sb.from('model_endpoints').update({ is_default: false }).eq('owner_id', user.id);
