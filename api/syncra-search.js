@@ -4,4 +4,5 @@
 // api/_syncra/search.js.
 module.exports = require('./_syncra/search').handleSearch;
 
-module.exports.config = { maxDuration: 30 };
+// 60s: the scrape fallback can spin up Jina's headless-browser engine, which is slower.
+module.exports.config = { maxDuration: 60 };

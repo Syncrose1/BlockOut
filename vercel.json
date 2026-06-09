@@ -8,7 +8,7 @@
     "api/tether.js": { "maxDuration": 60 },
     "api/syncra-llm.js": { "maxDuration": 60 },
     "api/syncra-image.js": { "maxDuration": 60 },
-    "api/syncra-search.js": { "maxDuration": 30 },
+    "api/syncra-search.js": { "maxDuration": 60 },
     "api/probe-endpoint.js": { "maxDuration": 60 }
   },
   "redirects": [

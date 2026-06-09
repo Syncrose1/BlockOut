@@ -96,12 +96,31 @@ async function searchImages(query, count) {
 }
 
 // ── Jina Reader (scrape → markdown) ───────────────────────────────────────────────
-async function scrape(url) {
-  const headers = { 'X-Return-Format': 'markdown' };
+// One Jina Reader call. `browser:true` uses Jina's headless-browser engine, which renders JS and
+// gets past most bot walls (Cloudflare etc.) that the fast default engine trips on — slower, so
+// only used as a fallback. A JINA_API_KEY (free tier) hugely raises rate limits + reliability vs
+// keyless (keyless shares aggressive limits across all Vercel IPs → frequent 429s).
+async function jinaFetch(url, browser) {
+  const headers = { 'X-Return-Format': 'markdown', 'X-Timeout': '25' };
   if (JINA_KEY) headers.Authorization = `Bearer ${JINA_KEY}`;
-  const r = await fetch(`https://r.jina.ai/${url}`, { headers });
-  if (!r.ok) throw new Error(`Scrape failed (${r.status})`);
+  if (browser) headers['X-Engine'] = 'browser';
+  return fetch(`https://r.jina.ai/${url}`, { headers });
+}
+
+async function scrape(url) {
+  // Attempt 1: fast default engine. On a block/ratelimit/5xx, retry once with the BROWSER engine
+  // (renders JS, bypasses most bot detection). A 429 gets a brief backoff first.
+  let r = await jinaFetch(url, false);
+  if (!r.ok && [403, 429, 451, 500, 502, 503, 504].includes(r.status)) {
+    if (r.status === 429) await new Promise((s) => setTimeout(s, 1500));
+    r = await jinaFetch(url, true);
+  }
+  if (!r.ok) {
+    const hint = JINA_KEY ? '' : ' (set JINA_API_KEY on the server to raise rate limits)';
+    throw new Error(`Scrape failed (${r.status})${hint}`);
+  }
   const text = await r.text();
+  if (!text || text.trim().length < 30) throw new Error('The page returned no readable content (it may be bot-protected or login-walled).');
   return text.length > MAX_SCRAPE_CHARS ? `${text.slice(0, MAX_SCRAPE_CHARS)}\n\n…[truncated]` : text;
 }
 
