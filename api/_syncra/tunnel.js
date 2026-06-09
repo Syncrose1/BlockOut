@@ -151,4 +151,50 @@ async function handleTunnel(req, res) {
   }
 }
 
-module.exports = { handleTunnel, getSupabase, getUserFromToken, resolveEndpoint };
+// Image generation — same auth + owner-scoped endpoint resolution as the chat tunnel, but calls
+// images.generate (OpenAI-compatible) with the api_key injected here, and returns ONE JSON result
+// (a b64 data URI or a URL). No streaming — generation is a single shot. The client (Syncra) routes
+// an image request to its image-capable endpoint and renders what comes back.
+async function handleImage(req, res) {
+  setCors(res);
+  if (req.method === 'OPTIONS') return res.status(200).end();
+  if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
+
+  const user = await getUserFromToken(req.headers.authorization);
+  if (!user) return res.status(401).json({ error: 'Sign in to use Syncra.' });
+
+  let body;
+  try { body = typeof req.body === 'string' ? JSON.parse(req.body) : req.body; } catch { body = null; }
+  const prompt = body && typeof body.prompt === 'string' ? body.prompt.trim() : '';
+  if (!prompt) return res.status(400).json({ error: 'A prompt is required.' });
+
+  const sb = getSupabase();
+  if (!sb) return res.status(503).json({ error: 'Server not configured for Syncra.' });
+  const endpoint = await resolveEndpoint(sb, user.id, body.endpoint_id || null);
+  if (!endpoint) return res.status(503).json({ error: 'NO_ENDPOINT', message: 'No model endpoint configured.' });
+
+  try {
+    const client = new OpenAI({ apiKey: endpoint.api_key, baseURL: endpoint.base_url });
+    const params = { model: endpoint.model_id, prompt, n: 1 };
+    if (body.size) params.size = String(body.size);
+    // Prefer b64 so the client gets the pixels directly (no second fetch); providers that only
+    // return URLs are handled below.
+    params.response_format = 'b64_json';
+    let result;
+    try {
+      result = await client.images.generate(params);
+    } catch (e) {
+      // Some providers reject response_format — retry without it (they'll return a URL).
+      delete params.response_format;
+      result = await client.images.generate(params);
+    }
+    const d = (result && result.data && result.data[0]) || {};
+    if (d.b64_json) return res.status(200).json({ image: `data:image/png;base64,${d.b64_json}` });
+    if (d.url) return res.status(200).json({ image: d.url });
+    return res.status(502).json({ error: 'The image model returned no image.' });
+  } catch (e) {
+    return res.status(502).json({ error: e instanceof Error ? e.message : 'Image generation failed.' });
+  }
+}
+
+module.exports = { handleTunnel, handleImage, getSupabase, getUserFromToken, resolveEndpoint };
