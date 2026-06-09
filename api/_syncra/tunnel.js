@@ -173,28 +173,42 @@ async function handleImage(req, res) {
   const endpoint = await resolveEndpoint(sb, user.id, body.endpoint_id || null);
   if (!endpoint) return res.status(503).json({ error: 'NO_ENDPOINT', message: 'No model endpoint configured.' });
 
+  const client = new OpenAI({ apiKey: endpoint.api_key, baseURL: endpoint.base_url });
+  const clip = (s) => { const m = String(s || 'Image generation failed.'); return m.length > 300 ? m.slice(0, 300) + '…' : m; };
+
+  // Path 1: OpenAI-style /images/generations (DALL·E, local SD/ComfyUI, etc.).
   try {
-    const client = new OpenAI({ apiKey: endpoint.api_key, baseURL: endpoint.base_url });
-    const params = { model: endpoint.model_id, prompt, n: 1 };
+    const params = { model: endpoint.model_id, prompt, n: 1, response_format: 'b64_json' };
     if (body.size) params.size = String(body.size);
-    // Prefer b64 so the client gets the pixels directly (no second fetch); providers that only
-    // return URLs are handled below.
-    params.response_format = 'b64_json';
     let result;
     try {
       result = await client.images.generate(params);
-    } catch (e) {
-      // Some providers reject response_format — retry without it (they'll return a URL).
-      delete params.response_format;
+    } catch {
+      delete params.response_format; // some providers reject it → return a URL
       result = await client.images.generate(params);
     }
     const d = (result && result.data && result.data[0]) || {};
     if (d.b64_json) return res.status(200).json({ image: `data:image/png;base64,${d.b64_json}` });
     if (d.url) return res.status(200).json({ image: d.url });
-    return res.status(502).json({ error: 'The image model returned no image.' });
-  } catch (e) {
-    return res.status(502).json({ error: e instanceof Error ? e.message : 'Image generation failed.' });
+  } catch (e1) {
+    // Path 2 (fallback): providers like OpenRouter don't expose /images/generations — they generate
+    // images through CHAT COMPLETIONS with image modality, returning them in message.images[].
+    try {
+      const completion = await client.chat.completions.create({
+        model: endpoint.model_id,
+        modalities: ['image', 'text'],
+        messages: [{ role: 'user', content: prompt }],
+      });
+      const msg = completion && completion.choices && completion.choices[0] && completion.choices[0].message;
+      const img = msg && Array.isArray(msg.images) && msg.images[0];
+      const url = img && (img.image_url ? img.image_url.url : img.url);
+      if (url) return res.status(200).json({ image: url });
+      return res.status(502).json({ error: 'The image model returned no image (chat-modality path).' });
+    } catch (e2) {
+      return res.status(502).json({ error: clip(e2 && e2.message) });
+    }
   }
+  return res.status(502).json({ error: 'The image model returned no image.' });
 }
 
 module.exports = { handleTunnel, handleImage, getSupabase, getUserFromToken, resolveEndpoint };
