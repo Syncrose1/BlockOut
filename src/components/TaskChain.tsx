@@ -5,9 +5,14 @@ import { debouncedSave } from '../utils/persistence';
 import { UnifiedTaskContextMenu } from './Modals';
 import { useIsMobile } from '../hooks/useIsMobile';
 
-// Get today's date string
+// Today's date, in LOCAL components.
+//
+// Was `new Date().toISOString().slice(0, 10)` — UTC, which is the local date for most of the day but
+// rolls back to YESTERDAY in the first hour after midnight east of Greenwich. Someone planning at 00:30
+// would open the wrong day's chain. Same convention as Overview.tsx now, so both write one key per day.
 function todayStr(): string {
-  return new Date().toISOString().slice(0, 10);
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 }
 
 export function TaskChain() {

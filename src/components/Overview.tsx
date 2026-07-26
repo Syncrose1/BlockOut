@@ -56,7 +56,12 @@ function getWeekStart(date: Date): Date {
 function getDateForDayIndex(dayIndex: number, weekStart: Date): string {
   const targetDate = new Date(weekStart);
   targetDate.setDate(weekStart.getDate() + dayIndex);
-  return targetDate.toISOString().slice(0, 10);
+  // LOCAL components, not toISOString(). toISOString is UTC, and this date is local midnight, so east of
+  // Greenwich it returned the PREVIOUS day — filing the chain under a date TaskChain.tsx never opens.
+  const y = targetDate.getFullYear();
+  const m = String(targetDate.getMonth() + 1).padStart(2, '0');
+  const d = String(targetDate.getDate()).padStart(2, '0');
+  return `${y}-${m}-${d}`;
 }
 
 interface WeekTemplateBlock {
