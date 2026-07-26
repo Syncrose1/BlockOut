@@ -254,6 +254,40 @@ const OPS = {
     return { summary: `Added “${title}” to the ${date} chain`, chainTaskId: ctId };
   },
 
+  add_chain_subtask(snap, p) {
+    const date = str(p.date);
+    if (!ISO_DATE.test(date)) throw new Error('date must be YYYY-MM-DD');
+    const parentLinkId = str(p.parentLinkId);
+    const title = str(p.title);
+    if (!title) throw new Error('title is required');
+
+    const chain = (snap.taskChains || {})[date];
+    if (!chain) throw new Error('no chain for that date');
+
+    // A subtask hangs off a parent LINK, and only a top-level one — BlockOut does not nest further, and
+    // a subtask of a subtask would render at a depth nothing knows how to draw.
+    const at = findLink(chain, parentLinkId);
+    if (!at) throw new Error('unknown parentLinkId');
+    const parent = at.list[at.index];
+    if (parent.type === 'subtask') throw new Error('a subtask cannot have subtasks');
+
+    const ctId = uuid();
+    snap.chainTasks = snap.chainTasks || {};
+    snap.chainTasks[ctId] = { id: ctId, title, type: 'ct', completed: false };
+
+    // Inserted directly AFTER the parent and any siblings it already has, so order matches the nesting
+    // the UI draws. Appending to the end would put it under an unrelated step.
+    let insertAt = at.index + 1;
+    while (insertAt < at.list.length && at.list[insertAt] && at.list[insertAt].parentId === parentLinkId) {
+      insertAt++;
+    }
+    at.list.splice(insertAt, 0, {
+      id: uuid(), type: 'subtask', subType: 'ct', taskId: ctId, parentId: parentLinkId,
+    });
+
+    return { summary: `Added subtask \u201c${title}\u201d under a step in the ${date} chain`, chainTaskId: ctId };
+  },
+
   add_task_to_chain(snap, p) {
     const date = str(p.date);
     if (!ISO_DATE.test(date)) throw new Error('date must be YYYY-MM-DD');

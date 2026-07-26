@@ -68,7 +68,7 @@ console.log('── the contract ──');
   ok('every operation is exported by name', OP_NAMES.length >= 15, `${OP_NAMES.length} ops`);
   for (const need of [
     'create_task', 'update_task', 'set_task_completed', 'delete_task',
-    'add_chain_step', 'add_task_to_chain', 'set_chain_step_completed', 'remove_chain_step',
+    'add_chain_step', 'add_chain_subtask', 'add_task_to_chain', 'set_chain_step_completed', 'remove_chain_step',
     'reorder_chain', 'apply_chain_template', 'save_chain_template',
     'schedule_block', 'update_block', 'set_block_completed', 'delete_block',
   ]) {
@@ -91,6 +91,7 @@ console.log('\n── ★ invariant 1: keys this module never heard of survive �
       set_task_completed: { taskId: 't1' },
       delete_task: { taskId: 't2' },
       add_chain_step: { date: '2026-07-27', title: 'x' },
+      add_chain_subtask: { date: '2026-07-27', parentLinkId: 'l1', title: 'x' },
       add_task_to_chain: { date: '2026-07-27', taskId: 't2' },
       set_chain_step_completed: { date: '2026-07-27', linkId: 'l1' },
       remove_chain_step: { date: '2026-07-27', linkId: 'l1' },
@@ -102,7 +103,9 @@ console.log('\n── ★ invariant 1: keys this module never heard of survive �
       set_block_completed: { blockId: 'b1' },
       delete_block: { blockId: 'b1' },
     }[name];
-    if (!payload) continue;
+    // A `continue` here silently exempted any new operation from this invariant, which is how
+    // add_chain_subtask escaped it. Fail instead: adding an op means declaring a payload for it.
+    if (!payload) { lost.push(`${name} (no test payload declared)`); continue; }
     OPS[name](s, payload);
     const after = JSON.stringify(Object.fromEntries(untouched.map((k) => [k, s[k]])));
     if (before !== after) lost.push(name);
@@ -205,6 +208,46 @@ console.log('\n── chains ──');
     (() => { try { OPS.remove_chain_step(seed(), { date: '2026-07-27', linkId: 'ghost' }); return false; } catch { return true; } })());
   ok('a bad date throws',
     (() => { try { OPS.add_chain_step(seed(), { date: '27/07/2026', title: 'x' }); return false; } catch { return true; } })());
+}
+
+console.log('\n── subtasks ──');
+{
+  const s = seed();
+  const r = OPS.add_chain_subtask(s, { date: '2026-07-27', parentLinkId: 'l1', title: 'Check the notes' });
+  ok('a subtask creates its chain task', s.chainTasks[r.chainTaskId].title === 'Check the notes');
+  const links = s.taskChains['2026-07-27'].links;
+  ok('it is a subtask link pointing at its parent',
+    links.some((l) => l.type === 'subtask' && l.parentId === 'l1' && l.subType === 'ct'));
+  // ★ INSERTED AFTER THE PARENT, NOT APPENDED. Appending would file it under whatever step happens to be
+  // last, which is a different step's child as far as the UI is concerned.
+  ok('it sits directly after its parent', links[1].parentId === 'l1', links.map((l) => l.type).join(' '));
+
+  OPS.add_chain_subtask(s, { date: '2026-07-27', parentLinkId: 'l1', title: 'And another' });
+  const after = s.taskChains['2026-07-27'].links;
+  ok('a second subtask goes after the first, not between',
+    after[1].parentId === 'l1' && after[2].parentId === 'l1' && after[3].id === 'l2',
+    after.map((l) => l.type).join(' '));
+
+  // BlockOut draws one level of nesting; a subtask of a subtask has no depth to render at.
+  const subId = after[1].id;
+  ok('a subtask cannot have subtasks',
+    (() => { try { OPS.add_chain_subtask(s, { date: '2026-07-27', parentLinkId: subId, title: 'x' }); return false; } catch { return true; } })());
+
+  ok('an unknown parent throws',
+    (() => { try { OPS.add_chain_subtask(seed(), { date: '2026-07-27', parentLinkId: 'ghost', title: 'x' }); return false; } catch { return true; } })());
+  ok('a missing title throws',
+    (() => { try { OPS.add_chain_subtask(seed(), { date: '2026-07-27', parentLinkId: 'l1', title: '  ' }); return false; } catch { return true; } })());
+  ok('a date with no chain throws',
+    (() => { try { OPS.add_chain_subtask(seed(), { date: '2026-08-09', parentLinkId: 'l1', title: 'x' }); return false; } catch { return true; } })());
+
+  // Removing the parent must take its children with it — already covered by remove_chain_step, asserted
+  // here against a subtask this operation created.
+  const s2 = seed();
+  OPS.add_chain_subtask(s2, { date: '2026-07-27', parentLinkId: 'l1', title: 'child' });
+  OPS.remove_chain_step(s2, { date: '2026-07-27', linkId: 'l1' });
+  ok('removing a parent removes its subtasks',
+    !s2.taskChains['2026-07-27'].links.some((l) => l.parentId === 'l1'),
+    s2.taskChains['2026-07-27'].links.map((l) => l.type).join(' '));
 }
 
 console.log('\n── templates ──');
