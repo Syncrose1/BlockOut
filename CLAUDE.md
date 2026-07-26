@@ -120,6 +120,45 @@ memory store resets on cold start — don't rely on it.
   Modals.tsx is now unreachable (superseded by the restore picker) — safe to
   delete in a future cleanup.
 
+## Cross-app mutation (`api/mutate.js` + `api/_mutate/apply.js`)
+
+**External integration — added for Finalist, not for BlockOut itself.** Finalist embeds
+BlockOut's calendar (its `/timetable`) and needs to complete a chain step or a task
+without making the user leave. It can't do that itself: the working store is
+client-side Zustand, and `api/r2-sync`'s PUT is a dumb overwrite with no validation,
+so a foreign writer would have to duplicate every invariant in `persistence.ts` and
+would drift from them.
+
+So BlockOut owns its own writes — the mirror image of `api/tether-binder.js` ("Binder
+owns its own writes"). Until this existed, **nothing wrote to BlockOut**: Binder's
+`src/lib/ai/tools/blockout.ts` is explicitly read-only.
+
+- `api/_mutate/apply.js` — self-contained and droppable like `api/_syncra/tunnel.js`.
+  Verifies a Supabase JWT (shared project, so any sibling app's token works), reads the
+  R2 snapshot, applies typed ops, writes back. 15 ops over tasks, chain steps, chain
+  templates and schedule blocks. **Nothing domain-specific** — the vocabulary is
+  BlockOut's own, so it serves any caller and BlockOut stays general-purpose.
+- `api/mutate.js` — the endpoint. `POST { ops: [...], expectedLastModified? }`.
+  A `GET` returns the operation names, so a caller can check the contract.
+- Gated on `TETHER_CROSS_APP` like every other cross-app path. `maxDuration` 30 in
+  `vercel.json`.
+
+### The four invariants it exists to protect
+1. **Unknown keys survive.** Every write edits the stored blob in place, so `synamon`,
+   `coFocus`, `pomodoro` and `streak` are carried through untouched. Rebuilding a
+   snapshot from known fields would silently delete a companion collection. Tested by
+   running every op and diffing those keys.
+2. **An empty snapshot is never written** — checked before AND after the ops, so a
+   delete batch can't blank the account.
+3. **`lastModified` and `version` both move forward**, or the client ignores the write.
+4. **Lost updates are refused, not risked.** A caller may pass the `lastModified` it
+   last saw; if the blob has moved on it gets a 409 instead of clobbering.
+
+A failing op writes nothing — ops throw before mutating, and `applyMutations` only
+persists after all of them succeed.
+
+Tests: `npm run test:mutate` (plain node, no framework — this repo had no harness).
+
 ## Syncra secure tunnel (`api/syncra-llm.js` + `api/_syncra/tunnel.js`)
 
 **External integration — added for Syncra (the cross-app Android agent), not for

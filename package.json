@@ -11,7 +11,8 @@
     "electron": "electron .",
     "electron:dev": "npm run build && electron .",
     "electron:pack": "electron-builder",
-    "dist": "npm run build && electron-builder"
+    "dist": "npm run build && electron-builder",
+    "test:mutate": "node scripts/_test-mutate.mjs"
   },
   "repository": {
     "type": "git",

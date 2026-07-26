@@ -3,3 +3,6 @@ dist/
 data.json
 *.log
 .DS_Store
+
+# Local data exports — real task data, never commit these
+blockout-export-*.json
