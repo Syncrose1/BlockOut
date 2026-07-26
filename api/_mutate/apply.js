@@ -8,8 +8,14 @@
 //
 // So the write lives here, with the app that owns the shape. Same principle as api/tether-binder.js —
 // "Binder owns its own writes" — pointed the other way. Self-contained and droppable, like
-// api/_syncra/tunnel.js: it depends only on @supabase/supabase-js, @aws-sdk/client-s3 and uuid, all
-// already present.
+// api/_syncra/tunnel.js: it depends only on @supabase/supabase-js and @aws-sdk/client-s3, both already
+// present, plus node:crypto.
+//
+// ★ NO BUNDLER-ERA DEPENDENCIES. The first version required `uuid`, which IS in dependencies — but at
+// v13 it is ESM-only, so `require('uuid')` from a CommonJS serverless function failed at module load.
+// The endpoint returned FUNCTION_INVOCATION_FAILED before a single line ran, so writes from Finalist
+// vanished with no error anywhere. `uuid` works fine in src/ because Vite bundles it. A serverless
+// function must not assume that.
 //
 // ★ NOTHING HERE IS DOMAIN-SPECIFIC. The operations are BlockOut's own vocabulary — tasks, chain steps,
 // schedule blocks. Finalist's medical meaning stays in Finalist. BlockOut remains a general-purpose
@@ -32,7 +38,10 @@
 
 const { S3Client, GetObjectCommand, PutObjectCommand } = require('@aws-sdk/client-s3');
 const { createClient } = require('@supabase/supabase-js');
-const { v4: uuid } = require('uuid');
+const { randomUUID } = require('node:crypto');
+
+/** Ids in BlockOut's own format. Built-in, so this function has no ESM-only dependency to fail on. */
+const uuid = () => randomUUID();
 
 const SUPABASE_URL = process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL || '';
 const SUPABASE_SERVICE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || '';
