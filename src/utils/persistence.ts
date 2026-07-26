@@ -855,6 +855,8 @@ let _cloudSavePending = false;
 // Flag to prevent cloud save flag during sync operations
 // Prevents infinite sync loops
 let _skipCloudSaveFlag = false;
+/** A user edit that landed inside the skip window, to be re-flagged when it closes. */
+let _savePendingDuringSkip = false;
 
 export function markDataLoaded(): void {
   _hasLoaded = true;
@@ -871,7 +873,18 @@ export function debouncedSave(): void {
         _cloudSavePending = true;
         if (DEBUG) console.log('[BlockOut] Local save complete, cloud sync flagged');
       } else {
-        if (DEBUG) console.log('[BlockOut] Local save complete, skipped cloud flag (sync in progress)');
+        // A USER EDIT DURING THE SKIP WINDOW MUST NOT BE STRANDED.
+        //
+        // The skip flag exists to stop the sync's own applyData -> saveLocal from re-triggering a sync.
+        // But it also swallowed genuine edits: `_cloudSavePending` is cleared before a sync starts, and a
+        // local save landing inside [sync start, sync end + 2s] set nothing. That edit then sat in
+        // IndexedDB, uploaded only if the user happened to make ANOTHER edit later — so the last change
+        // before you stopped working was the one most likely never to leave the device.
+        //
+        // Remember it instead and re-raise when the window closes. A sync that finds nothing changed
+        // returns 'unchanged' via sameContent(), so this cannot loop.
+        _savePendingDuringSkip = true;
+        if (DEBUG) console.log('[BlockOut] Local save during skip window, deferred cloud flag');
       }
     });
   }, 800);
@@ -928,6 +941,12 @@ export function startPeriodicCloudSync(): () => void {
       // Clear the skip flag after a short delay to allow any pending local saves to complete
       setTimeout(() => {
         _skipCloudSaveFlag = false;
+        // Re-raise anything the window swallowed, so a real edit is never left only in IndexedDB.
+        if (_savePendingDuringSkip) {
+          _savePendingDuringSkip = false;
+          _cloudSavePending = true;
+          if (DEBUG) console.log('[BlockOut] Re-flagged a save deferred during the skip window');
+        }
         if (DEBUG) console.log('[BlockOut] Cloud save skip flag cleared');
       }, 2000);
     }
