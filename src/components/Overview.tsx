@@ -223,11 +223,10 @@ export function Overview() {
       addRealTaskToChain(dateStr, selectedTaskId);
     } else if (createMode === 'ct') {
       const ctTitle = blockName.trim() || 'Chain Task';
-      addChainTask(dateStr, ctTitle);
-      
-      const chain = taskChains[dateStr];
-      const lastLink = chain?.links[chain.links.length - 1];
-      const ctId = lastLink?.type === 'ct' ? lastLink.taskId : undefined;
+      // Use the id addChainTask RETURNS. Reading `taskChains[dateStr]` here would see the render-time
+      // snapshot — state before this call — and pick up the previous chain task's id, or undefined on
+      // the first CT of a day.
+      const ctId = addChainTask(dateStr, ctTitle);
       
       newBlock = {
         id: Math.random().toString(36).substr(2, 9),
