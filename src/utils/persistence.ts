@@ -393,6 +393,20 @@ export async function saveToCloud(): Promise<void> {
   }
 
   const { url, token } = getCloudConfig();
+
+  // NEVER RETURN QUIETLY WHEN R2 IS THE ONLY BACKEND AND IT IS NOT USABLE.
+  //
+  // `isR2SyncAvailable()` is true whenever Supabase is CONFIGURED, signed in or not. The runtime check is
+  // `isR2Active()`, and when that is false (no session) with no Dropbox and no self-hosted URL, this used
+  // to fall through to `if (!url) return` and return normally. The periodic checker then set the status to
+  // 'synced'. A signed-out client therefore reported a successful sync on every cycle while writing
+  // nothing: the R2 blob sat at one version for hours while its owner was editing and being told it had
+  // synced. Throwing puts the status into 'error' and schedules a retry, which is the honest answer and
+  // the one that gets the user to sign back in.
+  if (!url && !isDropboxConfigured() && isR2SyncAvailable()) {
+    throw new Error('Not signed in to your Syncratic account, so nothing was saved to the cloud. Sign in again to resume syncing.');
+  }
+
   if (!url) return;
 
   const data = useStore.getState().getSerializableState();
