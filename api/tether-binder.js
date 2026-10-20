@@ -10,7 +10,7 @@ const SUPABASE_URL = process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL |
 const SUPABASE_SERVICE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || '';
 const SUPABASE_ANON_KEY = process.env.VITE_SUPABASE_ANON_KEY || process.env.SUPABASE_ANON_KEY || '';
 // Binder's API base (its app is served under /binder). Overridable per env.
-const BINDER_API_BASE = process.env.BINDER_API_BASE || 'https://syncratic.app/binder';
+const BINDER_API_BASE = process.env.BINDER_API_BASE || 'https://raahat.sh/binder';
 
 let supabase = null;
 function getSupabase() {

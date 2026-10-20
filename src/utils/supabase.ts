@@ -29,7 +29,7 @@ export function isSupabaseConfigured(): boolean {
 
 // Where auth emails (confirm signup, password reset) should return to. Include
 // the base path ('/blockout/' on web) so the link lands back in the app rather
-// than the host root (e.g. syncratic.app). Must be in Supabase's redirect
+// than the host root (e.g. raahat.sh). Must be in Supabase's redirect
 // allowlist. The Supabase project is shared across apps, so each must send its
 // own app-scoped URL here.
 function authRedirectTo(): string {

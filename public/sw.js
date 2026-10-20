@@ -2,7 +2,7 @@
 //
 // The previous SW precached '/' and '/index.html'. That's unsafe now that
 // BlockOut is served under the /blockout sub-path and proxied on the
-// syncratic.app origin, where caching '/' would capture the wrong shell.
+// raahat.sh origin, where caching '/' would capture the wrong shell.
 //
 // Existing installs will pick this up on their next update check: it clears all
 // caches, unregisters itself, and reloads controlled clients. Offline use is

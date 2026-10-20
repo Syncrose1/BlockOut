@@ -5,25 +5,116 @@
   "outputDirectory": "dist",
   "framework": "vite",
   "functions": {
-    "api/tether.js": { "maxDuration": 60 },
-    "api/syncra-llm.js": { "maxDuration": 60 },
-    "api/syncra-image.js": { "maxDuration": 60 },
-    "api/syncra-search.js": { "maxDuration": 60 },
-    "api/probe-endpoint.js": { "maxDuration": 60 },
-    "api/mutate.js": { "maxDuration": 30 }
+    "api/tether.js": {
+      "maxDuration": 60
+    },
+    "api/syncra-llm.js": {
+      "maxDuration": 60
+    },
+    "api/syncra-image.js": {
+      "maxDuration": 60
+    },
+    "api/syncra-search.js": {
+      "maxDuration": 60
+    },
+    "api/probe-endpoint.js": {
+      "maxDuration": 60
+    },
+    "api/mutate.js": {
+      "maxDuration": 30
+    }
   },
   "redirects": [
-    { "source": "/", "destination": "/blockout", "permanent": false }
+    {
+      "source": "/",
+      "has": [
+        {
+          "type": "host",
+          "value": "blockout\\.(raahat\\.sh|syncratic\\.app)"
+        }
+      ],
+      "missing": [
+        {
+          "type": "header",
+          "key": "x-vercel-is-internal-rewrite"
+        }
+      ],
+      "destination": "https://raahat.sh/blockout",
+      "permanent": true
+    },
+    {
+      "source": "/blockout",
+      "has": [
+        {
+          "type": "host",
+          "value": "blockout\\.(raahat\\.sh|syncratic\\.app)"
+        }
+      ],
+      "missing": [
+        {
+          "type": "header",
+          "key": "x-vercel-is-internal-rewrite"
+        }
+      ],
+      "destination": "https://raahat.sh/blockout",
+      "permanent": true
+    },
+    {
+      "source": "/blockout/:path((?!api/).*)",
+      "has": [
+        {
+          "type": "host",
+          "value": "blockout\\.(raahat\\.sh|syncratic\\.app)"
+        }
+      ],
+      "missing": [
+        {
+          "type": "header",
+          "key": "x-vercel-is-internal-rewrite"
+        }
+      ],
+      "destination": "https://raahat.sh/blockout/:path",
+      "permanent": true
+    },
+    {
+      "source": "/",
+      "destination": "/blockout",
+      "permanent": false
+    }
   ],
   "rewrites": [
-    { "source": "/blockout/api/:path*", "destination": "/api/:path*" },
-    { "source": "/api/:path*", "destination": "/api/:path*" },
-    { "source": "/blockout/assets/(.*)", "destination": "/assets/$1" },
-    { "source": "/blockout/synamon/(.*)", "destination": "/synamon/$1" },
-    { "source": "/blockout/cofocus/(.*)", "destination": "/cofocus/$1" },
-    { "source": "/blockout/([^/]+\\.[a-zA-Z0-9]+)", "destination": "/$1" },
-    { "source": "/blockout", "destination": "/index.html" },
-    { "source": "/blockout/(.*)", "destination": "/index.html" }
+    {
+      "source": "/blockout/api/:path*",
+      "destination": "/api/:path*"
+    },
+    {
+      "source": "/api/:path*",
+      "destination": "/api/:path*"
+    },
+    {
+      "source": "/blockout/assets/(.*)",
+      "destination": "/assets/$1"
+    },
+    {
+      "source": "/blockout/synamon/(.*)",
+      "destination": "/synamon/$1"
+    },
+    {
+      "source": "/blockout/cofocus/(.*)",
+      "destination": "/cofocus/$1"
+    },
+    {
+      "source": "/blockout/([^/]+\\.[a-zA-Z0-9]+)",
+      "destination": "/$1"
+    },
+    {
+      "source": "/blockout",
+      "destination": "/index.html"
+    },
+    {
+      "source": "/blockout/(.*)",
+      "destination": "/index.html"
+    }
   ],
   "headers": [
     {

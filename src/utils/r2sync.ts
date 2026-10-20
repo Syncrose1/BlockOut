@@ -11,8 +11,8 @@ const DEBUG = import.meta.env.DEV;
 function getApiBase(): string {
   // Dev: '' → Vite proxy handles /api → localhost:3001.
   // Web (Vercel): '/blockout' → same-origin functions under the base path
-  //   (works both at blockout.syncratic.app/blockout and proxied at
-  //   syncratic.app/blockout, where the app's base is /blockout/).
+  //   (works both at blockout.raahat.sh/blockout and proxied at
+  //   raahat.sh/blockout, where the app's base is /blockout/).
   return import.meta.env.BASE_URL.replace(/\/+$/, '');
 }
 

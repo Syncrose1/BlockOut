@@ -463,7 +463,7 @@ Legendaries (Omenix, Lunveil) are single-stage at BST=500 with bespoke templates
 
 1. **Tamagotchi integration (Phase 8e)**: Port `tamagotchi.html` into a React component (`src/components/Synamon/TamagotchiScene.tsx`). Wire up Supabase reads/writes for creature state (happiness, hunger, energy). Add stat-decay ticking (hourly via server cron or client-side on focus).
 
-2. **Provision R2** and run `scripts/publish-synamon-assets.ts` to host shared assets at `assets.syncratic.app/synamon/`.
+2. **Provision R2** and run `scripts/publish-synamon-assets.ts` to host shared assets at `assets.raahat.sh/synamon/`.
 
 3. **Battle system (Phase 7)**: Implement turn-based battles consuming per-stage `baseStats` + runtime constitution modifiers.
 

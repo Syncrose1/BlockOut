@@ -7,8 +7,8 @@ backend, plus an **Electron desktop build**. Deployed on Vercel.
 
 `vite.config.ts` sets `base` per target (don't hardcode it):
 
-- **web (Vercel)** → `/blockout/` — served at `syncratic.app/blockout` (proxy)
-  and `blockout.syncratic.app/blockout`. Selected by the `VERCEL` env var.
+- **web (Vercel)** → `/blockout/` — served at `raahat.sh/blockout` (proxy)
+  and `blockout.raahat.sh/blockout`. Selected by the `VERCEL` env var.
 - **Electron** (`npm run build` without `VERCEL`) → `./` (relative, file://).
 - **dev** → `/`.
 
@@ -25,21 +25,21 @@ prefix for assets / `synamon` / `cofocus` / top-level files; SPA-fallback rest.
   doesn't rewrite these.)
 - **Service worker was retired** (`public/sw.js` is now a self-unregistering
   kill-switch). The old SW precached `/` and would pollute the proxied
-  `syncratic.app` origin. Offline use is the Electron app. Do not re-add a SW
+  `raahat.sh` origin. Offline use is the Electron app. Do not re-add a SW
   that caches `/` without scoping it to `/blockout/`.
 
 ## Dropbox sync (OAuth 2 PKCE) — `src/utils/dropbox.ts`
 
 - The web **authorize** redirect_uri and the **token-exchange** redirect_uri
   MUST be identical: both are `` `${window.location.origin}${import.meta.env.BASE_URL}` ``
-  (= `https://syncratic.app/blockout/`). A mismatch → Dropbox rejects the
+  (= `https://raahat.sh/blockout/`). A mismatch → Dropbox rejects the
   exchange. (This bit us once; keep them in sync.)
 - `src/App.tsx` detects the OAuth `?code=` return on the **base root**
   (`/blockout/`), not `/`, and cleans the URL back to `BASE_URL`.
 - Dropbox app console must list the exact redirect URIs (trailing slash):
-  `https://syncratic.app/blockout/` and `https://blockout.syncratic.app/blockout/`.
+  `https://raahat.sh/blockout/` and `https://blockout.raahat.sh/blockout/`.
 - The Dropbox token is stored in localStorage **keyed by domain**, so moving
-  origins (e.g. subdomain → `syncratic.app/blockout`) requires a reconnect.
+  origins (e.g. subdomain → `raahat.sh/blockout`) requires a reconnect.
 
 ## Auth (Supabase — shared project)
 
@@ -53,7 +53,7 @@ prefix for assets / `synamon` / `cofocus` / top-level files; SPA-fallback rest.
 
 Synamon is a **nested git repo** at `./synamon/` (its own repo, like DataMedic
 inside BinderPages). It's both a standalone monster-collector/battler at
-`synamon.syncratic.app` AND the source of the tamagotchi-companion assets/data
+`synamon.raahat.sh` AND the source of the tamagotchi-companion assets/data
 used here. Its assets/data live in `public/synamon/` (sprites per creature,
 `world.json`, `species.json`, particle/fx data, procedurally-played audio).
 
@@ -175,7 +175,7 @@ Syncra reach the model without ever holding the key:
   live in Syncra (the client). Server controls model/base_url/api_key; the client
   controls only the conversation + its own tool surface.
 - `api/syncra-llm.js` — one-line endpoint exposing it (`maxDuration` 60 in
-  `vercel.json`). Prod: `https://syncratic.app/blockout/api/syncra-llm`.
+  `vercel.json`). Prod: `https://raahat.sh/blockout/api/syncra-llm`.
 - Reuses Tether's auth + endpoint-resolution + `openai` SDK; depends only on
   `@supabase/supabase-js` + `openai` (already present). Binder exposes the identical
   tunnel (Next.js route) — the module is meant to be mirrored across Syncratic apps.

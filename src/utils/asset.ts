@@ -3,7 +3,7 @@
  *
  * BlockOut ships to three targets with different bases (see vite.config.ts):
  *   - dev          → '/'          (BASE_URL '/')
- *   - web (Vercel) → '/blockout/' (served at syncratic.app/blockout + subdomain)
+ *   - web (Vercel) → '/blockout/' (served at raahat.sh/blockout + subdomain)
  *   - Electron     → './'         (relative, file://)
  *
  * Hard-coded absolute paths like '/synamon/world.json' or '/bo-logo-v3.png'

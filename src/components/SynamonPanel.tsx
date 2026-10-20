@@ -8,7 +8,7 @@ import { setActiveCompanion } from '../utils/synamonSync';
 import type { OwnedSynamon } from '../types/synamon';
 
 const DEFAULT_ZONE = 'aureum-basin';
-const SYNAMON_APP_URL = 'https://synamon.syncratic.app';
+const SYNAMON_APP_URL = 'https://raahat.sh/synamon';
 
 function getTimeOfDay(): 'day' | 'dusk' | 'night' {
   const hour = new Date().getHours();

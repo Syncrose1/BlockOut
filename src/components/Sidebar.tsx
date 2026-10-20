@@ -476,7 +476,7 @@ export function Sidebar() {
           {/* Link to Synamon app for onboarding — hidden when Synamon is disabled. */}
           {synamonEnabled && !hasCompanion && (
             <a
-              href="https://synamon.syncratic.app"
+              href="https://raahat.sh/synamon"
               target="_blank"
               rel="noopener noreferrer"
               style={{

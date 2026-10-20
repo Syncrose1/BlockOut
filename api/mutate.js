@@ -9,7 +9,7 @@
 // api/_syncra/tunnel.js. Nothing here is domain-specific: the operations are BlockOut's own vocabulary,
 // so this serves any caller and BlockOut stays a general-purpose planner.
 //
-// Prod: https://syncratic.app/blockout/api/mutate
+// Prod: https://raahat.sh/blockout/api/mutate
 //
 //   POST { ops: [{ op, ...payload }], expectedLastModified? }
 //   → 200 { ok, results[], lastModified, version }

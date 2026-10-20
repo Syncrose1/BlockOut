@@ -14,8 +14,8 @@ export default defineConfig(({ command }) => ({
   // Three targets (VERCEL env takes precedence so `vite preview` matches the
   // web build it's serving):
   //   web build/preview (Vercel) → '/blockout/'  served under the sub-path
-  //                                (proxied at syncratic.app/blockout + at
-  //                                 blockout.syncratic.app/blockout)
+  //                                (proxied at raahat.sh/blockout + at
+  //                                 blockout.raahat.sh/blockout)
   //   Electron build (no VERCEL, build) → './'    relative for file:// loading
   //   dev server (serve)               → '/'      absolute from root
   //

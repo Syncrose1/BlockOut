@@ -23,7 +23,7 @@ data), the assets need to be accessible from **both** apps without duplication.
 
 Push the entire `public/synamon/` tree to a dedicated **R2** bucket (e.g.
 `syncratic-synamon-assets`) behind a custom domain (e.g.
-`assets.syncratic.app/synamon/`). Both apps fetch via the CDN URL.
+`assets.raahat.sh/synamon/`). Both apps fetch via the CDN URL.
 
 ### Why R2 over Supabase Storage
 
@@ -42,7 +42,7 @@ nicknames in future, etc.) where RLS matters.
 
 ### Versioned manifest
 
-Each app reads `assets.syncratic.app/synamon/manifest.json` at boot. The
+Each app reads `assets.raahat.sh/synamon/manifest.json` at boot. The
 manifest maps logical asset keys to versioned URLs:
 
 ```json
